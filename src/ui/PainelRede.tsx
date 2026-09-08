@@ -24,6 +24,12 @@ function textoBloqueio(rede: RedeState, desbloqueio: Desbloqueio | undefined): s
   return `🔒 Desbloqueia com ${n} ${nome.toLowerCase()} (${rede.usinas[id].quantidade}/${n})`;
 }
 
+/** Requisito de pesquisa do GDD; ainda sem efeito (a pesquisa chega com o Núcleo, Sessão 2). */
+function NotaPesquisa({ desbloqueio }: { desbloqueio: Desbloqueio | undefined }) {
+  if (desbloqueio?.pesquisa === undefined) return null;
+  return <div className="card-nota">🔬 {desbloqueio.pesquisa} de pesquisa · sem efeito até o Núcleo existir</div>;
+}
+
 function CardUsina({ id }: { id: UsinaId }) {
   const state = useGameStore((s) => s.state);
   const comprarUsina = useGameStore((s) => s.comprarUsina);
@@ -41,6 +47,7 @@ function CardUsina({ id }: { id: UsinaId }) {
         <span className="card-qtd">×{usina.quantidade}</span>
       </div>
       <p className="card-desc">{def.descricao}</p>
+      <NotaPesquisa desbloqueio={def.desbloqueio} />
       <div className="card-stats">
         <span>⚡ {formatarPotencia(potenciaUsina(id, usina))}</span>
         <span>{formatarPotencia(potenciaCada)} cada</span>
@@ -116,6 +123,7 @@ function CardBateria() {
         <span className="card-qtd">×{bateria.unidades}</span>
       </div>
       <p className="card-desc">{BATERIA.descricao}</p>
+      <NotaPesquisa desbloqueio={BATERIA.desbloqueio} />
       <div className="card-stats">
         <span>{formatarEnergia(bateria.capacidadeKwh)} de capacidade</span>
         <span>{formatarEnergia(BATERIA.capacidadeKwh)} cada</span>

@@ -10,7 +10,7 @@ import type { BateriaEstado, RedeState, UsinaEstado, UsinaId } from "./state";
 /* Faixas de r                                                        */
 /* ------------------------------------------------------------------ */
 
-export type FaixaId = "apagao" | "escassez" | "equilibrio" | "excedente" | "saturacao";
+export type FaixaId = "apagao" | "neutroBaixo" | "zonaDeOuro" | "neutroAlto" | "saturacao";
 
 export interface FaixaR {
   id: FaixaId;
@@ -25,17 +25,17 @@ export interface FaixaR {
 /**
  * Faixas da razão r = oferta ÷ demanda, em ordem crescente (GDD §4.1).
  *
- *   r < 0,8          apagão      ×0,5
- *   0,8 ≤ r < 0,95   escassez    ×1
- *   0,95 ≤ r ≤ 1,05  equilíbrio  ×1,25
- *   1,05 < r ≤ 1,25  excedente   ×1
- *   r > 1,25         saturação   ×0,75
+ *   r < 0,8          apagão        ×0,5   (multa contratual)
+ *   0,8 ≤ r < 0,9    neutro        ×1
+ *   0,9 ≤ r ≤ 1,1    zona de ouro  ×1,25
+ *   1,1 < r ≤ 1,25   neutro        ×1
+ *   r > 1,25         saturação     ×0,75  (excedente vai para a bateria, o resto é desperdiçado)
  */
 export const FAIXAS_R: readonly FaixaR[] = [
   { id: "apagao", nome: "Apagão", ate: 0.8, ateInclusivo: false, multiplicador: 0.5 },
-  { id: "escassez", nome: "Escassez", ate: 0.95, ateInclusivo: false, multiplicador: 1 },
-  { id: "equilibrio", nome: "Equilíbrio", ate: 1.05, ateInclusivo: true, multiplicador: 1.25 },
-  { id: "excedente", nome: "Excedente", ate: 1.25, ateInclusivo: true, multiplicador: 1 },
+  { id: "neutroBaixo", nome: "Neutro", ate: 0.9, ateInclusivo: false, multiplicador: 1 },
+  { id: "zonaDeOuro", nome: "Zona de ouro", ate: 1.1, ateInclusivo: true, multiplicador: 1.25 },
+  { id: "neutroAlto", nome: "Neutro", ate: 1.25, ateInclusivo: true, multiplicador: 1 },
   { id: "saturacao", nome: "Saturação", ate: Infinity, ateInclusivo: true, multiplicador: 0.75 },
 ];
 
@@ -89,20 +89,25 @@ export interface ResultadoBateria {
   descarregadoKwh: number;
 }
 
+/** kWh que `kw` durante `dtS` segundos guardam ou tiram da bateria. */
+export function energiaBateriaKwh(kw: number, dtS: number): number {
+  return kw * dtS * ECONOMIA.kwhPorKwSegundo;
+}
+
 /**
  * Carrega com o excedente e descarrega no déficit, respeitando a capacidade.
- * `dtH` é o intervalo em horas de rede.
+ * `dtS` é o intervalo em segundos reais.
  */
 export function atualizarBateria(
   bateria: BateriaEstado,
   excedenteKw: number,
   deficitKw: number,
-  dtH: number,
+  dtS: number,
 ): ResultadoBateria {
   const espaco = Math.max(0, bateria.capacidadeKwh - bateria.kwh);
-  const carregadoKwh = Math.min(Math.max(0, excedenteKw) * dtH, espaco);
+  const carregadoKwh = Math.min(energiaBateriaKwh(Math.max(0, excedenteKw), dtS), espaco);
   const disponivel = bateria.kwh + carregadoKwh;
-  const descarregadoKwh = Math.min(Math.max(0, deficitKw) * dtH, disponivel);
+  const descarregadoKwh = Math.min(energiaBateriaKwh(Math.max(0, deficitKw), dtS), disponivel);
   const kwh = disponivel - descarregadoKwh;
   return {
     bateria: { ...bateria, kwh },
@@ -146,8 +151,8 @@ export function balancoRede(rede: RedeState): BalancoRede {
   else if (deficitKw > 0 && bateria.kwh > 0) fluxoBateriaKw = -deficitKw;
 
   const vendidoKw = vendaDiretaKw + Math.max(0, -fluxoBateriaKw);
-  const receitaPorSegundo =
-    vendidoKw * ECONOMIA.horasPorSegundo * ECONOMIA.precoBaseKwh * faixa.multiplicador;
+  // Receita/s = potência vendida (kW) × preço (₵ por kW·s) × multiplicador da balança (GDD §7).
+  const receitaPorSegundo = vendidoKw * ECONOMIA.precoBase * faixa.multiplicador;
 
   return {
     ofertaKw,
@@ -166,7 +171,8 @@ export function balancoRede(rede: RedeState): BalancoRede {
 export interface PassoRede {
   rede: RedeState;
   balanco: BalancoRede;
-  vendidoKwh: number;
+  /** Energia vendida no passo, em kW·s. */
+  vendidoKwS: number;
   carregadoKwh: number;
   descarregadoKwh: number;
   receita: number;
@@ -177,15 +183,15 @@ export interface PassoRede {
  * produção → venda até a demanda → bateria (excedente/déficit) → receita com multiplicador de r.
  */
 export function passoRede(rede: RedeState, dtMs: number): PassoRede {
-  const dtH = (dtMs / 1000) * ECONOMIA.horasPorSegundo;
+  const dtS = dtMs / 1000;
   const balanco = balancoRede(rede);
-  const bat = atualizarBateria(rede.bateria, balanco.excedenteKw, balanco.deficitKw, dtH);
-  const vendidoKwh = balanco.vendaDiretaKw * dtH + bat.descarregadoKwh;
-  const receita = vendidoKwh * ECONOMIA.precoBaseKwh * balanco.multiplicador;
+  const bat = atualizarBateria(rede.bateria, balanco.excedenteKw, balanco.deficitKw, dtS);
+  const vendidoKwS = balanco.vendaDiretaKw * dtS + bat.descarregadoKwh / ECONOMIA.kwhPorKwSegundo;
+  const receita = vendidoKwS * ECONOMIA.precoBase * balanco.multiplicador;
   return {
     rede: { ...rede, bateria: bat.bateria },
     balanco,
-    vendidoKwh,
+    vendidoKwS,
     carregadoKwh: bat.carregadoKwh,
     descarregadoKwh: bat.descarregadoKwh,
     receita,

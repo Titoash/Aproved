@@ -1,10 +1,10 @@
-/** Cor de cada faixa de `r` (GDD §10): apagão coral, equilíbrio ouro, saturação céu. */
+/** Cor de cada faixa de `r` (GDD §10): apagão coral, zona de ouro `--sun`, saturação `--sky`. */
 import type { FaixaId } from "../sim/rede";
 
 export const COR_FAIXA: Record<FaixaId, string> = {
   apagao: "var(--coral)",
-  escassez: "var(--neutro)",
-  equilibrio: "var(--sun)",
-  excedente: "var(--neutro)",
+  neutroBaixo: "var(--muted)",
+  zonaDeOuro: "var(--sun)",
+  neutroAlto: "var(--muted)",
   saturacao: "var(--sky)",
 };

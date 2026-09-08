@@ -6,7 +6,7 @@ import { avancarTicks, tick, TICK_MS } from "../tick";
 
 describe("tick", () => {
   it("100 ticks (10 s) com 5 kW vendidos a preço 1,0 e r neutro rendem ₵ 50", () => {
-    expect(ECONOMIA.precoBaseKwh).toBe(1);
+    expect(ECONOMIA.precoBase).toBe(1);
     const s0 = estadoInicial();
     s0.creditos = 0;
     // 6 kW ofertados contra 5 kW de demanda: r = 1,2 (faixa neutra, ×1), vende 5 kW.
@@ -32,7 +32,7 @@ describe("tick", () => {
     expect(s.creditos).toBe(ECONOMIA.creditosIniciais);
   });
 
-  it("aplica o multiplicador da faixa (equilíbrio ×1,25)", () => {
+  it("aplica o multiplicador da faixa (zona de ouro ×1,25)", () => {
     const s0 = estadoInicial();
     s0.creditos = 0;
     s0.rede.usinas.cataVento = { quantidade: 5, nivel: 0 }; // r = 1

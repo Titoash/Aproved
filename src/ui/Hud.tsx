@@ -48,7 +48,7 @@ export function Hud() {
       <div className="hud-item hud-item--r" style={corFaixa}>
         <div className="hud-rotulo">r = oferta ÷ demanda</div>
         <div className="hud-valor">{formatarRazao(balanco.r)}</div>
-        <span className="faixa-chip">
+        <span className={`faixa-chip ${balanco.faixa.id === "zonaDeOuro" ? "faixa-chip--ouro" : ""}`}>
           {balanco.faixa.nome} {formatarMultiplicador(balanco.multiplicador)}
         </span>
       </div>

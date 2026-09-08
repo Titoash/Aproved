@@ -41,10 +41,15 @@ describe("ações", () => {
     expect(potenciaOfertadaKw(s2.rede)).toBeGreaterThan(potenciaOfertadaKw(s1.rede));
   });
 
+  it("desbloqueio por pesquisa não tem efeito ainda", () => {
+    const s = { ...estadoInicial(), creditos: 1e9 };
+    expect(USINAS.turbinaEolica.desbloqueio?.pesquisa).toBe(40);
+    expect(desbloqueado(s.rede, USINAS.turbinaEolica.desbloqueio)).toBe(true);
+    expect(comprarUsina(s, "turbinaEolica")).not.toBeNull();
+  });
+
   it("vila aumenta a demanda e bateria aumenta a capacidade", () => {
     const s = { ...estadoInicial(), creditos: 1e9 };
-    const [id, n] = BATERIA.desbloqueio!.usina!;
-    s.rede.usinas[id] = { quantidade: n, nivel: 0 };
     const s1 = comprarVila(s)!;
     expect(s1.rede.vilas).toBe(1);
     expect(s.creditos - s1.creditos).toBeCloseTo(custoUnidade(VILA, 0), 10);

@@ -16,9 +16,9 @@ describe("multiplicador de preço por faixa de r", () => {
     expect(faixaDeR(0.7).id).toBe("apagao");
   });
 
-  it("1,0 → equilíbrio ×1,25", () => {
+  it("1,0 → zona de ouro ×1,25", () => {
     expect(multiplicadorPreco(1.0)).toBe(1.25);
-    expect(faixaDeR(1.0).id).toBe("equilibrio");
+    expect(faixaDeR(1.0).id).toBe("zonaDeOuro");
   });
 
   it("1,3 → saturação ×0,75", () => {
@@ -28,13 +28,22 @@ describe("multiplicador de preço por faixa de r", () => {
 
   it("1,15 → neutro ×1", () => {
     expect(multiplicadorPreco(1.15)).toBe(1);
-    expect(faixaDeR(1.15).id).toBe("excedente");
+    expect(faixaDeR(1.15).id).toBe("neutroAlto");
+    expect(faixaDeR(1.15).nome).toBe("Neutro");
   });
 
-  it("limites: abaixo de 0,8 é apagão; acima de 1,25 é saturação", () => {
+  it("0,85 → neutro ×1", () => {
+    expect(multiplicadorPreco(0.85)).toBe(1);
+    expect(faixaDeR(0.85).id).toBe("neutroBaixo");
+  });
+
+  it("limites do GDD §4.1: 0,8 · 0,9 · 1,1 · 1,25", () => {
     expect(faixaDeR(0.79).id).toBe("apagao");
-    expect(faixaDeR(0.8).id).toBe("escassez");
-    expect(faixaDeR(1.25).id).toBe("excedente");
+    expect(faixaDeR(0.8).id).toBe("neutroBaixo");
+    expect(faixaDeR(0.9).id).toBe("zonaDeOuro");
+    expect(faixaDeR(1.1).id).toBe("zonaDeOuro");
+    expect(faixaDeR(1.1000001).id).toBe("neutroAlto");
+    expect(faixaDeR(1.25).id).toBe("neutroAlto");
     expect(faixaDeR(1.2500001).id).toBe("saturacao");
     expect(faixaDeR(0).id).toBe("apagao");
     expect(faixaDeR(Infinity).id).toBe("saturacao");
@@ -76,8 +85,12 @@ describe("oferta e demanda", () => {
 describe("bateria", () => {
   const bateria = { kwh: 0, capacidadeKwh: 10, unidades: 1 };
 
+  it("a escala da bateria é 1 kWh por kW·s (ver ESTADO.md)", () => {
+    expect(ECONOMIA.kwhPorKwSegundo).toBe(1);
+  });
+
   it("carrega com o excedente", () => {
-    const r = atualizarBateria(bateria, 2, 0, 0.5); // 2 kW × 0,5 h = 1 kWh
+    const r = atualizarBateria(bateria, 2, 0, 0.5); // 2 kW × 0,5 s = 1 kWh
     expect(r.carregadoKwh).toBe(1);
     expect(r.descarregadoKwh).toBe(0);
     expect(r.bateria.kwh).toBe(1);
@@ -90,7 +103,7 @@ describe("bateria", () => {
   });
 
   it("descarrega em déficit", () => {
-    const r = atualizarBateria({ ...bateria, kwh: 4 }, 0, 3, 0.5); // 3 kW × 0,5 h = 1,5 kWh
+    const r = atualizarBateria({ ...bateria, kwh: 4 }, 0, 3, 0.5); // 3 kW × 0,5 s = 1,5 kWh
     expect(r.descarregadoKwh).toBe(1.5);
     expect(r.carregadoKwh).toBe(0);
     expect(r.bateria.kwh).toBe(2.5);

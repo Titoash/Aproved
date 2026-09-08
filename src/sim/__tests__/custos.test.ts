@@ -14,21 +14,21 @@ describe("custoUnidade", () => {
     expect(custoUnidade(USINAS.cataVento, 10)).toBeCloseTo(custoBase * crescimento ** 10, 10);
   });
 
-  it("vale para qualquer definição com custoBase e crescimento", () => {
-    expect(custoUnidade(VILA, 3)).toBeCloseTo(VILA.custoBase * VILA.crescimento ** 3, 10);
+  it("vilas crescem ×1,25 (GDD §7)", () => {
+    expect(VILA.crescimento).toBe(1.25);
+    expect(custoUnidade(VILA, 0)).toBe(40);
+    expect(custoUnidade(VILA, 1)).toBe(50);
+    expect(custoUnidade(VILA, 3)).toBeCloseTo(VILA.custoBase * 1.25 ** 3, 10);
     expect(custoUnidade({ custoBase: 100, crescimento: 2 }, 3)).toBe(800);
   });
 });
 
 describe("custoMelhoria", () => {
-  it("o nível 1 custa custoBase × custoMult", () => {
-    expect(custoMelhoria(USINAS.cataVento, 0)).toBe(USINAS.cataVento.custoBase * MELHORIA.custoMult);
-  });
-
-  it("cada nível seguinte multiplica pelo crescimento da melhoria", () => {
-    const base = USINAS.painelSolar.custoBase * MELHORIA.custoMult;
-    expect(custoMelhoria(USINAS.painelSolar, 1)).toBeCloseTo(base * MELHORIA.crescimento, 10);
-    expect(custoMelhoria(USINAS.painelSolar, 2)).toBeCloseTo(base * MELHORIA.crescimento ** 2, 10);
+  it("custa custoBase × 3^nível para o nível comprado (GDD §7)", () => {
+    expect(MELHORIA.crescimento).toBe(3);
+    expect(custoMelhoria(USINAS.cataVento, 0)).toBe(15 * 3); // nível 1
+    expect(custoMelhoria(USINAS.cataVento, 1)).toBe(15 * 9); // nível 2
+    expect(custoMelhoria(USINAS.painelSolar, 2)).toBe(60 * 27); // nível 3
   });
 
   it("o fator de melhoria cresce com o nível", () => {

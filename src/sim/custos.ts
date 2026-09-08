@@ -7,23 +7,22 @@ export interface CustoDef {
 }
 
 /**
- * Custo da próxima unidade quando o jogador já possui `quantidadeAtual`.
- * A 1ª unidade custa `custoBase`; a n-ésima custa `custoBase × crescimento^(n−1)`.
+ * Custo da próxima unidade quando o jogador já possui `quantidadeAtual`:
+ * `custoBase × crescimento^n`, com n = unidades já possuídas (a 1ª custa `custoBase`).
  */
 export function custoUnidade(def: CustoDef, quantidadeAtual: number): number {
   return def.custoBase * Math.pow(def.crescimento, quantidadeAtual);
 }
 
 /**
- * Custo da próxima melhoria quando a usina está no `nivelAtual`.
- * Nível 1 custa `custoBase × custoMult`; cada nível seguinte custa
- * `crescimento` vezes o anterior.
+ * Custo da próxima melhoria quando a usina está no `nivelAtual`:
+ * `custoBase × 3^nível` para o nível que será comprado (GDD §7).
  */
 export function custoMelhoria(def: { custoBase: number }, nivelAtual: number): number {
-  return def.custoBase * MELHORIA.custoMult * Math.pow(MELHORIA.crescimento, nivelAtual);
+  return def.custoBase * Math.pow(MELHORIA.crescimento, nivelAtual + 1);
 }
 
-/** Fator aplicado à potência base de uma usina no nível dado. */
+/** Fator aplicado à potência base de uma usina no nível dado: `1 + 0,5 × nível`. */
 export function fatorMelhoria(nivel: number): number {
   return 1 + MELHORIA.bonusPorNivel * nivel;
 }
