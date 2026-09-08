@@ -1,0 +1,25 @@
+/* Tokens de arte (GDD §10) — versão simples para a Sessão 1. */
+:root {
+  --navy: #0b1226;
+  --navy-2: #131c3a;
+  --card: rgba(19, 28, 58, 0.78);
+  --card-borda: rgba(158, 178, 255, 0.14);
+  --card-hover: rgba(158, 178, 255, 0.06);
+
+  --texto: #eef2ff;
+  --texto-2: #9aa7cf;
+  --texto-3: #6b77a3;
+
+  --coral: #ff6b6b;   /* apagão */
+  --sun: #ffd166;     /* equilíbrio (ouro) */
+  --sky: #4cc9f0;     /* saturação */
+  --leaf: #7bd389;    /* positivo / bateria */
+  --neutro: #a9b4d8;  /* faixas neutras */
+
+  --fonte: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --fonte-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+
+  --raio: 12px;
+  --raio-sm: 8px;
+  --sombra: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
