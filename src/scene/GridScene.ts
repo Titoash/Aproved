@@ -125,10 +125,18 @@ export class GridScene extends Phaser.Scene {
     return { x: this.rect.x + (col + 0.5) * this.celula, y: this.rect.y + (lin + 0.5) * this.celula };
   }
 
+  /** Lê o retângulo do DOM na hora: um clique logo depois de rolar não pode usar o rect do frame anterior. */
   private casaEm(x: number, y: number): number | null {
-    if (!this.visivel || this.celula <= 0) return null;
-    const col = Math.floor((x - this.rect.x) / this.celula);
-    const lin = Math.floor((y - this.rect.y) / this.celula);
+    if (!this.visivel) return null;
+    const dom = getGradeRect();
+    if (!dom) return null;
+    const tamanho = Math.min(dom.width, dom.height);
+    const celula = tamanho / NUCLEO.lado;
+    if (celula <= 0) return null;
+    const x0 = dom.left + (dom.width - tamanho) / 2;
+    const y0 = dom.top + (dom.height - tamanho) / 2;
+    const col = Math.floor((x - x0) / celula);
+    const lin = Math.floor((y - y0) / celula);
     if (col < 0 || lin < 0 || col >= NUCLEO.lado || lin >= NUCLEO.lado) return null;
     return lin * NUCLEO.lado + col;
   }

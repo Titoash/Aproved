@@ -19,6 +19,8 @@ export interface AvisoGrade {
   texto: string;
   /** `Date.now()` do aviso, para a cena animar só o mais recente. */
   em: number;
+  /** `tempoMs` do jogo no aviso, para a UI escondê-lo depois de um tempo sem relógio impuro. */
+  emTempoMs: number;
 }
 
 export interface GameStore {
@@ -79,7 +81,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
   };
 
   const avisar = (indice: number, texto: string) => {
-    set({ avisoGrade: { indice, texto, em: Date.now() } });
+    set({ avisoGrade: { indice, texto, em: Date.now(), emTempoMs: get().state.tempoMs } });
   };
 
   return {

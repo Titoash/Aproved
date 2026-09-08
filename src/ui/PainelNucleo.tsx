@@ -19,6 +19,9 @@ import { corDaRampaCss } from "../scene/rampa";
 import { useGameStore, type Ferramenta } from "../store/gameStore";
 import { BotaoCompra } from "./BotaoCompra";
 
+/** O aviso de casa recusada some sozinho; o painel re-renderiza a cada tick. */
+const DURACAO_AVISO_MS = 4000;
+
 function CardDesbloqueio() {
   const state = useGameStore((s) => s.state);
   const desbloquear = useGameStore((s) => s.desbloquearNucleo);
@@ -202,7 +205,7 @@ function PainelOperacao({ nucleo }: { nucleo: NucleoState }) {
       <Entulhos nucleo={nucleo} tempoMs={state.tempoMs} />
       <h3 className="nucleo-subtitulo">Peças · clique na grade para colocar</h3>
       <SeletorPecas />
-      {aviso ? <div className="aviso aviso--erro">{aviso.texto}</div> : null}
+      {aviso && state.tempoMs - aviso.emTempoMs < DURACAO_AVISO_MS ? <div className="aviso aviso--erro">{aviso.texto}</div> : null}
       <div className="card-botoes nucleo-controles">
         <button type="button" className="botao botao--perigo" disabled={emScram} onClick={scramManual}>
           <span className="botao-titulo">SCRAM manual</span>

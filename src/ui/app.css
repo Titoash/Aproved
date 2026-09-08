@@ -408,18 +408,26 @@ button {
   grid-template-columns: minmax(300px, 1fr) minmax(0, 1.25fr) minmax(220px, 0.6fr);
 }
 
+/* A coluna inteira rola (a grade do canvas acompanha o elemento a cada frame). */
 .coluna-nucleo {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 12px;
   min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.coluna-nucleo .painel {
+  overflow: visible;
+  flex: none;
 }
 
 .grade-area {
-  width: min(100%, 440px);
+  width: min(100%, 400px);
   aspect-ratio: 1;
   margin: 0 auto;
-  justify-self: center;
+  flex: none;
 }
 
 .painel-nucleo h2 {
@@ -648,7 +656,7 @@ button {
   }
 
   .coluna-nucleo {
-    grid-template-rows: auto auto;
+    overflow: visible;
   }
 
   .hud {
