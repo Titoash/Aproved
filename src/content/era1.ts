@@ -109,3 +109,36 @@ export const BATERIA: ItemDef & { capacidadeKwh: number } = {
   capacidadeKwh: 20,
   desbloqueio: { pesquisa: 20 },
 };
+
+/* ------------------------------------------------------------------ */
+/* Balança Oferta × Demanda (GDD §4.1)                                 */
+/* ------------------------------------------------------------------ */
+
+export type FaixaId = "apagao" | "neutroBaixo" | "zonaDeOuro" | "neutroAlto" | "saturacao";
+
+export interface FaixaR {
+  id: FaixaId;
+  nome: string;
+  /** Limite superior da faixa. */
+  ate: number;
+  /** Se o limite superior pertence à faixa. */
+  ateInclusivo: boolean;
+  multiplicador: number;
+}
+
+/**
+ * Faixas da razão r = oferta ÷ demanda, em ordem crescente.
+ *
+ *   r < 0,8          apagão        ×0,5   (multa contratual)
+ *   0,8 ≤ r < 0,9    neutro        ×1
+ *   0,9 ≤ r ≤ 1,1    zona de ouro  ×1,25
+ *   1,1 < r ≤ 1,25   neutro        ×1
+ *   r > 1,25         saturação     ×0,75  (excedente vai para a bateria, o resto é desperdiçado)
+ */
+export const FAIXAS_R: readonly FaixaR[] = [
+  { id: "apagao", nome: "Apagão", ate: 0.8, ateInclusivo: false, multiplicador: 0.5 },
+  { id: "neutroBaixo", nome: "Neutro", ate: 0.9, ateInclusivo: false, multiplicador: 1 },
+  { id: "zonaDeOuro", nome: "Zona de ouro", ate: 1.1, ateInclusivo: true, multiplicador: 1.25 },
+  { id: "neutroAlto", nome: "Neutro", ate: 1.25, ateInclusivo: true, multiplicador: 1 },
+  { id: "saturacao", nome: "Saturação", ate: Infinity, ateInclusivo: true, multiplicador: 0.75 },
+];

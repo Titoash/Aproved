@@ -1,9 +1,22 @@
 /**
  * Persistência: único arquivo que toca `localStorage`.
- * Salva a cada `INTERVALO_SAVE_MS`, carrega no início, exporta/importa JSON.
+ * Salva a cada `INTERVALO_SAVE_MS`, carrega no início, exporta/importa JSON,
+ * migra saves de versões anteriores.
  */
-import { estadoInicial, VERSAO_SAVE, type GameState, type RedeState, type UsinaId } from "./state";
+import { NUCLEO, PECAS } from "../content/era1-nucleo";
+import { anel } from "./nucleo";
 import { capacidadeBateriaKwh } from "./rede";
+import {
+  estadoInicial,
+  nucleoInicial,
+  VERSAO_SAVE,
+  type Casa,
+  type GameState,
+  type NucleoState,
+  type PecaId,
+  type RedeState,
+  type UsinaId,
+} from "./state";
 
 export const CHAVE_SAVE = "aproved.save";
 export const INTERVALO_SAVE_MS = 10_000;
@@ -48,11 +61,51 @@ function inteiro(valor: unknown, padrao: number): number {
   return Math.floor(numero(valor, padrao));
 }
 
+function booleano(valor: unknown, padrao: boolean): boolean {
+  return typeof valor === "boolean" ? valor : padrao;
+}
+
 function objeto(valor: unknown): Record<string, unknown> {
   return valor !== null && typeof valor === "object" ? (valor as Record<string, unknown>) : {};
 }
 
 const IDS_USINA: readonly UsinaId[] = ["cataVento", "painelSolar", "turbinaEolica"];
+
+function ehPecaId(valor: unknown): valor is PecaId {
+  return typeof valor === "string" && valor in PECAS;
+}
+
+function normalizarCasa(bruto: unknown, indice: number): Casa {
+  if (indice === NUCLEO.indiceReceptor) return { tipo: "receptor" };
+  const c = objeto(bruto);
+  if (!ehPecaId(c.id)) return null;
+  const a = anel(indice);
+  if (a === 0 || !PECAS[c.id].aneis.includes(a)) return null;
+  if (c.tipo === "peca") return { tipo: "peca", id: c.id };
+  if (c.tipo === "entulho") return { tipo: "entulho", id: c.id, desdeMs: numero(c.desdeMs, 0) };
+  return null;
+}
+
+function normalizarNucleo(bruto: unknown): NucleoState | null {
+  if (bruto === null || bruto === undefined || typeof bruto !== "object") return null;
+  const n = objeto(bruto);
+  const base = nucleoInicial();
+  const gradeBruta = Array.isArray(n.grade) ? n.grade : [];
+  const grade = base.grade.map((_, i) => normalizarCasa(gradeBruta[i], i));
+  const scramRestanteMs = numero(n.scramRestanteMs, base.scramRestanteMs);
+  const ultimaCascataMs = typeof n.ultimaCascataMs === "number" && Number.isFinite(n.ultimaCascataMs) ? n.ultimaCascataMs : null;
+  return {
+    grade,
+    calorU: numero(n.calorU, base.calorU),
+    tempoAcimaDoLimiteMs: numero(n.tempoAcimaDoLimiteMs, base.tempoAcimaDoLimiteMs),
+    scramRestanteMs,
+    estabilidade: Math.min(100, numero(n.estabilidade, base.estabilidade)),
+    modoSeguro: booleano(n.modoSeguro, base.modoSeguro),
+    receptorCeramico: booleano(n.receptorCeramico, base.receptorCeramico),
+    cascatas: inteiro(n.cascatas, base.cascatas),
+    ultimaCascataMs,
+  };
+}
 
 /** Preenche campos ausentes com o estado inicial e sanitiza números. */
 function normalizar(bruto: Record<string, unknown>): GameState {
@@ -90,18 +143,27 @@ function normalizar(bruto: Record<string, unknown>): GameState {
     pesquisa: numero(bruto.pesquisa, base.pesquisa),
     era: 1,
     rede,
-    nucleo: null,
+    nucleo: normalizarNucleo(bruto.nucleo),
   };
 }
 
-/** Migra saves de versões anteriores. Por enquanto só existe a versão 1. */
+/**
+ * Migra saves de versões anteriores, uma versão por vez.
+ * v1 → v2: entra o Núcleo (`nucleo: null` até ser desbloqueado). Rede e créditos ficam como estão.
+ */
 function migrar(bruto: Record<string, unknown>): Record<string, unknown> {
   const versao = bruto.versao;
   if (typeof versao !== "number") throw new ErroSave("Save sem campo `versao`.");
   if (versao > VERSAO_SAVE) {
     throw new ErroSave(`Save da versão ${versao} é mais novo que o jogo (versão ${VERSAO_SAVE}).`);
   }
-  return bruto;
+  let atual = bruto;
+  let v = versao;
+  if (v === 1) {
+    atual = { ...atual, nucleo: null, versao: 2 };
+    v = 2;
+  }
+  return { ...atual, versao: v };
 }
 
 export function desserializar(json: string): GameState {

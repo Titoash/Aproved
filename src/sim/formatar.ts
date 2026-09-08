@@ -107,3 +107,19 @@ export function formatarRazao(r: number): string {
 export function formatarMultiplicador(m: number): string {
   return `×${formatarNumero(m, 2)}`;
 }
+
+/** `formatarPorcentagem(0.833)` → "83 %". */
+export function formatarPorcentagem(fracao: number, casas = 0): string {
+  if (!Number.isFinite(fracao)) return `${formatarNumero(fracao)} %`;
+  return `${formatarNumero(fracao * 100, casas)} %`;
+}
+
+/** `formatarSegundos(12300)` → "12,3 s". */
+export function formatarSegundos(ms: number): string {
+  return `${formatarNumero(ms / 1000, 1)} s`;
+}
+
+/** `formatarCalor(83.3)` → "83,3 u". */
+export function formatarCalor(u: number): string {
+  return `${formatarNumero(u, 1)} u`;
+}

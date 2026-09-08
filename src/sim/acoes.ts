@@ -2,13 +2,17 @@
 import { BATERIA, USINAS, VILA, type Desbloqueio } from "../content/era1";
 import { custoMelhoria, custoUnidade } from "./custos";
 import { capacidadeBateriaKwh } from "./rede";
-import type { GameState, RedeState, UsinaId } from "./state";
+import type { GameState, UsinaId } from "./state";
 
-export function desbloqueado(rede: RedeState, desbloqueio?: Desbloqueio): boolean {
-  if (!desbloqueio?.usina) return true;
-  const [id, quantidade] = desbloqueio.usina;
-  // `pesquisa` fica só como campo na Sessão 1 (sem efeito).
-  return rede.usinas[id].quantidade >= quantidade;
+/** Desbloqueio por quantidade de usina e/ou por pesquisa acumulada (🔬 é requisito, não gasto). */
+export function desbloqueado(state: GameState, desbloqueio?: Desbloqueio): boolean {
+  if (!desbloqueio) return true;
+  if (desbloqueio.usina) {
+    const [id, quantidade] = desbloqueio.usina;
+    if (state.rede.usinas[id].quantidade < quantidade) return false;
+  }
+  if (desbloqueio.pesquisa !== undefined && state.pesquisa < desbloqueio.pesquisa) return false;
+  return true;
 }
 
 export function custoProximaUsina(state: GameState, id: UsinaId): number {
@@ -28,7 +32,7 @@ export function custoProximaBateria(state: GameState): number {
 }
 
 export function podeComprarUsina(state: GameState, id: UsinaId): boolean {
-  return desbloqueado(state.rede, USINAS[id].desbloqueio) && state.creditos >= custoProximaUsina(state, id);
+  return desbloqueado(state, USINAS[id].desbloqueio) && state.creditos >= custoProximaUsina(state, id);
 }
 
 export function podeMelhorarUsina(state: GameState, id: UsinaId): boolean {
@@ -36,11 +40,11 @@ export function podeMelhorarUsina(state: GameState, id: UsinaId): boolean {
 }
 
 export function podeComprarVila(state: GameState): boolean {
-  return desbloqueado(state.rede, VILA.desbloqueio) && state.creditos >= custoProximaVila(state);
+  return desbloqueado(state, VILA.desbloqueio) && state.creditos >= custoProximaVila(state);
 }
 
 export function podeComprarBateria(state: GameState): boolean {
-  return desbloqueado(state.rede, BATERIA.desbloqueio) && state.creditos >= custoProximaBateria(state);
+  return desbloqueado(state, BATERIA.desbloqueio) && state.creditos >= custoProximaBateria(state);
 }
 
 export function comprarUsina(state: GameState, id: UsinaId): GameState | null {

@@ -2,42 +2,15 @@
  * Balança da Rede (GDD §4.1): potência ofertada, demanda, razão `r`,
  * multiplicador de preço por faixa, bateria e receita.
  */
-import { BATERIA, ECONOMIA, USINAS, VILA } from "../content/era1";
+import { BATERIA, ECONOMIA, FAIXAS_R, USINAS, VILA, type FaixaR } from "../content/era1";
 import { fatorMelhoria } from "./custos";
 import type { BateriaEstado, RedeState, UsinaEstado, UsinaId } from "./state";
 
 /* ------------------------------------------------------------------ */
-/* Faixas de r                                                        */
+/* Faixas de r (tabela em content/era1.ts)                            */
 /* ------------------------------------------------------------------ */
 
-export type FaixaId = "apagao" | "neutroBaixo" | "zonaDeOuro" | "neutroAlto" | "saturacao";
-
-export interface FaixaR {
-  id: FaixaId;
-  nome: string;
-  /** Limite superior da faixa. */
-  ate: number;
-  /** Se o limite superior pertence à faixa. */
-  ateInclusivo: boolean;
-  multiplicador: number;
-}
-
-/**
- * Faixas da razão r = oferta ÷ demanda, em ordem crescente (GDD §4.1).
- *
- *   r < 0,8          apagão        ×0,5   (multa contratual)
- *   0,8 ≤ r < 0,9    neutro        ×1
- *   0,9 ≤ r ≤ 1,1    zona de ouro  ×1,25
- *   1,1 < r ≤ 1,25   neutro        ×1
- *   r > 1,25         saturação     ×0,75  (excedente vai para a bateria, o resto é desperdiçado)
- */
-export const FAIXAS_R: readonly FaixaR[] = [
-  { id: "apagao", nome: "Apagão", ate: 0.8, ateInclusivo: false, multiplicador: 0.5 },
-  { id: "neutroBaixo", nome: "Neutro", ate: 0.9, ateInclusivo: false, multiplicador: 1 },
-  { id: "zonaDeOuro", nome: "Zona de ouro", ate: 1.1, ateInclusivo: true, multiplicador: 1.25 },
-  { id: "neutroAlto", nome: "Neutro", ate: 1.25, ateInclusivo: true, multiplicador: 1 },
-  { id: "saturacao", nome: "Saturação", ate: Infinity, ateInclusivo: true, multiplicador: 0.75 },
-];
+export type { FaixaId, FaixaR } from "../content/era1";
 
 export function faixaDeR(r: number): FaixaR {
   for (const faixa of FAIXAS_R) {
@@ -121,7 +94,10 @@ export function atualizarBateria(
 /* ------------------------------------------------------------------ */
 
 export interface BalancoRede {
+  /** Oferta total: usinas da Rede + potência do Núcleo. */
   ofertaKw: number;
+  ofertaUsinasKw: number;
+  ofertaNucleoKw: number;
   demandaKw: number;
   r: number;
   faixa: FaixaR;
@@ -136,8 +112,10 @@ export interface BalancoRede {
   receitaPorSegundo: number;
 }
 
-export function balancoRede(rede: RedeState): BalancoRede {
-  const ofertaKw = potenciaOfertadaKw(rede);
+/** `potenciaNucleoKw` é a potência do Núcleo que entra na oferta (GDD §2.3). */
+export function balancoRede(rede: RedeState, potenciaNucleoKw = 0): BalancoRede {
+  const ofertaUsinasKw = potenciaOfertadaKw(rede);
+  const ofertaKw = ofertaUsinasKw + Math.max(0, potenciaNucleoKw);
   const demanda = demandaKw(rede);
   const r = razaoOfertaDemanda(ofertaKw, demanda);
   const faixa = faixaDeR(r);
@@ -156,6 +134,8 @@ export function balancoRede(rede: RedeState): BalancoRede {
 
   return {
     ofertaKw,
+    ofertaUsinasKw,
+    ofertaNucleoKw: Math.max(0, potenciaNucleoKw),
     demandaKw: demanda,
     r,
     faixa,
@@ -180,11 +160,11 @@ export interface PassoRede {
 
 /**
  * Um passo da rede, sempre nesta ordem:
- * produção → venda até a demanda → bateria (excedente/déficit) → receita com multiplicador de r.
+ * produção (usinas + Núcleo) → venda até a demanda → bateria (excedente/déficit) → receita com multiplicador de r.
  */
-export function passoRede(rede: RedeState, dtMs: number): PassoRede {
+export function passoRede(rede: RedeState, dtMs: number, potenciaNucleoKw = 0): PassoRede {
   const dtS = dtMs / 1000;
-  const balanco = balancoRede(rede);
+  const balanco = balancoRede(rede, potenciaNucleoKw);
   const bat = atualizarBateria(rede.bateria, balanco.excedenteKw, balanco.deficitKw, dtS);
   const vendidoKwS = balanco.vendaDiretaKw * dtS + bat.descarregadoKwh / ECONOMIA.kwhPorKwSegundo;
   const receita = vendidoKwS * ECONOMIA.precoBase * balanco.multiplicador;
