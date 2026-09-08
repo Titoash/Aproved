@@ -1,12 +1,21 @@
 import type { CSSProperties } from "react";
-import { formatarCreditos, formatarEnergia, formatarMultiplicador, formatarPotencia, formatarRazao, formatarTaxa } from "../sim/formatar";
-import { balancoRede } from "../sim/rede";
+import { pesquisaPorSegundo, temperaturaNucleo } from "../sim/calor";
+import {
+  formatarCreditos,
+  formatarEnergia,
+  formatarMultiplicador,
+  formatarNumero,
+  formatarPotencia,
+  formatarRazao,
+  formatarTaxa,
+} from "../sim/formatar";
+import { balancoDoEstado, potenciaNucleoEfetivaKw } from "../sim/tick";
 import { useGameStore } from "../store/gameStore";
 import { COR_FAIXA } from "./faixas";
 
 export function Hud() {
   const state = useGameStore((s) => s.state);
-  const balanco = balancoRede(state.rede);
+  const balanco = balancoDoEstado(state);
   const { bateria } = state.rede;
   const corFaixa = { "--faixa-cor": COR_FAIXA[balanco.faixa.id] } as CSSProperties;
 
@@ -23,8 +32,12 @@ export function Hud() {
           ? "— parada"
           : "sem bateria";
 
+  const nucleo = state.nucleo;
+  const potenciaNucleo = potenciaNucleoEfetivaKw(nucleo);
+  const pesquisaTaxa = nucleo && nucleo.scramRestanteMs === 0 ? pesquisaPorSegundo(potenciaNucleo, temperaturaNucleo(nucleo)) : 0;
+
   return (
-    <header className="hud" aria-label="Indicadores da rede">
+    <header className="hud" aria-label="Indicadores">
       <div className="hud-item">
         <div className="hud-rotulo">Créditos</div>
         <div className="hud-valor hud-valor--grande">{formatarCreditos(state.creditos)}</div>
@@ -34,7 +47,11 @@ export function Hud() {
       <div className="hud-item">
         <div className="hud-rotulo">⚡ Ofertada</div>
         <div className="hud-valor">{formatarPotencia(balanco.ofertaKw)}</div>
-        <div className="hud-sub">vendendo {formatarPotencia(balanco.vendaDiretaKw + Math.max(0, -fluxo))}</div>
+        <div className="hud-sub">
+          {nucleo
+            ? `usinas ${formatarPotencia(balanco.ofertaUsinasKw)} + núcleo ${formatarPotencia(balanco.ofertaNucleoKw)}`
+            : `vendendo ${formatarPotencia(balanco.vendaDiretaKw + Math.max(0, -fluxo))}`}
+        </div>
       </div>
 
       <div className="hud-item">
@@ -62,6 +79,12 @@ export function Hud() {
           <div className="barra-preenchida" style={{ width: `${Math.round(fracaoBateria * 100)}%` }} />
         </div>
         <div className={`fluxo-bateria ${classeFluxo}`}>{textoFluxo}</div>
+      </div>
+
+      <div className="hud-item">
+        <div className="hud-rotulo">🔬 Pesquisa</div>
+        <div className="hud-valor">{formatarNumero(state.pesquisa, state.pesquisa < 100 ? 1 : 0)}</div>
+        <div className="hud-sub">{nucleo ? `+${formatarNumero(pesquisaTaxa, 2)}/s` : "nasce no Núcleo"}</div>
       </div>
     </header>
   );

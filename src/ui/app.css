@@ -386,3 +386,278 @@ button {
   font-size: 12px;
   color: var(--muted);
 }
+
+/* ---------- Sessão 2: Núcleo ---------- */
+
+/* A UI é transparente ao ponteiro; só HUD e painéis capturam. Assim o clique
+   na área da grade chega ao canvas do Phaser, que fica atrás. */
+.camada-ui {
+  pointer-events: none;
+}
+
+.hud,
+.painel {
+  pointer-events: auto;
+}
+
+.hud {
+  grid-template-columns: minmax(160px, 1.3fr) repeat(5, minmax(110px, 1fr));
+}
+
+.paineis {
+  grid-template-columns: minmax(300px, 1fr) minmax(0, 1.25fr) minmax(220px, 0.6fr);
+}
+
+.coluna-nucleo {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+}
+
+.grade-area {
+  width: min(100%, 440px);
+  aspect-ratio: 1;
+  margin: 0 auto;
+  justify-self: center;
+}
+
+.painel-nucleo h2 {
+  margin-bottom: 8px;
+}
+
+.nucleo-subtitulo {
+  margin: 12px 0 6px;
+  font-family: var(--fonte-titulo);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.nucleo-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 8px;
+}
+
+.nucleo-scram {
+  margin: 4px 0 8px;
+  padding: 8px 10px;
+  border-radius: var(--raio-sm);
+  border: 1px solid color-mix(in srgb, var(--coral) 55%, transparent);
+  background: color-mix(in srgb, var(--coral) 14%, transparent);
+  color: var(--coral);
+  font-size: 13px;
+}
+
+.nucleo-entulho {
+  margin: 6px 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.barra-rotulo {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.barra-valor {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.barra-calor,
+.barra-estabilidade {
+  margin: 8px 0;
+}
+
+.barra-calor-trilho {
+  position: relative;
+  height: 14px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.barra-calor-faixa {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  opacity: 0.22;
+}
+
+.barra-calor-faixa--frio {
+  background: #3a6ff2;
+}
+
+.barra-calor-faixa--normal {
+  background: var(--muted);
+}
+
+.barra-calor-faixa--ouro {
+  background: var(--sun);
+  opacity: 0.45;
+}
+
+.barra-calor-faixa--alerta {
+  background: #ff7a1a;
+}
+
+.barra-calor-faixa--critico {
+  background: var(--coral);
+}
+
+.barra-calor-preenchida {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  border-radius: 999px;
+  transition: width 100ms linear;
+}
+
+.barra-calor-marca {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--ink);
+  opacity: 0.7;
+}
+
+.barra-calor-limite {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--coral);
+}
+
+.barra-legenda {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.barra-sub {
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.faixa-chip--calor-frio {
+  --faixa-cor: #7aa2ff;
+}
+
+.faixa-chip--calor-normal {
+  --faixa-cor: var(--muted);
+}
+
+.faixa-chip--calor-ouro {
+  --faixa-cor: var(--sun);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--sun) 55%, transparent);
+}
+
+.faixa-chip--calor-alerta {
+  --faixa-cor: #ff7a1a;
+  animation: piscar 0.9s ease-in-out infinite;
+}
+
+.faixa-chip--calor-critico {
+  --faixa-cor: var(--coral);
+  animation: piscar 0.45s ease-in-out infinite;
+}
+
+@keyframes piscar {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.barra-preenchida--estabilidade {
+  background: var(--sky);
+}
+
+.seletor-pecas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 6px;
+}
+
+.botao--peca {
+  padding: 6px 8px;
+}
+
+.botao--ativo {
+  border-color: var(--sun);
+  background: color-mix(in srgb, var(--sun) 22%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--sun) 40%, transparent);
+}
+
+.botao--caro .botao-custo {
+  color: var(--coral);
+}
+
+.nucleo-controles {
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.nucleo-controles .botao {
+  flex: 1 1 45%;
+}
+
+@media (max-width: 1100px) {
+  .paineis {
+    grid-template-columns: minmax(280px, 1fr) minmax(0, 1fr);
+  }
+
+  .painel-save {
+    grid-column: 1 / -1;
+  }
+
+  .hud {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .paineis {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .painel-save {
+    grid-column: auto;
+  }
+
+  .coluna-nucleo {
+    grid-template-rows: auto auto;
+  }
+
+  .hud {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .hud {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

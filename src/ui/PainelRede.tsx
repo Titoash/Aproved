@@ -11,23 +11,24 @@ import {
   podeMelhorarUsina,
 } from "../sim/acoes";
 import { fatorMelhoria } from "../sim/custos";
-import { formatarEnergia, formatarPotencia } from "../sim/formatar";
+import { formatarEnergia, formatarNumero, formatarPotencia } from "../sim/formatar";
 import { potenciaUsina } from "../sim/rede";
-import type { RedeState, UsinaId } from "../sim/state";
+import type { GameState, UsinaId } from "../sim/state";
 import { useGameStore } from "../store/gameStore";
 import { BotaoCompra } from "./BotaoCompra";
 
-function textoBloqueio(rede: RedeState, desbloqueio: Desbloqueio | undefined): string | null {
-  if (!desbloqueio?.usina || desbloqueado(rede, desbloqueio)) return null;
-  const [id, n] = desbloqueio.usina;
-  const nome = n === 1 ? USINAS[id].nome : USINAS[id].nomePlural;
-  return `🔒 Desbloqueia com ${n} ${nome.toLowerCase()} (${rede.usinas[id].quantidade}/${n})`;
-}
-
-/** Requisito de pesquisa do GDD; ainda sem efeito (a pesquisa chega com o Núcleo, Sessão 2). */
-function NotaPesquisa({ desbloqueio }: { desbloqueio: Desbloqueio | undefined }) {
-  if (desbloqueio?.pesquisa === undefined) return null;
-  return <div className="card-nota">🔬 {desbloqueio.pesquisa} de pesquisa · sem efeito até o Núcleo existir</div>;
+function textoBloqueio(state: GameState, desbloqueio: Desbloqueio | undefined): string | null {
+  if (desbloqueado(state, desbloqueio)) return null;
+  const partes: string[] = [];
+  if (desbloqueio?.usina) {
+    const [id, n] = desbloqueio.usina;
+    const nome = n === 1 ? USINAS[id].nome : USINAS[id].nomePlural;
+    if (state.rede.usinas[id].quantidade < n) partes.push(`${n} ${nome.toLowerCase()} (${state.rede.usinas[id].quantidade}/${n})`);
+  }
+  if (desbloqueio?.pesquisa !== undefined && state.pesquisa < desbloqueio.pesquisa) {
+    partes.push(`🔬 ${desbloqueio.pesquisa} (${formatarNumero(state.pesquisa, 0)}/${desbloqueio.pesquisa})`);
+  }
+  return `🔒 Desbloqueia com ${partes.join(" e ")}`;
 }
 
 function CardUsina({ id }: { id: UsinaId }) {
@@ -37,7 +38,7 @@ function CardUsina({ id }: { id: UsinaId }) {
 
   const def = USINAS[id];
   const usina = state.rede.usinas[id];
-  const bloqueio = textoBloqueio(state.rede, def.desbloqueio);
+  const bloqueio = textoBloqueio(state, def.desbloqueio);
   const potenciaCada = def.potenciaKw * fatorMelhoria(usina.nivel);
 
   return (
@@ -47,7 +48,6 @@ function CardUsina({ id }: { id: UsinaId }) {
         <span className="card-qtd">×{usina.quantidade}</span>
       </div>
       <p className="card-desc">{def.descricao}</p>
-      <NotaPesquisa desbloqueio={def.desbloqueio} />
       <div className="card-stats">
         <span>⚡ {formatarPotencia(potenciaUsina(id, usina))}</span>
         <span>{formatarPotencia(potenciaCada)} cada</span>
@@ -81,7 +81,7 @@ function CardUsina({ id }: { id: UsinaId }) {
 function CardVila() {
   const state = useGameStore((s) => s.state);
   const comprarVila = useGameStore((s) => s.comprarVila);
-  const bloqueio = textoBloqueio(state.rede, VILA.desbloqueio);
+  const bloqueio = textoBloqueio(state, VILA.desbloqueio);
 
   return (
     <article className={`card ${bloqueio ? "card--bloqueado" : ""}`}>
@@ -113,7 +113,7 @@ function CardVila() {
 function CardBateria() {
   const state = useGameStore((s) => s.state);
   const comprarBateria = useGameStore((s) => s.comprarBateria);
-  const bloqueio = textoBloqueio(state.rede, BATERIA.desbloqueio);
+  const bloqueio = textoBloqueio(state, BATERIA.desbloqueio);
   const { bateria } = state.rede;
 
   return (
@@ -123,7 +123,6 @@ function CardBateria() {
         <span className="card-qtd">×{bateria.unidades}</span>
       </div>
       <p className="card-desc">{BATERIA.descricao}</p>
-      <NotaPesquisa desbloqueio={BATERIA.desbloqueio} />
       <div className="card-stats">
         <span>{formatarEnergia(bateria.capacidadeKwh)} de capacidade</span>
         <span>{formatarEnergia(BATERIA.capacidadeKwh)} cada</span>
