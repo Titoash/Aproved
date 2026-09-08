@@ -1,4 +1,4 @@
-# KARDASHEV (codinome) — Documento de Design v0.2 · Parte 1 de 2
+# KARDASHEV (codinome) — Documento de Design v0.3 · Parte 1 de 2
 
 > Parte 1: conceito, os três sistemas, Cascata, economia, Era 1 completa, direção de arte, arquitetura e roteiro de sessões.
 > Parte 2 (próximo passo): Eras 2–6 detalhadas, prestígio, roteiro dos cards explicativos.
@@ -157,11 +157,12 @@ Desbloqueio: ₵ 100 (tutorial guiado: "construa o receptor").
 
 **A tensão de projeto:** o anel 1 tem só 8 casas. Cada casa é espelho a 100 % **ou** turbina **ou** radiador. O jogador escolhe a proporção.
 
-**Equilíbrio (por que funciona):** com `h` espelhos efetivos (anel 1 conta 1, anel 2 conta 0,5) e `t` turbinas, o calor converge para `Q = 33 × h ÷ t` unidades. Exemplos com capacidade 100:
-- 4 espelhos no anel 1 + 2 no anel 2 (h = 5), 2 turbinas → Q ≈ 83 → **zona de ouro**, ~8 kW.
+**Equilíbrio (por que funciona):** com `h` espelhos efetivos (anel 1 conta 1, anel 2 conta 0,5), `t` turbinas e `rad` radiadores adjacentes, `dQ/dt = 4·h − 6·rad − 0,12·t·Q`, e o calor converge para `Q* = (4·h − 6·rad) ÷ (0,12·t)` — sem radiador, `33,3 × h ÷ t` unidades. A aproximação é assintótica: `Q` encosta em `Q*` e não passa. Exemplos com capacidade 100:
+- 4 espelhos no anel 1 + 2 no anel 2 (h = 5), 2 turbinas → Q ≈ 83 → **zona de ouro**, ~16 kW (8 kW por turbina).
 - +1 espelho (h = 5,5) → Q ≈ 92 → alerta.
-- +2 espelhos (h = 6) → Q = 100 → **Cascata em 5 s**.
-- 1 radiador tira 6 u/s e devolve margem para mais espelhos.
+- +2 espelhos (h = 6) → Q → 100: encosta no limite, alerta permanente, **sem Cascata**.
+- +2,5 espelhos (h = 6,5) → Q* = 108 → **Cascata 5 s depois de T passar de 100 %**.
+- 1 radiador tira 6 u/s: h = 6,5 com 1 radiador volta a Q* = 83 e à zona de ouro.
 
 Melhorias do Núcleo: Receptor cerâmico (capacidade +50, ₵ 300 + 🔬 80) · Grade 7×7 (₵ 800 + 🔬 150; abre o anel 3 a 25 %).
 
@@ -219,7 +220,7 @@ Estabilidade 100 % + pesquisa "Fissão básica" (🔬 3 000) + ₵ 50 000 → Er
 src/
   sim/        # TypeScript puro: estado, tick de 100 ms (timestep fixo), fórmulas,
               # balanças, Cascata, save/load com migração de versão. Sem React, sem Phaser.
-              # Testável com Vitest (ex.: "6 espelhos e 2 turbinas cascateiam em 5 s").
+              # Testável com Vitest (ex.: "6,5 espelhos efetivos e 2 turbinas cascateiam em 5 s").
   ui/         # React: HUD, lista da Rede, balanças, cards explicativos, menus, medidor Kardashev.
   scene/      # Phaser 3: GridScene (Núcleo), rampa de calor, partículas, Cascata, transição de era.
   content/    # dados das eras (peças, usinas, preços, textos dos cards) em JSON/TS.
@@ -256,3 +257,4 @@ Cada sessão nasce de um `CLAUDE.md` do projeto (escrito no próximo passo) que 
 ---
 
 *v0.2 — ritmo fixado em ~1 h por era; Era 1 recalibrada.*
+*v0.3 — §8.3 corrigido: 16 kW no exemplo da zona de ouro, h = 6 é assintótico (Cascata só com h = 6,5), Q* = 33,3 × h ÷ t. Ver `docs/correcoes-gdd-v0.3.md`.*

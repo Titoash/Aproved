@@ -32,7 +32,7 @@ docs/
 
 ## Regras que não se negociam
 1. `src/sim/` é TypeScript puro: nada de React, Phaser, DOM ou `localStorage` lá dentro (exceção: `sim/save.ts` é o único ponto que toca `localStorage`). O sim é a única fonte de verdade e roda em timestep fixo de 100 ms.
-2. Toda fórmula do GDD vira função pura com teste no Vitest. Exemplo obrigatório na Sessão 2: "6 espelhos efetivos + 2 turbinas cascateiam em 5 s".
+2. Toda fórmula do GDD vira função pura com teste no Vitest. Exemplo obrigatório na Sessão 2: "6,5 espelhos efetivos + 2 turbinas cascateiam em 5 s" (e o par de guarda: "6 espelhos efetivos estabilizam em 100 % sem Cascata").
 3. Números de jogo (preços, produção, capacidades, faixas) vivem em `src/content/`. Nunca hardcoded na UI ou na cena.
 4. Phaser só desenha e captura input; despacha ações para o sim via store. Um `Phaser.Game` por app, criado em `useEffect`, com guarda contra o double-mount do StrictMode e `destroy(true)` no cleanup.
 5. Identificadores de domínio em português sem acento (`heliostato`, `receptor`, `cascata`, `zonaDeOuro`, `comprarUsina`); infraestrutura em inglês (`store`, `scene`, `useTick`).
