@@ -13,8 +13,8 @@ body,
 
 body {
   background: var(--navy);
-  color: var(--texto);
-  font-family: var(--fonte);
+  color: var(--ink);
+  font-family: var(--fonte-texto);
   font-size: 15px;
   line-height: 1.4;
   -webkit-font-smoothing: antialiased;
@@ -65,12 +65,12 @@ button {
   border: 1px solid var(--card-borda);
   border-radius: var(--raio);
   padding: 12px 14px;
-  box-shadow: var(--sombra);
+  box-shadow: var(--sombra-chapada);
   min-width: 0;
 }
 
 .hud-rotulo {
-  color: var(--texto-2);
+  color: var(--muted);
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -79,6 +79,7 @@ button {
 }
 
 .hud-valor {
+  font-family: var(--fonte-titulo);
   font-size: 22px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -91,7 +92,7 @@ button {
 }
 
 .hud-sub {
-  color: var(--texto-2);
+  color: var(--muted);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
   margin-top: 2px;
@@ -107,6 +108,10 @@ button {
   background: color-mix(in srgb, var(--faixa-cor) 18%, transparent);
   color: var(--faixa-cor);
   border: 1px solid color-mix(in srgb, var(--faixa-cor) 45%, transparent);
+}
+
+.faixa-chip--ouro {
+  box-shadow: 0 0 14px color-mix(in srgb, var(--sun) 55%, transparent);
 }
 
 .hud-item--r {
@@ -147,7 +152,7 @@ button {
 }
 
 .fluxo-bateria--parada {
-  color: var(--texto-3);
+  color: color-mix(in srgb, var(--muted) 65%, transparent);
 }
 
 /* ---------- Painéis ---------- */
@@ -163,7 +168,7 @@ button {
   background: var(--card);
   border: 1px solid var(--card-borda);
   border-radius: var(--raio);
-  box-shadow: var(--sombra);
+  box-shadow: var(--sombra-chapada);
   padding: 16px;
   min-height: 0;
   overflow: auto;
@@ -171,10 +176,11 @@ button {
 
 .painel h2 {
   margin: 0 0 12px;
+  font-family: var(--fonte-titulo);
   font-size: 16px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--texto-2);
+  color: var(--muted);
 }
 
 .cards {
@@ -187,7 +193,8 @@ button {
   border: 1px solid var(--card-borda);
   border-radius: var(--raio-sm);
   padding: 12px;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: var(--sombra-chapada-sm);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -206,35 +213,37 @@ button {
 
 .card-cabecalho h3 {
   margin: 0;
-  font-size: 16px;
+  font-family: var(--fonte-titulo);
+  font-size: 17px;
+  font-weight: 600;
 }
 
 .card-qtd {
   font-variant-numeric: tabular-nums;
-  color: var(--texto-2);
+  color: var(--muted);
   font-size: 14px;
 }
 
 .card-desc {
   margin: 0;
-  color: var(--texto-2);
+  color: var(--muted);
   font-size: 13px;
 }
 
 .card-stats {
   font-size: 13px;
   font-variant-numeric: tabular-nums;
-  color: var(--texto);
+  color: var(--ink);
 }
 
 .card-stats span + span::before {
   content: " · ";
-  color: var(--texto-3);
+  color: color-mix(in srgb, var(--muted) 65%, transparent);
 }
 
 .card-bloqueio {
   font-size: 13px;
-  color: var(--texto-2);
+  color: var(--muted);
 }
 
 .card-botoes {
@@ -296,7 +305,7 @@ button {
 
 .botao-custo {
   font-size: 12px;
-  color: var(--texto-2);
+  color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -308,7 +317,7 @@ button {
 
 .painel-save p {
   margin: 0 0 10px;
-  color: var(--texto-2);
+  color: var(--muted);
   font-size: 13px;
 }
 
@@ -327,7 +336,7 @@ button {
   resize: vertical;
   font-family: var(--fonte-mono);
   font-size: 12px;
-  color: var(--texto);
+  color: var(--ink);
   background: rgba(0, 0, 0, 0.25);
   border: 1px solid var(--card-borda);
   border-radius: var(--raio-sm);
@@ -359,4 +368,21 @@ button {
   .camada-ui {
     overflow: auto;
   }
+}
+
+/* Mobile-first (GDD §11): HUD em uma coluna. */
+@media (max-width: 600px) {
+  .hud {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .camada-ui {
+    padding: 12px;
+    gap: 12px;
+  }
+}
+
+.card-nota {
+  font-size: 12px;
+  color: var(--muted);
 }

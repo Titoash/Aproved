@@ -46,9 +46,9 @@ export class BackgroundScene extends Phaser.Scene {
     const cy = h * 0.38;
     const raio = Math.max(w, h) * 0.8;
     const gradiente = ctx.createRadialGradient(cx, cy, 0, cx, cy, raio);
-    gradiente.addColorStop(0, "#1c2b62");
-    gradiente.addColorStop(0.45, "#111a3d");
-    gradiente.addColorStop(1, "#070c1d");
+    // GDD §10: navy profundo #0D1230 com gradiente radial para #241B55.
+    gradiente.addColorStop(0, "#241b55");
+    gradiente.addColorStop(1, "#0d1230");
     ctx.fillStyle = gradiente;
     ctx.fillRect(0, 0, w, h);
     textura.refresh();
@@ -59,7 +59,8 @@ export class BackgroundScene extends Phaser.Scene {
     const rng = new Phaser.Math.RandomDataGenerator(["aproved-era1"]);
     const quantidade = Math.min(400, Math.round((w * h) / 9000));
     for (let i = 0; i < quantidade; i++) {
-      const raio = rng.realInRange(0.5, 1.6);
+      // Estrelas de 1–2 px com opacidade variada (GDD §10).
+      const raio = rng.realInRange(0.5, 1);
       const alpha = rng.realInRange(0.25, 0.9);
       const estrela = this.add
         .circle(rng.between(0, w), rng.between(0, h), raio, 0xffffff, alpha)

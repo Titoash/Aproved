@@ -1,25 +1,30 @@
-/* Tokens de arte (GDD §10) — versão simples para a Sessão 1. */
+/* Tokens de arte (GDD §10). Sessão 1 aplica só o básico; o passe de arte é a Sessão 3. */
 :root {
-  --navy: #0b1226;
-  --navy-2: #131c3a;
-  --card: rgba(19, 28, 58, 0.78);
-  --card-borda: rgba(158, 178, 255, 0.14);
-  --card-hover: rgba(158, 178, 255, 0.06);
+  /* Fundo: navy profundo com gradiente radial para --navy-2. */
+  --navy: #0d1230;
+  --navy-2: #241b55;
 
-  --texto: #eef2ff;
-  --texto-2: #9aa7cf;
-  --texto-3: #6b77a3;
+  --ink: #f4f6ff;   /* texto */
+  --muted: #9aa3c7; /* texto secundário */
+  --card: #161b3d;  /* painéis */
+  --card-borda: rgba(255, 255, 255, 0.08);
 
-  --coral: #ff6b6b;   /* apagão */
-  --sun: #ffd166;     /* equilíbrio (ouro) */
-  --sky: #4cc9f0;     /* saturação */
-  --leaf: #7bd389;    /* positivo / bateria */
-  --neutro: #a9b4d8;  /* faixas neutras */
+  --sun: #ffd23f;    /* Era 1 principal · zona de ouro */
+  --sky: #4cc9f0;    /* Era 1 secundária · saturação */
+  --leaf: #6be585;   /* positivo · bateria carregando */
+  --coral: #ff6b6b;  /* alerta · apagão */
+  --plasma: #ff4fd8; /* Era 3 */
+  --ion: #7cf5ff;    /* Era 4 */
+  --void: #8a5cff;   /* Era 5 */
+  --gold: #ffb703;   /* Era 6 */
 
-  --fonte: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --fonte-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --fonte-titulo: "Outfit", "Segoe UI", system-ui, sans-serif;
+  --fonte-texto: "Nunito", "Segoe UI", system-ui, sans-serif;
+  --fonte-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
-  --raio: 12px;
-  --raio-sm: 8px;
-  --sombra: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --raio: 16px;
+  --raio-sm: 10px;
+  /* Sombra chapada deslocada, na mesma matiz do fundo. */
+  --sombra-chapada: 6px 6px 0 rgba(13, 18, 48, 0.55);
+  --sombra-chapada-sm: 4px 4px 0 rgba(13, 18, 48, 0.55);
 }
