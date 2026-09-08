@@ -68,7 +68,7 @@ A bateria carrega com excedente e descarrega em déficit, então a balança tole
 | 40–70 % | normal |
 | **70–90 %** | **zona de ouro**: pesquisa ×1,3 e Estabilidade sobe mais rápido |
 | 90–100 % | alerta (barra pisca, som) |
-| > 100 % por 5 s | **Cascata** |
+| > 100 % por 5 s | **Cascata** (o calor acumula acima da capacidade; nunca é truncado em 100 %) |
 
 Fisicamente coerente: turbinas rendem mais com o receptor quente (Carnot), por isso a zona de ouro é quente e perto do limite. Isso também torna o sistema **auto-estabilizante**: o consumo das turbinas cresce com a temperatura, então cada configuração de peças converge para uma temperatura de equilíbrio. O jogador ajusta a proporção espelhos/turbinas para cair na faixa — não precisa "pilotar" a barra segundo a segundo.
 
@@ -155,19 +155,25 @@ Desbloqueio: ₵ 100 (tutorial guiado: "construa o receptor").
 | Radiador | ₵ 40 | −6 u/s no Receptor se adjacente |
 | Tanque de sal fundido | ₵ 60 | adjacente ao Receptor: +150 u de capacidade compartilhada (amortece picos) |
 
+**Anéis:** anel 1 = as 8 casas vizinhas do Receptor, diagonais incluídas; anel 2 = as 16 casas restantes do 5×5.
+
 **A tensão de projeto:** o anel 1 tem só 8 casas. Cada casa é espelho a 100 % **ou** turbina **ou** radiador. O jogador escolhe a proporção.
 
 **Equilíbrio (por que funciona):** com `h` espelhos efetivos (anel 1 conta 1, anel 2 conta 0,5), `t` turbinas e `rad` radiadores adjacentes, `dQ/dt = 4·h − 6·rad − 0,12·t·Q`, e o calor converge para `Q* = (4·h − 6·rad) ÷ (0,12·t)` — sem radiador, `33,3 × h ÷ t` unidades. A aproximação é assintótica: `Q` encosta em `Q*` e não passa. Exemplos com capacidade 100:
-- 4 espelhos no anel 1 + 2 no anel 2 (h = 5), 2 turbinas → Q ≈ 83 → **zona de ouro**, ~16 kW (8 kW por turbina).
-- +1 espelho (h = 5,5) → Q ≈ 92 → alerta.
-- +2 espelhos (h = 6) → Q → 100: encosta no limite, alerta permanente, **sem Cascata**.
-- +2,5 espelhos (h = 6,5) → Q* = 108 → **Cascata 5 s depois de T passar de 100 %**.
-- 1 radiador tira 6 u/s: h = 6,5 com 1 radiador volta a Q* = 83 e à zona de ouro.
+| Configuração | Q* | Resultado |
+|---|---|---|
+| h = 5 (4 no anel 1 + 2 no anel 2), t = 2 | 83,3 | **zona de ouro**, 16 kW (8 kW por turbina) |
+| h = 5,5, t = 2 | 91,7 | alerta |
+| **h = 6, t = 2** | **100,0** | **limite exato — alerta permanente, nunca cascateia** |
+| **h = 6,5, t = 2** | **108,3** | **Cascata 5 s depois** de T passar de 100 % |
+| h = 6,5, t = 2, **1 radiador** | 83,3 | volta para a zona de ouro |
+
+**Tanque de sal fundido** aumenta a capacidade sem mudar Q*: com um tanque, T = 100 ÷ 250 = 40 % — sai da zona de ouro e a pesquisa cai para ×0,5. O tanque compra margem e cobra em pesquisa (precisa de card explicativo).
 
 Melhorias do Núcleo: Receptor cerâmico (capacidade +50, ₵ 300 + 🔬 80) · Grade 7×7 (₵ 800 + 🔬 150; abre o anel 3 a 25 %).
 
 ### 8.4 Saída da Era 1
-Estabilidade 100 % + pesquisa "Fissão básica" (🔬 3 000) + ₵ 50 000 → Era 2. (Com o Núcleo entre 8 e 20 kW, 🔬 3 000 leva 30–50 min de operação.) Card explicativo de transição: de kW para MW.
+Estabilidade 100 % + pesquisa "Fissão básica" (🔬 3 000) + ₵ 50 000 → Era 2. (Com o Núcleo em ~16 kW na zona de ouro, 🔬 3 000 leva 20–30 min de operação.) Card explicativo de transição: de kW para MW.
 
 ---
 
@@ -257,4 +263,4 @@ Cada sessão nasce de um `CLAUDE.md` do projeto (escrito no próximo passo) que 
 ---
 
 *v0.2 — ritmo fixado em ~1 h por era; Era 1 recalibrada.*
-*v0.3 — §8.3 corrigido: 16 kW no exemplo da zona de ouro, h = 6 é assintótico (Cascata só com h = 6,5), Q* = 33,3 × h ÷ t. Ver `docs/correcoes-gdd-v0.3.md`.*
+*v0.3 — §8.3 corrigido: 16 kW no exemplo da zona de ouro, h = 6 é assintótico (Cascata só com h = 6,5), Q* derivado das peças; anéis definidos; §4.2 diz que o calor passa de 100 %; §8.4 com 20–30 min. Ver `docs/correcoes-gdd-v0.3.md`.*
