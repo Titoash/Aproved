@@ -1,45 +1,51 @@
-# Aproved — guia para o Claude Code
+# KARDASHEV — instruções do projeto
 
-Jogo idle/incremental em PT-BR sobre construir uma rede elétrica, era a era.
-Stack: **Vite + React + TypeScript**, **Zustand** (store), **Phaser** (canvas), **Vitest** (testes).
+## O que é
+Jogo idle web de gerenciamento de energia em duas camadas: **Rede** (lista de usinas, números) e **Núcleo** (grade de peças, geometria). Do cata-vento à esfera de Dyson. Estética flat-vector de infográfico científico.
+
+O design completo está em `docs/GDD-parte1.md`. **É o contrato.** Se código e GDD divergirem, o GDD vence. Se o design precisar mudar, edite o GDD primeiro e explique o porquê no commit.
+
+## Stack
+Vite + React + TypeScript (strict) + Phaser 3 + Zustand + Vitest. CSS com variáveis (tokens do GDD §10), sem Tailwind. Interface em PT-BR, vírgula decimal. Mobile-first.
 
 ## Comandos
-- `npm run dev` — servidor de desenvolvimento.
-- `npm test` — testes (Vitest, ambiente `node`).
-- `npm run typecheck` — `tsc --noEmit` nos dois projetos (app e config).
-- `npm run build` — `tsc -b && vite build`.
-- `npm run lint` — oxlint.
+- `npm run dev` — servidor local
+- `npm test` — Vitest
+- `npm run typecheck` — `tsc --noEmit`
+- `npm run build`
 
-Rode `typecheck` e `test` a cada passo; `build` antes de encerrar uma sessão.
+`test`, `typecheck` e `build` precisam passar antes de encerrar qualquer sessão.
 
-## Estrutura de pastas
+## Estrutura
 ```
 src/
-  sim/        simulação pura, sem React/Phaser/DOM (única exceção: save.ts toca localStorage)
-    state.ts     tipos do estado e estadoInicial()
-    tick.ts      tick(state, dtMs) em timestep fixo de 100 ms
-    rede.ts      balança Oferta × Demanda, faixas de r, bateria, receita
-    custos.ts    custo da n-ésima unidade e da melhoria
-    acoes.ts     compras/melhorias como funções puras (devolvem null se impossível)
-    formatar.ts  PT-BR, vírgula decimal, prefixos SI
-    save.ts      localStorage, versao, exportar/importar JSON
-    loop.ts      requestAnimationFrame + acumulador (limite de 5 s)
-  content/    números do jogo por era (era1.ts) — nada de regra aqui, só dados
-  store/      Zustand: snapshot do GameState + ações; jogo.ts liga o loop ao store
-  ui/         React: HUD, painéis, tokens de arte (tokens.css)
-  canvas/     Phaser: GameCanvas (montagem) e cenas
+  sim/      # TypeScript puro: estado, tick de 100 ms, fórmulas, balanças, Cascata, save/load
+  ui/       # React: HUD, lista da Rede, balanças, cards, menus, medidor Kardashev
+  scene/    # Phaser 3: grade do Núcleo, rampa de calor, partículas, transições
+  content/  # dados das eras: peças, usinas, preços, textos dos cards
+  store/    # Zustand: snapshot do estado do sim + ações
 docs/
-  GDD-parte1.md   documento de design (fonte dos números) — AINDA NÃO ESTÁ NO REPO
-  ESTADO.md       o que existe e o que ficou pendente
-  sessoes/        especificação de cada sessão de trabalho
+  GDD-parte1.md      # contrato de design
+  ESTADO.md          # o que existe e o que falta (atualizar ao fim de cada sessão)
+  sessoes/sessao-N.md
 ```
 
-## Regras
-- Simulação é pura e determinística: `tick(state, dtMs)` devolve um estado novo, nunca muta.
-- Ordem no tick: produção → venda até a demanda → bateria (excedente/déficit) → receita com multiplicador de `r`.
-- Créditos acumulam como `number` sem arredondar; arredonde só em `formatar.ts`.
-- `localStorage` só em `src/sim/save.ts`. Todo save tem `versao`.
-- Números do jogo ficam em `src/content/`; a UI e a simulação leem de lá.
-- Textos da UI e nomes de código em PT-BR (identificadores sem acento).
-- StrictMode monta duas vezes em dev: instâncias externas (Phaser, loop) vivem em `ref`/closure e são destruídas no cleanup.
-- Não implemente o que a sessão atual marca como fora de escopo.
+## Regras que não se negociam
+1. `src/sim/` é TypeScript puro: nada de React, Phaser, DOM ou `localStorage` lá dentro (exceção: `sim/save.ts` é o único ponto que toca `localStorage`). O sim é a única fonte de verdade e roda em timestep fixo de 100 ms.
+2. Toda fórmula do GDD vira função pura com teste no Vitest. Exemplo obrigatório na Sessão 2: "6 espelhos efetivos + 2 turbinas cascateiam em 5 s".
+3. Números de jogo (preços, produção, capacidades, faixas) vivem em `src/content/`. Nunca hardcoded na UI ou na cena.
+4. Phaser só desenha e captura input; despacha ações para o sim via store. Um `Phaser.Game` por app, criado em `useEffect`, com guarda contra o double-mount do StrictMode e `destroy(true)` no cleanup.
+5. Identificadores de domínio em português sem acento (`heliostato`, `receptor`, `cascata`, `zonaDeOuro`, `comprarUsina`); infraestrutura em inglês (`store`, `scene`, `useTick`).
+6. Nada de personagens, logos ou imagens de terceiros. Mascotes são os **Bipes** (originais, descritos no GDD §10). Ícones em SVG próprio.
+7. Sem biblioteca de big numbers: `number` cobre até 10^308 e o jogo chega a ~10^26.
+8. Commits pequenos e descritivos, em português.
+
+## Como trabalhar uma sessão
+1. Leia `docs/ESTADO.md` e o `docs/sessoes/sessao-N.md` da vez.
+2. Apresente um plano em passos numerados e **espere aprovação** antes de codar.
+3. Implemente passo a passo, rodando `typecheck` e `test` a cada passo.
+4. Não expanda o escopo da sessão. O que for tentador mas não pedido vai para "Pendências" no `ESTADO.md`.
+5. Ao terminar: atualize `docs/ESTADO.md` e liste o que ficou pendente.
+
+## Estilo de resposta
+Direto, sem elogios, em PT-BR. Quando um número ou regra do GDD não fechar na prática, aponte o conflito e proponha o ajuste em vez de contornar em silêncio.
