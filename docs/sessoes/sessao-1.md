@@ -56,13 +56,13 @@ interface UsinaDef {
 ```
 
 ## Critérios de pronto
-- [ ] `npm run dev` abre; comprar cata-vento aumenta ⚡ e ₵/s.
-- [ ] Com 5 kW de demanda inicial, passar de 6,25 kW mostra **saturação** e o preço cai; comprar Vila resolve. Abaixo de 0,8 mostra **apagão**.
-- [ ] Bateria visível carregando com excedente e descarregando em déficit.
-- [ ] Recarregar a página mantém o progresso; exportar/importar JSON funciona.
-- [ ] Números formatados em PT-BR com prefixos SI.
-- [ ] `npm test`, `npm run typecheck`, `npm run build` passam.
-- [ ] `docs/ESTADO.md` atualizado com o que existe e o que ficou pendente.
+- [x] `npm run dev` abre; comprar cata-vento aumenta ⚡ e ₵/s.
+- [x] Com 5 kW de demanda inicial, passar de 6,25 kW mostra **saturação** e o preço cai; comprar Vila resolve. Abaixo de 0,8 mostra **apagão**.
+- [x] Bateria visível carregando com excedente e descarregando em déficit.
+- [x] Recarregar a página mantém o progresso; exportar/importar JSON funciona.
+- [x] Números formatados em PT-BR com prefixos SI.
+- [x] `npm test`, `npm run typecheck`, `npm run build` passam.
+- [x] `docs/ESTADO.md` atualizado com o que existe e o que ficou pendente.
 
 ## Fora de escopo — não faça nesta sessão
 Grade/Núcleo, pesquisa com efeito, Cascata, Estabilidade, cards explicativos, medidor Kardashev, cálculo offline, som, Era 2, Bipes.
