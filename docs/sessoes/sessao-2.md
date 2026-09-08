@@ -85,15 +85,15 @@ Equilíbrio e faixas (todos com `t = 2`, sem radiador, capacidade 100):
 - Migração de save v1 → v2 preserva créditos, usinas e vilas.
 
 ## Critérios de pronto
-- [ ] Desbloquear o Núcleo por ₵100 e montar a configuração `h = 5, t = 2` leva a barra de Calor à zona de ouro, com o Núcleo em 16 kW e 🔬 subindo.
-- [ ] Acrescentar um espelho de anel 2 leva à Cascata em 5 s, com onda de choque, entulho, SCRAM e Estabilidade caindo 30.
-- [ ] Um radiador devolve a configuração para a zona de ouro.
-- [ ] A cor do Receptor acompanha a temperatura sem precisar de número.
-- [ ] A potência do Núcleo aparece na oferta da Rede e move o `r`.
-- [ ] Com 🔬 20 e 🔬 40 a Bateria e a Turbina eólica desbloqueiam.
-- [ ] Save antigo (v1) carrega sem perder progresso.
-- [ ] `npm test`, `npm run typecheck`, `npm run build` passam.
-- [ ] `docs/ESTADO.md` atualizado.
+- [x] Desbloquear o Núcleo por ₵100 e montar a configuração `h = 5, t = 2` leva a barra de Calor à zona de ouro, com o Núcleo em 16 kW e 🔬 subindo.
+- [x] Acrescentar um espelho de anel 2 leva à Cascata em 5 s, com onda de choque, entulho, SCRAM e Estabilidade caindo 30.
+- [x] Um radiador devolve a configuração para a zona de ouro.
+- [x] A cor do Receptor acompanha a temperatura sem precisar de número.
+- [x] A potência do Núcleo aparece na oferta da Rede e move o `r`.
+- [x] Com 🔬 20 e 🔬 40 a Bateria e a Turbina eólica desbloqueiam.
+- [x] Save antigo (v1) carrega sem perder progresso.
+- [x] `npm test`, `npm run typecheck`, `npm run build` passam.
+- [x] `docs/ESTADO.md` atualizado.
 
 ## Fora de escopo — não faça nesta sessão
 Grade 7×7, cards explicativos, medidor Kardashev, cálculo offline, Contenção, Era 2 e a transição de era, som, Bipes, prestígio. O que for tentador vai para "Pendências".
