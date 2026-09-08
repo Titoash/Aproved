@@ -3,7 +3,7 @@ import Phaser from "phaser";
 
 const CHAVE_FUNDO = "fundo-era1";
 
-export class CenaFundo extends Phaser.Scene {
+export class BackgroundScene extends Phaser.Scene {
   private fundo: Phaser.GameObjects.Image | null = null;
   private estrelas: Phaser.GameObjects.Arc[] = [];
 

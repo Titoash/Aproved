@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { useEffect, useRef } from "react";
-import { CenaFundo } from "./CenaFundo";
+import { BackgroundScene } from "./BackgroundScene";
 
 /**
  * Monta o Phaser em um contêiner fixo atrás da UI.
@@ -24,7 +24,7 @@ export function GameCanvas() {
         width: "100%",
         height: "100%",
       },
-      scene: [CenaFundo],
+      scene: [BackgroundScene],
       audio: { noAudio: true },
       banner: false,
     });
