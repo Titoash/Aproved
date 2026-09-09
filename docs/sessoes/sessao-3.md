@@ -87,15 +87,15 @@ Hoje a área da grade é transparente ao ponteiro para o toque chegar ao canvas 
 - Input: `indiceDaCasa(x, y, rect)` cobre os cantos e devolve `null` fora da grade.
 
 ## Critérios de pronto
-- [ ] Bateria segurando a balança aparece no HUD com o motivo e o preço fica ×1; bateria vazia ou cheia devolve a penalidade.
-- [ ] Fechar a aba e voltar (ou editar `salvoEmMs` no save) mostra o card "Enquanto você esteve fora" com números coerentes com os testes; 8 h de teto.
-- [ ] Núcleo com `T* ≥ 95 %` fica desligado offline e o card diz por quê.
-- [ ] Medidor Kardashev com marcos; K aparece a partir de 1 MW.
-- [ ] Rastreamento move a marca de `Q*` na barra na hora da compra; Lâminas mudam a potência das eólicas.
-- [ ] No celular (ou DevTools em modo toque): rolar a página com o dedo sobre a grade funciona; tocar numa casa coloca a peça; nenhum toque coloca duas.
-- [ ] Tela 2× nítida, ou pendência registrada com o que foi tentado.
-- [ ] `npm test`, `npm run typecheck`, `npm run build` passam.
-- [ ] GDD com as correções v0.4; `docs/ESTADO.md` atualizado.
+- [x] Bateria segurando a balança aparece no HUD com o motivo e o preço fica ×1; bateria vazia ou cheia devolve a penalidade.
+- [x] Fechar a aba e voltar (ou editar `salvoEmMs` no save) mostra o card "Enquanto você esteve fora" com números coerentes com os testes; 8 h de teto.
+- [x] Núcleo com `T* ≥ 95 %` fica desligado offline e o card diz por quê.
+- [x] Medidor Kardashev com marcos; K aparece a partir de 1 MW.
+- [x] Rastreamento move a marca de `Q*` na barra na hora da compra; Lâminas mudam a potência das eólicas.
+- [x] No celular (ou DevTools em modo toque): rolar a página com o dedo sobre a grade funciona; tocar numa casa coloca a peça; nenhum toque coloca duas.
+- [x] Tela 2× nítida, ou pendência registrada com o que foi tentado.
+- [x] `npm test`, `npm run typecheck`, `npm run build` passam.
+- [x] GDD com as correções v0.4; `docs/ESTADO.md` atualizado.
 
 ## Fora de escopo — não faça nesta sessão
 Passe de arte, cards explicativos, Bipes, som, Grade 7×7, fontes locais, favicon, Era 2, transição de era, prestígio. (Tudo isso é a Sessão 4 ou depois.)
