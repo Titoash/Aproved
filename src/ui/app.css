@@ -849,3 +849,33 @@ button {
     font-size: 9px;
   }
 }
+
+/* Mobile: a página inteira rola; nada de painel espremido com rolagem interna. */
+@media (max-width: 900px) {
+  body {
+    overflow: auto;
+  }
+
+  .camada-ui {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+    grid-template-rows: auto auto auto;
+  }
+
+  .paineis {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: auto;
+  }
+
+  .painel,
+  .coluna-nucleo {
+    overflow: visible;
+    min-height: auto;
+  }
+}
+
+/* Kardashev: o rótulo do último marco vai para cima da barra (Tipo II e Sol ficam a 2 % um do outro). */
+.kardashev-marco:last-of-type .kardashev-marco-rotulo {
+  top: -22px;
+}
