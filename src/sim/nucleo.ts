@@ -87,11 +87,17 @@ export function capacidadeU(grade: readonly Casa[], receptorCeramico = false): n
 /**
  * dQ/dt, em u/s: entrada dos espelhos − dissipação dos radiadores − consumo das turbinas.
  * Em SCRAM os espelhos não injetam e as turbinas não consomem; os radiadores continuam.
+ * `calorEspelho` é o calor por espelho do anel 1 (4 u/s; 5 com o Rastreamento solar).
  */
-export function balancoDeCalor(grade: readonly Casa[], calorU: number, emScram = false): number {
+export function balancoDeCalor(
+  grade: readonly Casa[],
+  calorU: number,
+  emScram = false,
+  calorEspelho: number = NUCLEO.calorEspelhoAnel1,
+): number {
   const c = contar(grade);
   const h = c.espelhosAnel1 + c.espelhosAnel2 * NUCLEO.pesoEspelhoAnel2;
-  const entrada = emScram ? 0 : NUCLEO.calorEspelhoAnel1 * h;
+  const entrada = emScram ? 0 : calorEspelho * h;
   const dissipacao = NUCLEO.dissipacaoRadiador * c.radiadoresAdjacentes;
   const consumo = emScram ? 0 : NUCLEO.consumoTurbina * c.turbinas * calorU;
   return entrada - dissipacao - consumo;
@@ -101,10 +107,10 @@ export function balancoDeCalor(grade: readonly Casa[], calorU: number, emScram =
  * Q*: calor em que dQ/dt = 0. Sem turbinas não há consumo proporcional a Q:
  * devolve `Infinity` se o calor só sobe, `0` se só desce ou nada acontece.
  */
-export function equilibrioU(grade: readonly Casa[]): number {
+export function equilibrioU(grade: readonly Casa[], calorEspelho: number = NUCLEO.calorEspelhoAnel1): number {
   const c = contar(grade);
   const h = c.espelhosAnel1 + c.espelhosAnel2 * NUCLEO.pesoEspelhoAnel2;
-  const liquido = NUCLEO.calorEspelhoAnel1 * h - NUCLEO.dissipacaoRadiador * c.radiadoresAdjacentes;
+  const liquido = calorEspelho * h - NUCLEO.dissipacaoRadiador * c.radiadoresAdjacentes;
   if (c.turbinas === 0) return liquido > 0 ? Infinity : 0;
   return Math.max(0, liquido / (NUCLEO.consumoTurbina * c.turbinas));
 }
@@ -122,8 +128,14 @@ export function potenciaNucleoKw(grade: readonly Casa[], calorU: number): number
  * `t · dt` chegar perto de 1 o método oscila e precisa de passo implícito.
  * O calor pode passar da capacidade: é isso que dispara a Cascata.
  */
-export function passoCalor(grade: readonly Casa[], calorU: number, dtS: number, emScram = false): number {
-  return Math.max(0, calorU + balancoDeCalor(grade, calorU, emScram) * dtS);
+export function passoCalor(
+  grade: readonly Casa[],
+  calorU: number,
+  dtS: number,
+  emScram = false,
+  calorEspelho: number = NUCLEO.calorEspelhoAnel1,
+): number {
+  return Math.max(0, calorU + balancoDeCalor(grade, calorU, emScram, calorEspelho) * dtS);
 }
 
 /* ------------------------------------------------------------------ */

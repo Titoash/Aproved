@@ -2,7 +2,7 @@
  * Conteúdo da Era 1 — camada Rede (GDD §7, §8.1, §8.2).
  * Só dados: nenhuma regra aqui. A simulação e a UI leem deste arquivo.
  */
-import type { UsinaId } from "../sim/state";
+import type { MelhoriaId, UsinaId } from "../sim/state";
 
 export interface Desbloqueio {
   /** Desbloqueia ao possuir pelo menos N unidades da usina indicada. */
@@ -99,16 +99,73 @@ export const VILA: ItemDef & { demandaKw: number } = {
   demandaKw: 8,
 };
 
-/** GDD §8.2: Bateria ₵ 80, +20 kWh de capacidade, 🔬 20. */
-export const BATERIA: ItemDef & { capacidadeKwh: number } = {
+/** GDD §8.2 e §4.1: Bateria ₵ 80, +20 kWh de capacidade e ±10 kW de carga/descarga por unidade, 🔬 20. */
+export const BATERIA: ItemDef & { capacidadeKwh: number; potenciaKw: number } = {
   nome: "Bateria",
   nomePlural: "Baterias",
-  descricao: "Guarda o excedente e cobre o déficit.",
+  descricao: "Guarda o excedente e cobre o déficit. Segura a balança: transforma falha em neutro.",
   custoBase: 80,
   crescimento: 1.15,
   capacidadeKwh: 20,
+  potenciaKw: 10,
   desbloqueio: { pesquisa: 20 },
 };
+
+/* ------------------------------------------------------------------ */
+/* Melhorias nomeadas (GDD §8.2, §8.3)                                */
+/* ------------------------------------------------------------------ */
+
+export type EfeitoMelhoria =
+  | { tipo: "potenciaUsinas"; usinas: readonly UsinaId[]; fator: number }
+  | { tipo: "calorPorEspelho"; valor: number };
+
+export interface MelhoriaDef {
+  id: MelhoriaId;
+  nome: string;
+  descricao: string;
+  custo: number;
+  /** 🔬 acumulado exigido (requisito, não gasto). */
+  pesquisa?: number;
+  camada: "rede" | "nucleo";
+  efeito: EfeitoMelhoria;
+}
+
+export const MELHORIAS: Record<MelhoriaId, MelhoriaDef> = {
+  laminasDeFibra: {
+    id: "laminasDeFibra",
+    nome: "Lâminas de fibra",
+    descricao: "Pás mais leves e mais longas: cata-vento e turbina eólica +25 %.",
+    custo: 200,
+    camada: "rede",
+    efeito: { tipo: "potenciaUsinas", usinas: ["cataVento", "turbinaEolica"], fator: 1.25 },
+  },
+  rastreamentoSolar: {
+    id: "rastreamentoSolar",
+    nome: "Rastreamento solar",
+    descricao: "Os espelhos seguem o sol: cada um injeta 5 u/s em vez de 4. Muda o equilíbrio — reajuste a grade.",
+    custo: 150,
+    pesquisa: 30,
+    camada: "nucleo",
+    efeito: { tipo: "calorPorEspelho", valor: 5 },
+  },
+};
+
+export const ORDEM_MELHORIAS: readonly MelhoriaId[] = ["laminasDeFibra", "rastreamentoSolar"];
+
+/* ------------------------------------------------------------------ */
+/* Offline (GDD §7)                                                    */
+/* ------------------------------------------------------------------ */
+
+export const OFFLINE = {
+  /** Janela máxima creditada: 8 h. */
+  janelaMaxMs: 8 * 60 * 60 * 1000,
+  /** Receita da Rede offline, sobre o balanço congelado sem bateria. */
+  fatorRede: 0.5,
+  /** Núcleo em modo seguro obrigatório: potência, pesquisa e Estabilidade × este fator. */
+  fatorNucleo: 0.7,
+  /** Só mostra o relatório "Enquanto você esteve fora" a partir desta ausência. */
+  minimoRelatorioMs: 60_000,
+} as const;
 
 /* ------------------------------------------------------------------ */
 /* Balança Oferta × Demanda (GDD §4.1)                                 */

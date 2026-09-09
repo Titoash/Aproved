@@ -3,15 +3,20 @@
  * Salva a cada `INTERVALO_SAVE_MS`, carrega no início, exporta/importa JSON,
  * migra saves de versões anteriores.
  */
+import { MELHORIAS } from "../content/era1";
 import { NUCLEO, PECAS } from "../content/era1-nucleo";
 import { anel } from "./nucleo";
+import { calcularOffline, type RelatorioOffline } from "./offline";
 import { capacidadeBateriaKwh } from "./rede";
 import {
   estadoInicial,
+  melhoriasIniciais,
   nucleoInicial,
   VERSAO_SAVE,
   type Casa,
   type GameState,
+  type MelhoriaId,
+  type Melhorias,
   type NucleoState,
   type PecaId,
   type RedeState,
@@ -48,8 +53,9 @@ export class ErroSave extends Error {
 /* Serialização                                                       */
 /* ------------------------------------------------------------------ */
 
-export function serializar(state: GameState): string {
-  return JSON.stringify(state);
+/** Serializa carimbando `salvoEmMs` com o relógio real (base do cálculo offline). */
+export function serializar(state: GameState, agoraMs: number = Date.now()): string {
+  return JSON.stringify({ ...state, salvoEmMs: agoraMs });
 }
 
 function numero(valor: unknown, padrao: number, minimo = 0): number {
@@ -107,8 +113,15 @@ function normalizarNucleo(bruto: unknown): NucleoState | null {
   };
 }
 
-/** Preenche campos ausentes com o estado inicial e sanitiza números. */
-function normalizar(bruto: Record<string, unknown>): GameState {
+function normalizarMelhorias(bruto: unknown): Melhorias {
+  const base = melhoriasIniciais();
+  const m = objeto(bruto);
+  for (const id of Object.keys(MELHORIAS) as MelhoriaId[]) base[id] = booleano(m[id], false);
+  return base;
+}
+
+/** Preenche campos ausentes com o estado inicial e sanitiza números. `agoraMs` vira o carimbo de saves sem `salvoEmMs`. */
+function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState {
   const base = estadoInicial();
   const redeBruta = objeto(bruto.rede);
   const usinasBrutas = objeto(redeBruta.usinas);
@@ -144,14 +157,17 @@ function normalizar(bruto: Record<string, unknown>): GameState {
     era: 1,
     rede,
     nucleo: normalizarNucleo(bruto.nucleo),
+    melhorias: normalizarMelhorias(bruto.melhorias),
+    salvoEmMs: typeof bruto.salvoEmMs === "number" && bruto.salvoEmMs > 0 ? bruto.salvoEmMs : agoraMs,
   };
 }
 
 /**
  * Migra saves de versões anteriores, uma versão por vez.
  * v1 → v2: entra o Núcleo (`nucleo: null` até ser desbloqueado). Rede e créditos ficam como estão.
+ * v2 → v3: entram `melhorias` (vazias) e `salvoEmMs` (= agora, sem ganho offline na primeira carga).
  */
-function migrar(bruto: Record<string, unknown>): Record<string, unknown> {
+function migrar(bruto: Record<string, unknown>, agoraMs: number): Record<string, unknown> {
   const versao = bruto.versao;
   if (typeof versao !== "number") throw new ErroSave("Save sem campo `versao`.");
   if (versao > VERSAO_SAVE) {
@@ -163,10 +179,14 @@ function migrar(bruto: Record<string, unknown>): Record<string, unknown> {
     atual = { ...atual, nucleo: null, versao: 2 };
     v = 2;
   }
+  if (v === 2) {
+    atual = { ...atual, melhorias: {}, salvoEmMs: agoraMs, versao: 3 };
+    v = 3;
+  }
   return { ...atual, versao: v };
 }
 
-export function desserializar(json: string): GameState {
+export function desserializar(json: string, agoraMs: number = Date.now()): GameState {
   let bruto: unknown;
   try {
     bruto = JSON.parse(json);
@@ -176,30 +196,42 @@ export function desserializar(json: string): GameState {
   if (bruto === null || typeof bruto !== "object" || Array.isArray(bruto)) {
     throw new ErroSave("O save precisa ser um objeto JSON.");
   }
-  return normalizar(migrar(bruto as Record<string, unknown>));
+  return normalizar(migrar(bruto as Record<string, unknown>, agoraMs), agoraMs);
 }
 
 /* ------------------------------------------------------------------ */
 /* localStorage                                                       */
 /* ------------------------------------------------------------------ */
 
-export function salvar(state: GameState, storage: Armazenamento | null = armazenamentoPadrao()): boolean {
+export function salvar(
+  state: GameState,
+  storage: Armazenamento | null = armazenamentoPadrao(),
+  agoraMs: number = Date.now(),
+): boolean {
   if (!storage) return false;
   try {
-    storage.setItem(CHAVE_SAVE, serializar(state));
+    storage.setItem(CHAVE_SAVE, serializar(state, agoraMs));
     return true;
   } catch {
     return false;
   }
 }
 
-/** Devolve o estado salvo ou `null` se não houver save válido. */
-export function carregar(storage: Armazenamento | null = armazenamentoPadrao()): GameState | null {
+export interface Carregado {
+  state: GameState;
+  relatorio: RelatorioOffline;
+}
+
+/** Devolve o estado salvo já com o cálculo offline aplicado, ou `null` se não houver save válido. */
+export function carregar(
+  storage: Armazenamento | null = armazenamentoPadrao(),
+  agoraMs: number = Date.now(),
+): Carregado | null {
   if (!storage) return null;
   try {
     const json = storage.getItem(CHAVE_SAVE);
     if (!json) return null;
-    return desserializar(json);
+    return calcularOffline(desserializar(json, agoraMs), agoraMs);
   } catch {
     return null;
   }
@@ -217,11 +249,11 @@ export function limpar(storage: Armazenamento | null = armazenamentoPadrao()): v
 /* Exportar / importar                                                */
 /* ------------------------------------------------------------------ */
 
-export function exportarJson(state: GameState): string {
-  return JSON.stringify(state, null, 2);
+export function exportarJson(state: GameState, agoraMs: number = Date.now()): string {
+  return JSON.stringify({ ...state, salvoEmMs: agoraMs }, null, 2);
 }
 
-/** Lança `ErroSave` se o JSON for inválido. */
-export function importarJson(json: string): GameState {
-  return desserializar(json);
+/** Lança `ErroSave` se o JSON for inválido. Não aplica o offline: quem importa decide. */
+export function importarJson(json: string, agoraMs: number = Date.now()): GameState {
+  return desserializar(json, agoraMs);
 }

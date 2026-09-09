@@ -123,3 +123,14 @@ export function formatarSegundos(ms: number): string {
 export function formatarCalor(u: number): string {
   return `${formatarNumero(u, 1)} u`;
 }
+
+/** `formatarDuracao(8_000_000)` → "2 h 13 min"; "45 min"; "30 s". */
+export function formatarDuracao(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const min = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if (h > 0) return min > 0 ? `${h} h ${min} min` : `${h} h`;
+  if (min > 0) return `${min} min`;
+  return `${s} s`;
+}

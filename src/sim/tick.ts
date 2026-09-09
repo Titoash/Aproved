@@ -12,13 +12,12 @@ import { faixaDeCalor, pesquisaPorSegundo, temperatura } from "./calor";
 import { aplicarCascata, atualizarCronometro, deveCascatear, emScram, scram } from "./cascata";
 import { passoEstabilidade } from "./estabilidade";
 import { capacidadeU, passoCalor, potenciaNucleoKw } from "./nucleo";
+import { calorPorEspelho } from "./melhorias";
 import { balancoRede, passoRede, type BalancoRede } from "./rede";
 import type { GameState, NucleoState } from "./state";
+import { DT_ACUMULADO_MAX_MS, TICK_MS } from "./tempo";
 
-/** Duração de um tick, em ms. */
-export const TICK_MS = 100;
-/** Limite do tempo acumulado entre frames (aba em segundo plano). */
-export const DT_ACUMULADO_MAX_MS = 5000;
+export { DT_ACUMULADO_MAX_MS, TICK_MS };
 
 /** Potência que o Núcleo entrega à Rede: 0 em SCRAM, ×0,7 no modo seguro. */
 export function potenciaNucleoEfetivaKw(nucleo: NucleoState | null): number {
@@ -29,7 +28,11 @@ export function potenciaNucleoEfetivaKw(nucleo: NucleoState | null): number {
 
 /** Balanço da Rede do estado inteiro (usinas + Núcleo). É o que o HUD mostra. */
 export function balancoDoEstado(state: GameState): BalancoRede {
-  return balancoRede(state.rede, potenciaNucleoEfetivaKw(state.nucleo));
+  return balancoRede(state.rede, {
+    potenciaNucleoKw: potenciaNucleoEfetivaKw(state.nucleo),
+    dtS: TICK_MS / 1000,
+    melhorias: state.melhorias,
+  });
 }
 
 export interface PassoNucleo {
@@ -41,15 +44,24 @@ export interface PassoNucleo {
   faixa: FaixaCalor;
 }
 
-/** Passos 4 a 6 do tick. `potenciaKw` é a potência efetiva calculada no passo 1. */
-export function passoNucleo(nucleo: NucleoState, potenciaKw: number, dtMs: number, tempoMs: number): PassoNucleo {
+/**
+ * Passos 4 a 6 do tick. `potenciaKw` é a potência efetiva calculada no passo 1;
+ * `calorEspelho` é o calor por espelho já com as melhorias (Rastreamento solar).
+ */
+export function passoNucleo(
+  nucleo: NucleoState,
+  potenciaKw: number,
+  dtMs: number,
+  tempoMs: number,
+  calorEspelho: number = calorPorEspelho(undefined),
+): PassoNucleo {
   const dtS = dtMs / 1000;
   const scramAtivo = emScram(nucleo);
 
   // 4. calor
   const capacidade = capacidadeU(nucleo.grade, nucleo.receptorCeramico);
   const tAntes = temperatura(nucleo.calorU, capacidade);
-  const calorU = passoCalor(nucleo.grade, nucleo.calorU, dtS, scramAtivo);
+  const calorU = passoCalor(nucleo.grade, nucleo.calorU, dtS, scramAtivo, calorEspelho);
   const t = temperatura(calorU, capacidade);
   const faixa = faixaDeCalor(t);
 
@@ -85,14 +97,14 @@ export function tick(state: GameState, dtMs: number = TICK_MS): GameState {
   const potenciaNucleo = potenciaNucleoEfetivaKw(state.nucleo);
 
   // 2–3. Rede
-  const passo = passoRede(state.rede, dtMs, potenciaNucleo);
+  const passo = passoRede(state.rede, dtMs, { potenciaNucleoKw: potenciaNucleo, melhorias: state.melhorias });
   let rede = passo.rede;
   let pesquisa = state.pesquisa;
   let nucleo = state.nucleo;
 
   // 4–6. Núcleo
   if (nucleo) {
-    const pn = passoNucleo(nucleo, potenciaNucleo, dtMs, tempoMs);
+    const pn = passoNucleo(nucleo, potenciaNucleo, dtMs, tempoMs, calorPorEspelho(state.melhorias));
     nucleo = pn.nucleo;
     pesquisa += pn.pesquisaGanha;
     if (pn.cascatou) {

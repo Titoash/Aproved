@@ -53,7 +53,11 @@ describe("tick", () => {
     const s2 = { ...s1, creditos: 0, rede: { ...s1.rede, usinas: { ...s1.rede.usinas, cataVento: { quantidade: 3, nivel: 0 } } } };
     const s3 = avancarTicks(s2, 5); // 0,5 s → descarrega 1 kWh, vende 3 + 2 = 5 kW
     expect(s3.rede.bateria.kwh).toBeCloseTo(0, 6);
-    // r = 0,6 (apagão ×0,5): 5 kW × 0,5 h × 0,5 = ₵ 1,25
-    expect(s3.creditos).toBeCloseTo(1.25, 6);
+    // r bruto = 0,6 (apagão), mas a bateria cobre todo o déficit: faixa neutra ×1 (GDD §4.1 v0.4).
+    // 5 kW × 0,5 s × 1 = ₵ 2,5
+    expect(s3.creditos).toBeCloseTo(2.5, 6);
+    // Bateria vazia: agora é apagão de verdade, ×0,5 sobre os 3 kW diretos.
+    const s4 = avancarTicks({ ...s3, creditos: 0 }, 10);
+    expect(s4.creditos).toBeCloseTo(3 * 0.5, 6);
   });
 });

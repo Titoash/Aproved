@@ -3,6 +3,8 @@ import { ECONOMIA } from "../content/era1";
 import { NUCLEO } from "../content/era1-nucleo";
 
 export type UsinaId = "cataVento" | "painelSolar" | "turbinaEolica";
+export type MelhoriaId = "laminasDeFibra" | "rastreamentoSolar";
+export type Melhorias = Record<MelhoriaId, boolean>;
 
 export interface UsinaEstado {
   quantidade: number;
@@ -64,10 +66,18 @@ export interface GameState {
   rede: RedeState;
   /** `null` enquanto o Núcleo não foi desbloqueado. */
   nucleo: NucleoState | null;
+  /** Melhorias nomeadas compradas (GDD §8.2, §8.3). */
+  melhorias: Melhorias;
+  /** `Date.now()` do último save; 0 = nunca salvo. Base do cálculo offline (GDD §7). */
+  salvoEmMs: number;
 }
 
 /** Versão do formato de save. Incrementar ao mudar a forma do estado. */
-export const VERSAO_SAVE = 2;
+export const VERSAO_SAVE = 3;
+
+export function melhoriasIniciais(): Melhorias {
+  return { laminasDeFibra: false, rastreamentoSolar: false };
+}
 
 export function gradeVazia(): Casa[] {
   const grade: Casa[] = new Array(NUCLEO.lado * NUCLEO.lado).fill(null);
@@ -107,5 +117,7 @@ export function estadoInicial(): GameState {
       bateria: { kwh: 0, capacidadeKwh: 0, unidades: 0 },
     },
     nucleo: null,
+    melhorias: melhoriasIniciais(),
+    salvoEmMs: 0,
   };
 }
