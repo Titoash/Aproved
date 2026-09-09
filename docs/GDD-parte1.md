@@ -1,4 +1,4 @@
-# KARDASHEV (codinome) — Documento de Design v0.3 · Parte 1 de 2
+# KARDASHEV (codinome) — Documento de Design v0.4 · Parte 1 de 2
 
 > Parte 1: conceito, os três sistemas, Cascata, economia, Era 1 completa, direção de arte, arquitetura e roteiro de sessões.
 > Parte 2 (próximo passo): Eras 2–6 detalhadas, prestígio, roteiro dos cards explicativos.
@@ -36,7 +36,7 @@ Um tabuleiro por era com a usina crítica da época (Torre Solar → Reator de f
 |---|---|---|---|---|
 | ₵ | Créditos | ₵ | global | compra tudo |
 | ⚡ | Potência | kW (prefixos SI reais) | Rede + Núcleo | vendida até a demanda |
-| 🔋 | Bateria | kWh | Rede | amortece a balança Oferta × Demanda |
+| 🔋 | Bateria | kWh (±10 kW por unidade) | Rede | amortece a balança Oferta × Demanda |
 | 🏙 | Demanda | kW | Rede | quanto a cidade compra |
 | 🔥 | Calor | u (unidades) | Núcleo | produzido e dissipado por peças |
 | 🔬 | Pesquisa | pontos | Núcleo → global | desbloqueios e eras |
@@ -59,7 +59,13 @@ Cada balança tem uma **zona de ouro** (bônus), uma **zona neutra** e **zonas d
 | **0,9–1,1** | **zona de ouro**: preço ×1,25 |
 | r > 1,25 | **Saturação**: preço ×0,75; excedente vai para a bateria, o resto é desperdiçado |
 
-A bateria carrega com excedente e descarrega em déficit, então a balança tolera oscilação curta, não desequilíbrio sustentado.
+A bateria carrega com excedente e descarrega em déficit, então a balança tolera oscilação curta, não desequilíbrio sustentado. Cada unidade tem **+20 kWh** e **±10 kW** de potência de carga/descarga. A faixa é decidida assim:
+
+- `r` bruto = potência ofertada ÷ demanda, sem a bateria. Se está na zona de ouro → ouro.
+- Senão, se a bateria cobre **todo** o déficit (limitada pela potência e pela energia guardada) ou absorve **todo** o excedente (limitada pela potência e pelo espaço) → faixa **neutra** do lado correspondente.
+- Senão → faixa do `r` bruto (apagão ou saturação).
+
+**A bateria transforma falha em neutro, nunca em ouro.** O multiplicador vale para toda a energia vendida no tick (direta + descarga).
 
 ### 4.2 Calor (Núcleo) — T = calor armazenado ÷ capacidade do componente crítico
 | Faixa | Efeito |
@@ -109,7 +115,7 @@ Bobinas geram campo e consomem potência da Rede; células de plasma geram press
 | 5 Buraco negro | espaço profundo | Reator Hawking | balança **invertida**: massa baixa demais explode, alta demais rende pouco |
 | 6 Dyson | a estrela | Enxame de coletores | balança de **luz**: cobrir demais a estrela congela as colônias (demanda colapsa) |
 
-**Medidor Kardashev:** potência total instalada em watts, numa escala log com marcos reais — humanidade em 2026 (~2×10¹³ W), Tipo I (10¹⁶ W), Tipo II (10²⁶ W), Sol (3,8×10²⁶ W). O jogador vê onde está de verdade.
+**Medidor Kardashev:** `P` = potência **instalada** em watts, `(ofertaUsinasKw + ofertaNucleoKw) × 1000` — instalada, não vendida. Barra em `log10` de 10³ W a 10²⁷ W, com marcos reais: humanidade em 2026 ≈ 2×10¹³ W, Tipo I = 10¹⁶ W, Tipo II = 10²⁶ W, Sol = 3,8×10²⁶ W. Índice `K = (log10 P − 6) ÷ 10` (fórmula de Sagan), mostrado com duas casas quando `K ≥ 0` (a partir de 1 MW); antes disso, "abaixo da escala" e o próximo marco. O jogador vê onde está de verdade.
 
 **Prestígio** ("Nova simulação"): pós-MVP. Depois da Era 6 (ou a partir da Era 4), reiniciar por **Constantes** permanentes. Definido na Parte 2.
 
@@ -123,7 +129,7 @@ Bobinas geram campo e consomem potência da Rede; células de plasma geram press
 - **Receita/s** = potência vendida (kW) × preço (₵ por kW·s) × multiplicador da balança Rede.
 - **Preço base** por era: Era 1 = 1,0; cada era multiplica a escala de potência por ~100 e o preço por ~0,1 (mais watts, menos ₵ por watt — reflete o custo da energia caindo). Números finos das Eras 2–6 na Parte 2.
 - **Pesquisa/s** = potência do Núcleo ÷ 10 × multiplicador da zona de calor.
-- **Offline:** até 8 h. Rede a 50 %, Núcleo em modo seguro a 70 %. Nunca há Cascata offline.
+- **Offline:** janela `min(agora − salvoEmMs, 8 h)`; relógio andando para trás conta como 0. Nada é comprado offline. A Rede usa o balanço congelado do save, **sem bateria** (nem carrega nem descarrega) e com receita ×0,5. Núcleo em modo seguro obrigatório: calcula `T*` do equilíbrio da grade salva; se `T* ≥ 95 %`, o Núcleo fica **desligado** o tempo todo (0 kW, 0 🔬, Estabilidade parada) e o jogador é avisado do motivo; senão, potência ×0,7, pesquisa/s da faixa de `T*` ×0,7 e Estabilidade da faixa ×0,7. Ao voltar, `Q = Q*` (limitado a 95 % da capacidade), cronômetro da Cascata e SCRAM zerados. Nunca há Cascata offline. Relatório "Enquanto você esteve fora": tempo, ₵, 🔬, Estabilidade e, se for o caso, "Núcleo ficou desligado: sua configuração passaria de 95 %".
 - **Ritmo definido:** ~60 min de jogo ativo por era. Estabilidade sobe +1,5 pontos/min na faixa normal e +2,5/min na zona de ouro (100 % em 40–65 min, contando paradas e Cascatas).
 
 ---
@@ -142,7 +148,7 @@ Bobinas geram campo e consomem potência da Rede; células de plasma geram press
 | Bateria | ₵ 80 | +20 kWh de capacidade | 🔬 20 |
 | Vila | ₵ 40 | +8 kW de demanda | início (custo ×1,25) |
 
-Melhorias da Rede (lista): Lâminas de fibra (eólica +25 %, ₵ 200) · Rastreamento (solar +25 %, ₵ 150 + 🔬 30).
+Melhorias da Rede (lista): **Lâminas de fibra** (₵ 200): cata-vento e turbina eólica +25 %. Compra única; 🔬 é requisito acumulado, não gasto.
 
 ### 8.3 Núcleo: Torre Solar (grade 5×5, centro fixo)
 Desbloqueio: ₵ 100 (tutorial guiado: "construa o receptor").
@@ -170,7 +176,7 @@ Desbloqueio: ₵ 100 (tutorial guiado: "construa o receptor").
 
 **Tanque de sal fundido** aumenta a capacidade sem mudar Q*: com um tanque, T = 100 ÷ 250 = 40 % — sai da zona de ouro e a pesquisa cai para ×0,5. O tanque compra margem e cobra em pesquisa (precisa de card explicativo).
 
-Melhorias do Núcleo: Receptor cerâmico (capacidade +50, ₵ 300 + 🔬 80) · Grade 7×7 (₵ 800 + 🔬 150; abre o anel 3 a 25 %).
+Melhorias do Núcleo: **Rastreamento solar** (₵ 150 + 🔬 30): cada espelho injeta 5 u/s em vez de 4 — isso muda `Q*`, e a marca do equilíbrio na barra move na hora para o jogador perceber que precisa reajustar · Receptor cerâmico (capacidade +50, ₵ 300 + 🔬 80) · Grade 7×7 (₵ 800 + 🔬 150; abre o anel 3 a 25 %; Sessão 4).
 
 ### 8.4 Saída da Era 1
 Estabilidade 100 % + pesquisa "Fissão básica" (🔬 3 000) + ₵ 50 000 → Era 2. (Com o Núcleo em ~16 kW na zona de ouro, 🔬 3 000 leva 20–30 min de operação.) Card explicativo de transição: de kW para MW.
@@ -245,10 +251,11 @@ src/
 |---|---|---|
 | 1 | Scaffold Vite + React + TS + Phaser; `sim/` com tick; Rede da Era 1; balança Oferta × Demanda; HUD mínima | comprar cata-ventos e vilas, ver o preço mudar com r |
 | 2 | Grade da Torre Solar em Phaser; Calor; zona de ouro; Cascata com entulho e SCRAM; Estabilidade; save | reproduzir os exemplos da seção 8.3 |
-| 3 | Passe de arte (tokens, rampa de calor, sombras, glow); 3 cards da Era 1; medidor Kardashev; modo seguro; offline | jogo bonito e completo até o fim da Era 1 |
-| 4 | Era 2 (fissão: esgotamento e calor de decaimento) e transição de era | MVP: Eras 1–2 |
-| 5 | Era 3 (Contenção + acoplamento com a Rede) | |
-| 6–8 | Eras 4–6, balanceamento, prestígio, som | jogo completo |
+| 3 | Bateria como amortecedor; offline; medidor Kardashev; melhorias nomeadas; input da grade pelo DOM (mobile); hi-DPI | Era 1 completa por dentro |
+| 4 | Passe de arte (tokens, rampa de calor, sombras, glow); 3 cards da Era 1; Grade 7×7; Bipes | jogo bonito e completo até o fim da Era 1 |
+| 5 | Era 2 (fissão: esgotamento e calor de decaimento) e transição de era | MVP: Eras 1–2 |
+| 6 | Era 3 (Contenção + acoplamento com a Rede) | |
+| 7–9 | Eras 4–6, balanceamento, prestígio, som | jogo completo |
 
 Cada sessão nasce de um `CLAUDE.md` do projeto (escrito no próximo passo) que carrega este documento como contrato.
 
@@ -264,3 +271,4 @@ Cada sessão nasce de um `CLAUDE.md` do projeto (escrito no próximo passo) que 
 
 *v0.2 — ritmo fixado em ~1 h por era; Era 1 recalibrada.*
 *v0.3 — §8.3 corrigido: 16 kW no exemplo da zona de ouro, h = 6 é assintótico (Cascata só com h = 6,5), Q* derivado das peças; anéis definidos; §4.2 diz que o calor passa de 100 %; §8.4 com 20–30 min. Ver `docs/correcoes-gdd-v0.3.md`.*
+*v0.4 — bateria com ±10 kW por unidade e regra da faixa efetiva (§4.1); offline com regras exatas (§7); medidor Kardashev definido (§6); Lâminas de fibra e Rastreamento solar com efeito (§8.2, §8.3); roteiro reordenado (§12). Ver `docs/correcoes-gdd-v0.4.md`.*
