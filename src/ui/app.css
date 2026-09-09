@@ -669,3 +669,183 @@ button {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ---------- Sessão 3 ---------- */
+
+/* O input da grade voltou ao DOM: o canvas não recebe mais nenhum toque. */
+.game-canvas {
+  pointer-events: none;
+}
+
+.camada-ui {
+  pointer-events: auto;
+  grid-template-rows: auto auto 1fr;
+}
+
+.grade-area {
+  pointer-events: auto;
+  touch-action: pan-y;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Kardashev */
+
+.painel-kardashev {
+  padding: 10px 16px 14px;
+  overflow: visible;
+}
+
+.kardashev-cabecalho {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.kardashev-cabecalho h2 {
+  margin: 0;
+}
+
+.kardashev-valores {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.kardashev-p {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.kardashev-k {
+  color: var(--sun);
+  font-weight: 600;
+}
+
+.kardashev-barra {
+  position: relative;
+  height: 8px;
+  margin: 12px 0 22px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.kardashev-preenchida {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--sky), var(--sun));
+  transition: width 200ms linear;
+}
+
+.kardashev-marco {
+  position: absolute;
+  top: -4px;
+  width: 2px;
+  height: 16px;
+  margin-left: -1px;
+  background: var(--muted);
+  opacity: 0.8;
+}
+
+.kardashev-marco--auxiliar {
+  height: 12px;
+  top: -2px;
+  opacity: 0.5;
+}
+
+.kardashev-marco--passado {
+  background: var(--sun);
+}
+
+.kardashev-marco-rotulo {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+.kardashev-cursor {
+  position: absolute;
+  top: -6px;
+  width: 0;
+  height: 0;
+  margin-left: -6px;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid var(--ink);
+  transition: left 200ms linear;
+}
+
+/* Card offline */
+
+.card-offline-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(7, 10, 30, 0.7);
+}
+
+.card-offline {
+  width: min(100%, 440px);
+  background: var(--card);
+  box-shadow: var(--sombra-chapada);
+}
+
+.card-offline-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.card-offline-lista li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.card-offline-lista strong {
+  color: var(--leaf);
+}
+
+/* Melhorias */
+
+.melhorias-titulo {
+  margin: 14px 0 8px;
+  font-family: var(--fonte-titulo);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.card--comprada {
+  border-color: color-mix(in srgb, var(--leaf) 45%, transparent);
+}
+
+.hud-sub--bateria {
+  color: var(--leaf);
+}
+
+@media (max-width: 600px) {
+  .kardashev-marco-rotulo {
+    font-size: 9px;
+  }
+}

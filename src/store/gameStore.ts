@@ -5,10 +5,13 @@
  * (peça selecionada, último aviso da grade).
  */
 import { create } from "zustand";
+import { OFFLINE } from "../content/era1";
 import * as acoes from "../sim/acoes";
 import * as nucleo from "../sim/acoesNucleo";
+import { comprarMelhoria } from "../sim/melhorias";
+import { calcularOffline, type RelatorioOffline } from "../sim/offline";
 import { carregar, exportarJson, importarJson, INTERVALO_SAVE_MS, limpar, salvar } from "../sim/save";
-import { estadoInicial, type GameState, type PecaId, type UsinaId } from "../sim/state";
+import { estadoInicial, type GameState, type MelhoriaId, type PecaId, type UsinaId } from "../sim/state";
 import { avancarTicks } from "../sim/tick";
 
 /** O que o clique numa casa da grade faz. */
@@ -31,6 +34,10 @@ export interface GameStore {
   salvoEmRelogio: number | null;
   ferramenta: Ferramenta;
   avisoGrade: AvisoGrade | null;
+  /** Casa da grade sob o ponteiro (vem do DOM; a cena só desenha o realce). */
+  casaSobPonteiro: number | null;
+  /** Relatório "Enquanto você esteve fora", mostrado uma vez por carregamento. */
+  relatorioOffline: RelatorioOffline | null;
 
   avancarTicks: (n: number) => void;
 
@@ -39,6 +46,7 @@ export interface GameStore {
   melhorarUsina: (id: UsinaId) => boolean;
   comprarVila: () => boolean;
   comprarBateria: () => boolean;
+  comprarMelhoria: (id: MelhoriaId) => boolean;
 
   // Núcleo
   desbloquearNucleo: () => boolean;
@@ -52,6 +60,8 @@ export interface GameStore {
   alternarModoSeguro: () => boolean;
   scramManual: () => boolean;
   comprarReceptorCeramico: () => boolean;
+  setCasaSobPonteiro: (indice: number | null) => void;
+  fecharRelatorioOffline: () => void;
 
   // Save
   salvarAgora: () => boolean;
@@ -61,12 +71,19 @@ export interface GameStore {
   resetar: () => void;
 }
 
-function estadoCarregado(): GameState {
-  return carregar() ?? estadoInicial();
+/** Só vale a pena mostrar o relatório para ausências a partir de `minimoRelatorioMs`. */
+function relatorioVisivel(relatorio: RelatorioOffline | null): RelatorioOffline | null {
+  return relatorio && relatorio.duracaoMs >= OFFLINE.minimoRelatorioMs ? relatorio : null;
+}
+
+function estadoCarregado(): { state: GameState; relatorio: RelatorioOffline | null } {
+  const carregado = carregar();
+  if (!carregado) return { state: estadoInicial(), relatorio: null };
+  return { state: carregado.state, relatorio: relatorioVisivel(carregado.relatorio) };
 }
 
 export const useGameStore = create<GameStore>()((set, get) => {
-  const inicial = estadoCarregado();
+  const { state: inicial, relatorio: relatorioInicial } = estadoCarregado();
 
   const aplicar = (proximo: GameState | null): boolean => {
     if (!proximo) return false;
@@ -90,6 +107,8 @@ export const useGameStore = create<GameStore>()((set, get) => {
     salvoEmRelogio: null,
     ferramenta: "heliostato",
     avisoGrade: null,
+    casaSobPonteiro: null,
+    relatorioOffline: relatorioInicial,
 
     avancarTicks(n) {
       const { state, salvoEmTempoMs } = get();
@@ -102,6 +121,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
     melhorarUsina: (id) => aplicar(acoes.melhorarUsina(get().state, id)),
     comprarVila: () => aplicar(acoes.comprarVila(get().state)),
     comprarBateria: () => aplicar(acoes.comprarBateria(get().state)),
+    comprarMelhoria: (id) => aplicar(comprarMelhoria(get().state, id)),
 
     desbloquearNucleo: () => aplicar(nucleo.desbloquearNucleo(get().state)),
     selecionarFerramenta: (ferramenta) => set({ ferramenta }),
@@ -137,20 +157,34 @@ export const useGameStore = create<GameStore>()((set, get) => {
     alternarModoSeguro: () => aplicar(nucleo.alternarModoSeguro(get().state)),
     scramManual: () => aplicar(nucleo.scramManual(get().state)),
     comprarReceptorCeramico: () => aplicar(nucleo.comprarReceptorCeramico(get().state)),
+    setCasaSobPonteiro: (indice) => {
+      if (get().casaSobPonteiro !== indice) set({ casaSobPonteiro: indice });
+    },
+    fecharRelatorioOffline: () => set({ relatorioOffline: null }),
 
     salvarAgora: () => salvarEstado(get().state),
     exportar: () => exportarJson(get().state),
 
     importar(json) {
-      const state = importarJson(json);
-      set({ state, avisoGrade: null });
+      // Um save exportado há tempo também rende offline desde o carimbo.
+      const agora = Date.now();
+      const { state, relatorio } = calcularOffline(importarJson(json, agora), agora);
+      set({ state, avisoGrade: null, relatorioOffline: relatorioVisivel(relatorio) });
       salvarEstado(state);
     },
 
     resetar() {
       limpar();
       const state = estadoInicial();
-      set({ state, salvoEmTempoMs: state.tempoMs, salvoEmRelogio: null, avisoGrade: null, ferramenta: "heliostato" });
+      set({
+        state,
+        salvoEmTempoMs: state.tempoMs,
+        salvoEmRelogio: null,
+        avisoGrade: null,
+        ferramenta: "heliostato",
+        casaSobPonteiro: null,
+        relatorioOffline: null,
+      });
     },
   };
 });

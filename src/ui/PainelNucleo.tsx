@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { MELHORIAS } from "../content/era1";
 import { CASCATA, FAIXAS_CALOR, MODO_SEGURO, NUCLEO, ORDEM_PECAS, PECAS, RECEPTOR_CERAMICO } from "../content/era1-nucleo";
 import { custoReconstrucao, faltaParaLimpezaMs, podeLimparEntulho } from "../sim/cascata";
 import {
@@ -11,10 +12,11 @@ import {
 } from "../sim/formatar";
 import { faixaDeCalor, pesquisaPorSegundo, temperatura, temperaturaNucleo } from "../sim/calor";
 import { podeComprarReceptorCeramico, podeDesbloquearNucleo } from "../sim/acoesNucleo";
+import { calorPorEspelho, podeComprarMelhoria } from "../sim/melhorias";
 import { capacidadeU, contar, equilibrioU, espelhosEfetivos } from "../sim/nucleo";
 import type { NucleoState } from "../sim/state";
 import { potenciaNucleoEfetivaKw } from "../sim/tick";
-import { setGradeElement } from "../scene/layout";
+import { indiceDaCasa, setGradeElement } from "../scene/layout";
 import { corDaRampaCss } from "../scene/rampa";
 import { useGameStore, type Ferramenta } from "../store/gameStore";
 import { BotaoCompra } from "./BotaoCompra";
@@ -50,20 +52,62 @@ function CardDesbloqueio() {
   );
 }
 
+/** Um toque que andou mais do que isto entre pointerdown e pointerup é rolagem, não clique. */
+const LIMIAR_ARRASTO_PX = 8;
+
+/**
+ * Área da grade. O Phaser só desenha nela; o input é do DOM: `pointerup` decide a
+ * casa pelo `getBoundingClientRect()` e despacha `agirNaCasa`. `touch-action: pan-y`
+ * deixa o dedo rolar a página por cima da grade.
+ */
 function GradeArea() {
   const ref = useRef<HTMLDivElement>(null);
+  const inicio = useRef<{ x: number; y: number; id: number } | null>(null);
+  const agirNaCasa = useGameStore((s) => s.agirNaCasa);
+  const setCasaSobPonteiro = useGameStore((s) => s.setCasaSobPonteiro);
+
   useEffect(() => {
     setGradeElement(ref.current);
     return () => setGradeElement(null);
   }, []);
-  return <div ref={ref} className="grade-area" aria-label="Grade do Núcleo (desenhada no canvas)" />;
+
+  const casaDoEvento = (e: React.PointerEvent<HTMLDivElement>): number | null => {
+    const el = ref.current;
+    if (!el) return null;
+    return indiceDaCasa(e.clientX, e.clientY, el.getBoundingClientRect(), NUCLEO.lado);
+  };
+
+  return (
+    <div
+      ref={ref}
+      className="grade-area"
+      role="grid"
+      aria-label="Grade do Núcleo"
+      onPointerDown={(e) => {
+        inicio.current = { x: e.clientX, y: e.clientY, id: e.pointerId };
+      }}
+      onPointerUp={(e) => {
+        const i0 = inicio.current;
+        inicio.current = null;
+        if (!i0 || i0.id !== e.pointerId) return;
+        if (Math.hypot(e.clientX - i0.x, e.clientY - i0.y) > LIMIAR_ARRASTO_PX) return;
+        const indice = casaDoEvento(e);
+        if (indice !== null) agirNaCasa(indice);
+      }}
+      onPointerCancel={() => {
+        inicio.current = null;
+      }}
+      onPointerMove={(e) => setCasaSobPonteiro(casaDoEvento(e))}
+      onPointerLeave={() => setCasaSobPonteiro(null)}
+    />
+  );
 }
 
-function BarraCalor({ nucleo }: { nucleo: NucleoState }) {
+function BarraCalor({ nucleo, calorEspelho }: { nucleo: NucleoState; calorEspelho: number }) {
   const t = temperaturaNucleo(nucleo);
   const faixa = faixaDeCalor(t);
   const capacidade = capacidadeU(nucleo.grade, nucleo.receptorCeramico);
-  const qEq = equilibrioU(nucleo.grade);
+  const qEq = equilibrioU(nucleo.grade, calorEspelho);
   const tEq = temperatura(qEq, capacidade);
   const escalaMax = 1.2;
   const pos = (v: number) => `${Math.min(100, Math.max(0, (v / escalaMax) * 100))}%`;
@@ -177,12 +221,15 @@ function PainelOperacao({ nucleo }: { nucleo: NucleoState }) {
   const scramManual = useGameStore((s) => s.scramManual);
   const alternarModoSeguro = useGameStore((s) => s.alternarModoSeguro);
   const comprarReceptorCeramico = useGameStore((s) => s.comprarReceptorCeramico);
+  const comprarMelhoria = useGameStore((s) => s.comprarMelhoria);
   const aviso = useGameStore((s) => s.avisoGrade);
 
   const potencia = potenciaNucleoEfetivaKw(nucleo);
   const t = temperaturaNucleo(nucleo);
   const emScram = nucleo.scramRestanteMs > 0;
   const c = contar(nucleo.grade);
+  const calorEspelho = calorPorEspelho(state.melhorias);
+  const rastreamento = MELHORIAS.rastreamentoSolar;
 
   return (
     <>
@@ -190,7 +237,8 @@ function PainelOperacao({ nucleo }: { nucleo: NucleoState }) {
         <span>⚡ Núcleo {formatarPotencia(potencia)}</span>
         <span>🔬 +{formatarNumero(emScram ? 0 : pesquisaPorSegundo(potencia, t), 2)}/s</span>
         <span>
-          h = {formatarNumero(espelhosEfetivos(nucleo.grade), 1)} · t = {c.turbinas} · rad = {c.radiadoresAdjacentes}
+          h = {formatarNumero(espelhosEfetivos(nucleo.grade), 1)} · t = {c.turbinas} · rad = {c.radiadoresAdjacentes} ·{" "}
+          {formatarNumero(calorEspelho, 0)} u/s por espelho
         </span>
         {nucleo.cascatas > 0 ? <span>💥 {nucleo.cascatas} cascata{nucleo.cascatas > 1 ? "s" : ""}</span> : null}
       </div>
@@ -200,7 +248,7 @@ function PainelOperacao({ nucleo }: { nucleo: NucleoState }) {
           esfriando.
         </div>
       ) : null}
-      <BarraCalor nucleo={nucleo} />
+      <BarraCalor nucleo={nucleo} calorEspelho={calorEspelho} />
       <BarraEstabilidade nucleo={nucleo} />
       <Entulhos nucleo={nucleo} tempoMs={state.tempoMs} />
       <h3 className="nucleo-subtitulo">Peças · clique na grade para colocar</h3>
@@ -223,6 +271,22 @@ function PainelOperacao({ nucleo }: { nucleo: NucleoState }) {
             SCRAM a {formatarPorcentagem(MODO_SEGURO.limiarT)} · potência ×{formatarNumero(MODO_SEGURO.fatorPotencia, 1)}
           </span>
         </button>
+        {state.melhorias.rastreamentoSolar ? (
+          <div className="card-nota">✔ {rastreamento.nome}: espelhos a {rastreamento.efeito.tipo === "calorPorEspelho" ? rastreamento.efeito.valor : 5} u/s</div>
+        ) : (
+          <button
+            type="button"
+            className="botao botao--melhoria"
+            disabled={!podeComprarMelhoria(state, "rastreamentoSolar")}
+            onClick={() => comprarMelhoria("rastreamentoSolar")}
+            title={rastreamento.descricao}
+          >
+            <span className="botao-titulo">{rastreamento.nome}</span>
+            <span className={`botao-custo ${state.creditos < rastreamento.custo || state.pesquisa < (rastreamento.pesquisa ?? 0) ? "botao-custo--caro" : ""}`}>
+              {formatarCreditos(rastreamento.custo)} + 🔬 {rastreamento.pesquisa}
+            </span>
+          </button>
+        )}
         {nucleo.receptorCeramico ? (
           <div className="card-nota">✔ {RECEPTOR_CERAMICO.nome}: +{RECEPTOR_CERAMICO.capacidadeExtraU} u</div>
         ) : (

@@ -52,7 +52,6 @@ export class GridScene extends Phaser.Scene {
   private celula = 0;
   private visivel = false;
   private dirty = true;
-  private hover: number | null = null;
   private ultimaCascataVista: number | null = null;
   private ultimoAvisoVisto: number | null = null;
   private flash: { indice: number; ate: number } | null = null;
@@ -87,14 +86,18 @@ export class GridScene extends Phaser.Scene {
     this.ultimoAvisoVisto = useGameStore.getState().avisoGrade?.em ?? null;
 
     // Um listener por cena; o StrictMode destrói a cena inteira no cleanup, e este unsubscribe vai junto.
+    // Input é do DOM (`.grade-area`); a cena só lê `casaSobPonteiro` para o realce.
     this.unsubscribe = useGameStore.subscribe((s, anterior) => {
-      if (s.state.nucleo !== anterior.state.nucleo || s.ferramenta !== anterior.ferramenta) this.dirty = true;
+      if (
+        s.state.nucleo !== anterior.state.nucleo ||
+        s.ferramenta !== anterior.ferramenta ||
+        s.casaSobPonteiro !== anterior.casaSobPonteiro
+      ) {
+        this.dirty = true;
+      }
     });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.encerrar, this);
     this.events.once(Phaser.Scenes.Events.DESTROY, this.encerrar, this);
-
-    this.input.on(Phaser.Input.Events.POINTER_DOWN, this.aoClicar, this);
-    this.input.on(Phaser.Input.Events.POINTER_MOVE, this.aoMover, this);
   }
 
   private encerrar() {
@@ -125,37 +128,6 @@ export class GridScene extends Phaser.Scene {
     return { x: this.rect.x + (col + 0.5) * this.celula, y: this.rect.y + (lin + 0.5) * this.celula };
   }
 
-  /** Lê o retângulo do DOM na hora: um clique logo depois de rolar não pode usar o rect do frame anterior. */
-  private casaEm(x: number, y: number): number | null {
-    if (!this.visivel) return null;
-    const dom = getGradeRect();
-    if (!dom) return null;
-    const tamanho = Math.min(dom.width, dom.height);
-    const celula = tamanho / NUCLEO.lado;
-    if (celula <= 0) return null;
-    const x0 = dom.left + (dom.width - tamanho) / 2;
-    const y0 = dom.top + (dom.height - tamanho) / 2;
-    const col = Math.floor((x - x0) / celula);
-    const lin = Math.floor((y - y0) / celula);
-    if (col < 0 || lin < 0 || col >= NUCLEO.lado || lin >= NUCLEO.lado) return null;
-    return lin * NUCLEO.lado + col;
-  }
-
-  /* ---------------- input ---------------- */
-
-  private aoClicar(p: Phaser.Input.Pointer) {
-    const indice = this.casaEm(p.x, p.y);
-    if (indice === null) return;
-    useGameStore.getState().agirNaCasa(indice);
-  }
-
-  private aoMover(p: Phaser.Input.Pointer) {
-    const indice = this.casaEm(p.x, p.y);
-    if (indice !== this.hover) {
-      this.hover = indice;
-      this.dirty = true;
-    }
-  }
 
   /* ---------------- loop ---------------- */
 
@@ -169,9 +141,11 @@ export class GridScene extends Phaser.Scene {
       return;
     }
 
-    const tamanho = Math.min(dom.width, dom.height);
-    const x = dom.left + (dom.width - tamanho) / 2;
-    const y = dom.top + (dom.height - tamanho) / 2;
+    // O canvas renderiza em pixels do dispositivo (zoom = 1/dpr); o DOM mede em px CSS.
+    const k = this.escala();
+    const tamanho = Math.min(dom.width, dom.height) * k;
+    const x = (dom.left + (dom.width - tamanho / k) / 2) * k;
+    const y = (dom.top + (dom.height - tamanho / k) / 2) * k;
     if (!this.visivel || x !== this.rect.x || y !== this.rect.y || tamanho !== this.rect.tamanho) {
       this.rect = { x, y, tamanho };
       this.celula = tamanho / NUCLEO.lado;
@@ -199,6 +173,12 @@ export class GridScene extends Phaser.Scene {
       this.dirty = false;
     }
     this.desenharEfeitos();
+  }
+
+  /** Pixels do dispositivo por pixel CSS (o GameCanvas põe zoom = 1/dpr). */
+  private escala(): number {
+    const zoom = this.scale.zoom;
+    return zoom > 0 ? 1 / zoom : 1;
   }
 
   private esconder() {
@@ -239,14 +219,15 @@ export class GridScene extends Phaser.Scene {
       this.desenharCasa(gp, casa, x, y, anel(i), t);
     });
 
-    // Realce da casa sob o ponteiro: verde se a ferramenta cabe, coral se não.
-    if (this.hover !== null && this.hover !== NUCLEO.indiceReceptor) {
-      const { x, y } = this.centroDaCasa(this.hover);
-      const casa = nucleo.grade[this.hover];
+    // Realce da casa sob o ponteiro (vem do DOM): verde se a ferramenta cabe, coral se não.
+    const hover = useGameStore.getState().casaSobPonteiro;
+    if (hover !== null && hover !== NUCLEO.indiceReceptor && hover >= 0 && hover < nucleo.grade.length) {
+      const { x, y } = this.centroDaCasa(hover);
+      const casa = nucleo.grade[hover];
       let ok: boolean;
       if (ferramenta === "remover") ok = !!casa && casa.tipo === "peca";
       else if (casa?.tipo === "entulho") ok = true;
-      else ok = podeColocar(nucleo.grade, this.hover, ferramenta).ok;
+      else ok = podeColocar(nucleo.grade, hover, ferramenta).ok;
       gp.lineStyle(2, ok ? CORES.valido : CORES.invalido, 0.9);
       gp.strokeRoundedRect(x - lado / 2, y - lado / 2, lado, lado, raio);
     }

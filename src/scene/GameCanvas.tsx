@@ -16,14 +16,21 @@ export function GameCanvas() {
     const parent = containerRef.current;
     if (!parent || jogoRef.current) return;
 
+    // Hi-DPI: o canvas tem pixels do dispositivo e o CSS o encolhe de volta (zoom = 1/dpr).
+    const medir = () => {
+      const dpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
+      return { dpr, largura: Math.max(1, Math.round(parent.clientWidth * dpr)), altura: Math.max(1, Math.round(parent.clientHeight * dpr)) };
+    };
+    const inicial = medir();
     const jogo = new Phaser.Game({
       type: Phaser.AUTO,
       parent,
       backgroundColor: "#0d1230",
       scale: {
-        mode: Phaser.Scale.RESIZE,
-        width: "100%",
-        height: "100%",
+        mode: Phaser.Scale.NONE,
+        width: inicial.largura,
+        height: inicial.altura,
+        zoom: 1 / inicial.dpr,
       },
       scene: [BackgroundScene, GridScene],
       audio: { noAudio: true },
@@ -31,7 +38,15 @@ export function GameCanvas() {
     });
     jogoRef.current = jogo;
 
+    const aoRedimensionar = () => {
+      const { dpr, largura, altura } = medir();
+      jogo.scale.setZoom(1 / dpr);
+      jogo.scale.resize(largura, altura);
+    };
+    window.addEventListener("resize", aoRedimensionar);
+
     return () => {
+      window.removeEventListener("resize", aoRedimensionar);
       jogo.destroy(true);
       jogoRef.current = null;
     };

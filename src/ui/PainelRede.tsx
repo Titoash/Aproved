@@ -1,4 +1,4 @@
-import { BATERIA, ORDEM_USINAS, USINAS, VILA, type Desbloqueio } from "../content/era1";
+import { BATERIA, MELHORIAS, ORDEM_MELHORIAS, ORDEM_USINAS, USINAS, VILA, type Desbloqueio } from "../content/era1";
 import {
   custoProximaBateria,
   custoProximaMelhoria,
@@ -11,7 +11,8 @@ import {
   podeMelhorarUsina,
 } from "../sim/acoes";
 import { fatorMelhoria } from "../sim/custos";
-import { formatarEnergia, formatarNumero, formatarPotencia } from "../sim/formatar";
+import { fatorPotenciaUsina, podeComprarMelhoria } from "../sim/melhorias";
+import { formatarCreditos, formatarEnergia, formatarNumero, formatarPotencia } from "../sim/formatar";
 import { potenciaUsina } from "../sim/rede";
 import type { GameState, UsinaId } from "../sim/state";
 import { useGameStore } from "../store/gameStore";
@@ -39,7 +40,7 @@ function CardUsina({ id }: { id: UsinaId }) {
   const def = USINAS[id];
   const usina = state.rede.usinas[id];
   const bloqueio = textoBloqueio(state, def.desbloqueio);
-  const potenciaCada = def.potenciaKw * fatorMelhoria(usina.nivel);
+  const potenciaCada = def.potenciaKw * fatorMelhoria(usina.nivel) * fatorPotenciaUsina(state.melhorias, id);
 
   return (
     <article className={`card ${bloqueio ? "card--bloqueado" : ""}`}>
@@ -49,7 +50,7 @@ function CardUsina({ id }: { id: UsinaId }) {
       </div>
       <p className="card-desc">{def.descricao}</p>
       <div className="card-stats">
-        <span>⚡ {formatarPotencia(potenciaUsina(id, usina))}</span>
+        <span>⚡ {formatarPotencia(potenciaUsina(id, usina, state.melhorias))}</span>
         <span>{formatarPotencia(potenciaCada)} cada</span>
         <span>nível {usina.nivel}</span>
       </div>
@@ -144,6 +145,39 @@ function CardBateria() {
   );
 }
 
+function CardMelhoria({ id }: { id: (typeof ORDEM_MELHORIAS)[number] }) {
+  const state = useGameStore((s) => s.state);
+  const comprarMelhoria = useGameStore((s) => s.comprarMelhoria);
+  const def = MELHORIAS[id];
+  const comprada = state.melhorias[id];
+  const requisito = def.pesquisa !== undefined ? ` + 🔬 ${def.pesquisa}` : "";
+  return (
+    <article className={`card ${comprada ? "card--comprada" : ""}`}>
+      <div className="card-cabecalho">
+        <h3>{def.nome}</h3>
+        <span className="card-qtd">{comprada ? "✔ comprada" : "melhoria"}</span>
+      </div>
+      <p className="card-desc">{def.descricao}</p>
+      {comprada ? null : (
+        <div className="card-botoes">
+          <button
+            type="button"
+            className="botao botao--melhoria"
+            disabled={!podeComprarMelhoria(state, id)}
+            onClick={() => comprarMelhoria(id)}
+          >
+            <span className="botao-titulo">Comprar</span>
+            <span className={`botao-custo ${state.creditos < def.custo || state.pesquisa < (def.pesquisa ?? 0) ? "botao-custo--caro" : ""}`}>
+              {formatarCreditos(def.custo)}
+              {requisito}
+            </span>
+          </button>
+        </div>
+      )}
+    </article>
+  );
+}
+
 export function PainelRede() {
   return (
     <section className="painel painel-rede" aria-label="Rede">
@@ -154,6 +188,12 @@ export function PainelRede() {
         ))}
         <CardVila />
         <CardBateria />
+      </div>
+      <h3 className="melhorias-titulo">Melhorias da Rede</h3>
+      <div className="cards">
+        {ORDEM_MELHORIAS.filter((id) => MELHORIAS[id].camada === "rede").map((id) => (
+          <CardMelhoria key={id} id={id} />
+        ))}
       </div>
     </section>
   );

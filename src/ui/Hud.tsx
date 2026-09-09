@@ -68,6 +68,12 @@ export function Hud() {
         <span className={`faixa-chip ${balanco.faixa.id === "zonaDeOuro" ? "faixa-chip--ouro" : ""}`}>
           {balanco.faixa.nome} {formatarMultiplicador(balanco.multiplicador)}
         </span>
+        {balanco.motivoBateria ? (
+          <div className="hud-sub hud-sub--bateria">
+            🔋 bateria {balanco.motivoBateria === "cobrindo" ? "cobrindo" : "absorvendo"}{" "}
+            {formatarPotencia(balanco.motivoBateria === "cobrindo" ? balanco.cobertoKw : balanco.absorvidoKw)}
+          </div>
+        ) : null}
       </div>
 
       <div className="hud-item">
