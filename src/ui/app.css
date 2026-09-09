@@ -879,3 +879,17 @@ button {
 .kardashev-marco:last-of-type .kardashev-marco-rotulo {
   top: -22px;
 }
+
+.kardashev-marco-rotulo--curto {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .kardashev-marco-rotulo--longo {
+    display: none;
+  }
+
+  .kardashev-marco-rotulo--curto {
+    display: block;
+  }
+}
