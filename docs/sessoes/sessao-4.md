@@ -153,17 +153,17 @@ Não existe passarinho, logo ou personagem de terceiros em lugar nenhum.
 - Dica da barra: `Q* = 55 %` → "Adicione espelhos"; `Q* = 108 %` → "Tire um espelho…"; `Q* = 83 %` → sem dica.
 
 ## Critérios de pronto
-- [ ] Capturas com Playwright em 1280×800 e 390×844 conferidas contra a Parte A: hierarquia, sem cartões idênticos, sem caixa alta em rótulo, sombra chapada em tudo, o Receptor é o único elemento com brilho.
-- [ ] Espelhos apontam para a torre; pás giram com a potência; tanque mostra o nível; Receptor pulsa acima de 90 % e fica cinza no SCRAM.
-- [ ] Os 7 cards aparecem nos gatilhos certos, uma vez cada, e sobrevivem ao recarregamento.
-- [ ] O card da Cascata mostra os números do momento.
-- [ ] Dica da barra aparece e some conforme `Q*`.
-- [ ] Bipe sobre cada entulho; Bipe narrador nos cards; Bipe cansado no card offline.
-- [ ] Grade 7×7 comprável, expande sem perder peças, anel 3 só aceita espelho.
-- [ ] Fontes servidas de `public/fonts/`; nenhuma requisição a `fonts.googleapis.com`.
-- [ ] `prefers-reduced-motion` desliga partículas, giro, pulso e tremor.
-- [ ] Favicon próprio.
-- [ ] `npm test`, `npm run typecheck`, `npm run build` passam; `docs/ESTADO.md` e GDD §8.3 (nota do 7×7) atualizados.
+- [x] Capturas com Playwright em 1280×800 e 390×844 conferidas contra a Parte A: hierarquia, sem cartões idênticos, sem caixa alta em rótulo, sombra chapada em tudo, o Receptor é o único elemento com brilho.
+- [x] Espelhos apontam para a torre; pás giram com a potência; tanque mostra o nível; Receptor pulsa acima de 90 % e fica cinza no SCRAM.
+- [x] Os 7 cards aparecem nos gatilhos certos, uma vez cada, e sobrevivem ao recarregamento.
+- [x] O card da Cascata mostra os números do momento.
+- [x] Dica da barra aparece e some conforme `Q*`.
+- [x] Bipe sobre cada entulho; Bipe narrador nos cards; Bipe cansado no card offline.
+- [x] Grade 7×7 comprável, expande sem perder peças, anel 3 só aceita espelho.
+- [x] Fontes servidas de `public/fonts/`; nenhuma requisição a `fonts.googleapis.com`.
+- [x] `prefers-reduced-motion` desliga partículas, giro, pulso e tremor.
+- [x] Favicon próprio.
+- [x] `npm test`, `npm run typecheck`, `npm run build` passam; `docs/ESTADO.md` e GDD §8.3 (nota do 7×7) atualizados.
 
 ## Fora de escopo — não faça nesta sessão
 Era 2, transição de era, prestígio, som e música, prefetch de eras futuras, qualquer mudança nas fórmulas de calor, Rede ou offline.

@@ -1,44 +1,45 @@
 # Estado do projeto
 
-Atualizado ao fim da **Sessão 3** (Era 1 fechada por dentro).
+Atualizado ao fim da **Sessão 4** (Era 1 bonita: arte, cards, Bipes, Grade 7×7).
 
 ## Implementado
 
 ### Sessão 1 — Scaffold + Rede da Era 1
 - Vite 8 + React 19 + TypeScript 6 (strict), Zustand 5, Phaser 3.90, Vitest 5, oxlint. Scripts `dev`, `build`, `test`, `typecheck`, `lint`.
-- `src/sim/`: `state.ts`, `tick.ts` (100 ms fixos, `sim/tempo.ts`), `rede.ts`, `custos.ts`, `acoes.ts`, `formatar.ts` (PT-BR, prefixos SI), `save.ts` (único ponto com `localStorage`), `loop.ts` (rAF + acumulador limitado a 5 s).
-- `src/content/era1.ts`: usinas, vila, bateria, economia, faixas de `r` (GDD §4.1, §7, §8.2). HUD, lista da Rede, painel de progresso; fundo Phaser; tokens do §10.
+- `src/sim/`: estado, tick de 100 ms (`sim/tempo.ts`), Rede (balança, bateria, receita), custos, ações, formatação PT-BR, save (único ponto com `localStorage`), loop.
+- `src/content/era1.ts`: usinas, vila, bateria, economia e faixas de `r` (GDD §4.1, §7, §8.2).
 
 ### Sessão 2 — Núcleo da Era 1
-- `content/era1-nucleo.ts`, `sim/nucleo.ts`, `calor.ts`, `cascata.ts`, `estabilidade.ts`, tick em seis passos, desbloqueio por 🔬, `acoesNucleo.ts`, save v2. `GridScene` (grade, rampa de calor, partículas, onda de choque), painel do Núcleo com barras de Calor e Estabilidade, seletor de peças, SCRAM, modo seguro, Receptor cerâmico.
+- Torre Solar: `nucleo.ts`, `calor.ts`, `cascata.ts`, `estabilidade.ts`, tick em seis passos, desbloqueio por 🔬, `acoesNucleo.ts`, `GridScene`, painel do Núcleo.
 
 ### Sessão 3 — Bateria, offline, Kardashev, melhorias, mobile
-- **Docs:** `docs/correcoes-gdd-v0.4.md` aplicado ao GDD (§3, §4.1, §6, §7, §8.2, §8.3, §12).
-- **Bateria como amortecedor (`sim/rede.ts`):** `BATERIA.potenciaKw = 10`; `balancoRede()` devolve `rBruto`, `faixaBruta`, `cobertoKw`, `absorvidoKw`, `motivoBateria` e a `faixa` efetiva pela regra "falha vira neutro, nunca ouro"; carga e descarga limitadas por ±10 kW por unidade e pela energia no tick; opções `{ potenciaNucleoKw, dtS, melhorias, semBateria }`. HUD mostra a faixa efetiva e "🔋 bateria cobrindo/absorvendo N kW".
-- **Melhorias nomeadas (`content/era1.ts` `MELHORIAS`, `sim/melhorias.ts`):** Lâminas de fibra (₵ 200, cata-vento e turbina eólica +25 %) lida em `potenciaUsina()`; Rastreamento solar (₵ 150 + 🔬 30, espelhos a 5 u/s) lido como `calorPorEspelho()` e passado a `balancoDeCalor`, `equilibrioU` e `passoCalor`. Compra única; 🔬 é requisito. Cards nos painéis da Rede e do Núcleo; a marca de `Q*` na barra move na hora.
-- **Offline (`sim/offline.ts`, `save.ts` v3):** `salvoEmMs` carimbado no save e no export; janela `min(agora − salvoEmMs, 8 h)`, relógio para trás = 0; Rede sobre o balanço congelado sem bateria ×0,5; Núcleo em modo seguro obrigatório (desligado se `T* ≥ 95 %`, senão potência, pesquisa e Estabilidade ×0,7); `Q = Q*` limitado a 95 %, cronômetro e SCRAM zerados; nunca cascateia; não roda ticks. `carregar()` aplica e devolve o relatório; `CardOffline` mostra uma vez (a partir de 60 s de ausência). Importar JSON também aplica o offline desde o carimbo. Migração v2 → v3.
-- **Medidor Kardashev (`content/kardashev.ts`, `sim/kardashev.ts`, `ui/PainelKardashev.tsx`):** `P` instalada = (usinas + Núcleo) × 1000; barra log 10³–10²⁷ W com marcos (1 MW auxiliar, Humanidade 2026, Tipo I, Tipo II, Sol); `K = (log10 P − 6) ÷ 10` a partir de 1 MW, antes "abaixo da escala" e o próximo marco; `formatarWatts` científica com prefixo SI acima de 1 MW.
-- **Input da grade pelo DOM:** `.grade-area` recebe `pointerup` (ignora arrasto > 8 px e `pointercancel`), `touch-action: pan-y`, grava `casaSobPonteiro` no store; `indiceDaCasa()` em `scene/layout.ts` é a conta única, testada. `GridScene` não registra input e só desenha. `.game-canvas` é `pointer-events: none`.
-- **Hi-DPI:** `GameCanvas` usa `Scale.NONE` com `zoom = 1/devicePixelRatio` e `resize(css × dpr)` no `resize` da janela; a cena converte px CSS → px do dispositivo por `1/scale.zoom`. Conferido: em 2× o canvas tem 780×1400 px para 390×700 CSS e a grade sai nítida.
-- **Mobile:** abaixo de 900 px a página inteira rola (a camada de UI tinha altura fixa e os painéis ficavam espremidos com rolagem interna — bug das Sessões 1–2, corrigido); rótulos curtos no Kardashev abaixo de 600 px.
-- **React por tick:** o loop chama `onTicks` só em frames com tick inteiro, então o store publica no máximo 10 snapshots/s; painéis assinam `state` inteiro (muda a cada tick de qualquer jeito). `useShallow` não trouxe ganho e não foi aplicado.
-- **Testes (`npm test`, 197):** faixa efetiva da bateria (0,7 coberto → neutro; vazia → apagão; 1,4 absorvido → neutro; cheia → saturação; ouro fica ouro; déficit > 10 kW por unidade → apagão; limite por energia; multiplicador sobre toda a energia vendida; `semBateria`); offline (10 min = receita/s × 0,5 × 600; 9 h = 8 h; relógio para trás = 0; `T* = 83 %` → ×0,7 e `Q = Q*`; `T* ≥ 95 %` → desligado com motivo; `h = 6` e sem turbinas também desligados); melhorias (Lâminas só nas eólicas; Rastreamento leva `Q*` de 83,3 a 104,2 e cascateia sem reajuste; compra única); Kardashev (16 kW abaixo da escala; 1 MW → K = 0; 2×10¹³ W no marco da humanidade; formatação); migração v2 → v3; `indiceDaCasa` nos cantos e fora da grade.
-- **Verificação no navegador (Playwright + Chromium):** bateria cobrindo 4 kW aparece no HUD com preço ×1 e vira apagão ao esvaziar; card "Enquanto você esteve fora" com 2 h (₵ 13,5 mil, 🔬 ≈ 10,5 mil, Estabilidade +80) e com 9 h → 8 h e "Núcleo ficou desligado"; Kardashev com marcos, "K abaixo da escala" a 21 kW e `K = 0,01` a 1,2 MW; Rastreamento move `Q*` de 83,3 para 104,2 na hora; Lâminas levam o cata-vento a 1,25 kW; no viewport de 390 px com toque e DPR 2, um arrasto de dedo sobre a grade rola a página sem colocar peça e um toque coloca exatamente uma; canvas em 2×.
+- Bateria como amortecedor (faixa efetiva), melhorias nomeadas (Lâminas, Rastreamento), offline puro, medidor Kardashev, input da grade pelo DOM, hi-DPI, página rolando no mobile.
+
+### Sessão 4 — Era 1 bonita
+- **Parte D — Grade 7×7:** `nucleo.lado` (5 ou 7) no estado; `anel()`, `contar()`, `podeColocar()`, `entulharAnel1()` por lado; anel 3 a 0,25 só para heliostato; `expandirGrade()` embute o 5×5 no 7×7 com deslocamento (+1, +1); Grade 7×7 como melhoria (₵ 800 + 🔬 150) que expande a grade na compra; `GridScene` e o input do DOM leem o lado. Save **v4** (`nucleo.lado`, `nucleo.ultimaCascata`, `cardsVistos`) com migração v3 → v4. Nota de balanço do 7×7 no GDD §8.3.
+- **Parte B — Cards explicativos:** `content/cards-era1.ts` com os textos finais (abertura em 3 telas, tanque, Rastreamento, Cascata, bateria) e `cardParaEvento()` como única tabela evento → card. O sim expõe `eventos` por tick/ação (`primeiroCarregamento`, `primeiraCompra` só na primeira unidade, `melhoriaComprada`, `cascata` com `entrada`/`saida` do tick, também gravados em `nucleo.ultimaCascata`). O store enfileira os cards, mostra um por vez, marca como visto ao fechar (`cardsVistos` no save); só a abertura pausa o jogo. `CardExplicativo` com Bipe narrador, "Próximo"/"Entendi".
+- **Parte C — Bipes:** `ui/bipe/Bipe.tsx` (SVG original: corpo, um olho com brilho, antena, braços em cápsula, sombra elíptica; papéis operador/manutenção/cientista; expressões neutro/apontando/alarmado/cansado; piscar em CSS, desligado em reduced-motion). Narrador dos cards, cansado no card offline, versão mínima em `Graphics` flutuando sobre cada entulho.
+- **Parte A — Direção de arte:**
+  - Fontes locais: `public/fonts/Outfit-latin.woff2` e `Nunito-latin.woff2` (variáveis, OFL incluída) com `@font-face` e `font-display: swap`; nenhuma requisição ao Google Fonts. Favicon próprio (esfera da rampa sobre a torre).
+  - Tokens novos em `tokens.css` (`--casa`, `--casa-anel1`, `--torre`, `--turbina-carcaca`, `--tanque`, `--entulho`, `--glow-sun`, `--glow-coral`, escala 12/14/16/20/28/40).
+  - `GridScene`: camadas fundo/estático/dinâmico/efeitos; base elíptica sob a grade; espelhos girados para a torre com a face escurecendo pelo anel e faixa de brilho (varre a face a cada 6 s com o Rastreamento); turbinas com pás girando pelo consumo e fio de vapor; radiadores com aletas que clareiam ao dissipar; tanques com nível na rampa; torre com esfera na rampa, brilho por `T`, pulso acima de 90 %, cinza-azulada com anel pontilhado em SCRAM; entulho em dois pedaços com borda verde quando a limpeza é grátis; Cascata com flash, 12 brasas e pop do entulho; partículas pela metade; `prefers-reduced-motion` desliga partículas, giro, pulso, tremor e varredura. O desenho é recortado ao retângulo do palco (máscara) para não vazar por cima do HUD quando o palco rola.
+  - UI: HUD em faixa sem cartão (₵, ⚡ com o ponto de `r`, 🔥 na rampa com a esfera brilhando na zona de ouro, 🔬, 🛡); Núcleo como palco solto sobre o fundo; barra de calor segmentada com marca de `Q*` em triângulo, limite e **dica derivada de `Q*`** (`dicaDeEquilibrio()` no sim); Estabilidade de leaf a sun; seletor e controles em pílulas; Rede em lista com divisórias e melhorias como linhas com marca de comprado; Kardashev em largura total; save num rodapé discreto com a caixa de importar escondida; pop de 180 ms só no número que mudou; foco de teclado visível; sem caixa alta em rótulo; sombra chapada em tudo. Mobile: HUD compacto fixo no topo, ordem grade → calor → seletor (rolável) → Estabilidade → Kardashev → Rede → save.
+- **Testes (`npm test`, 235):** anel para lado 7; `expandirGrade`; `h` com anel 3 e recusas no anel 3; compra da Grade 7×7 (₵, 🔬, única, índice 48); migração v3 → v4; eventos (`primeiraCompra` só na primeira, `cascata` com os fluxos do tick, `marcarCardVisto` persistido); dica da barra; store (abertura pausa, cards uma vez, fila).
+- **Verificação no navegador (Playwright + Chromium, 1280×800 e 390×844):** abertura em 3 telas pausando o jogo; fontes de `/fonts/` e nenhuma ao Google; favicon; sem caixa alta; Receptor laranja na zona de ouro e cinza no SCRAM; cards de tanque, Rastreamento, Cascata (25 u/s entrando, 24,7 u/s saindo, do tick) e bateria, uma vez cada e ausentes após recarregar; dica aparece com o tanque e some ao tirá-lo; Grade 7×7 expande preservando as peças, recusa turbina e aceita espelho no anel 3 (`h = 5,25`); ordem mobile confirmada por posição; reduced-motion desliga o piscar do Bipe.
 
 ## Próxima sessão
-`docs/sessoes/sessao-4.md` (a escrever) — passe de arte (tokens, rampa de calor, sombras, glow), 3 cards explicativos da Era 1 (o tanque de sal e o Rastreamento precisam de card), Grade 7×7, Bipes, fontes locais, favicon.
+`docs/sessoes/sessao-5.md` (a escrever) — Era 2 (fissão: esgotamento e calor de decaimento) e transição de era (zoom cósmico e troca de paleta). MVP = Eras 1–2.
 
-## Decisões da Sessão 3 que o GDD não fixa (conferir)
-1. **Relatório offline** só aparece a partir de 60 s de ausência (`OFFLINE.minimoRelatorioMs`); o ganho é aplicado sempre.
-2. **Importar JSON** aplica o offline desde o `salvoEmMs` do arquivo, como um carregamento.
-3. **Estabilidade offline** só sobe se o Núcleo produz (potência > 0), como no tick.
-4. **Q ao voltar** quando o Núcleo ficou desligado é 95 % da capacidade; sem modo seguro ligado, uma grade acima do limite volta a subir na hora — o card avisa.
-5. **1 MW** entra como marco auxiliar na barra Kardashev (é onde K = 0 e o próximo marco antes da humanidade ficaria a 9 ordens de grandeza).
-6. **Remover peça** continua sem reembolso; **cronômetro da Cascata** e **SCRAM** como na Sessão 2.
+## Decisões da Sessão 4 que o GDD não fixa (conferir)
+1. **`primeiraCompra`** dispara quando a contagem daquele item passa de 0 para 1 (também se o jogador removeu tudo e comprou de novo); o card só aparece uma vez por `cardsVistos`.
+2. **Card da Cascata** usa `ultimaCascata` (persistido), então sobrevive a um recarregamento entre a Cascata e o "Entendi".
+3. **Importar JSON** fecha qualquer card aberto e não redispara a abertura (só jogo novo e "Resetar" disparam).
+4. **Remover peça** e **entulho** como nas sessões anteriores; a Grade 7×7 exige Núcleo desbloqueado.
+5. **Glow** só em três lugares: esfera do Receptor, esfera do 🔥 no HUD (a partir de 70 %) e o botão "Desbloquear o Núcleo" quando comprável.
 
 ## Pendências
-- Sessão 4: cards explicativos, passe de arte, Grade 7×7 (₵ 800 + 🔬 150), Bipes, fontes locais, favicon, som.
-- Contenção, Era 2 e transição de era, prestígio.
-- O gesto de rolagem sintetizado do Chromium (`Input.synthesizeScrollGesture`) não funciona no headless deste ambiente; o roteiro usa `dispatchTouchEvent`. Vale um teste manual num Android real.
-- A onda de choque e o tremor da Cascata usam a câmera do Phaser; com o canvas em 2× ficaram proporcionais, mas não foram revistos no passe de arte.
+- Sessão 5+: Era 2, transição de era, Contenção, prestígio, som.
+- Bipe no entulho é a versão mínima em `Graphics`; a versão SVG completa vive nos cards.
+- O tremor da Cascata usa a câmera do Phaser e aparece só dentro do recorte do palco.
 - Painéis assinam o `state` inteiro e re-renderizam a cada tick (10 Hz); se a lista crescer, fatiar com seletores.
+- O roteiro de teste usa `dispatchTouchEvent` para o toque (o gesto sintetizado do Chromium não funciona no headless); vale um teste manual em Android.
