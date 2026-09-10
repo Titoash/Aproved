@@ -1,5 +1,6 @@
 import { GameCanvas } from "./scene/GameCanvas";
 import { useTick } from "./store/useTick";
+import { CardExplicativo } from "./ui/CardExplicativo";
 import { CardOffline } from "./ui/CardOffline";
 import { Hud } from "./ui/Hud";
 import { PainelKardashev } from "./ui/PainelKardashev";
@@ -23,6 +24,7 @@ export default function App() {
         </main>
       </div>
       <CardOffline />
+      <CardExplicativo />
     </div>
   );
 }

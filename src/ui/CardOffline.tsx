@@ -1,6 +1,7 @@
 import { MODO_SEGURO } from "../content/era1-nucleo";
 import { formatarCreditos, formatarDuracao, formatarNumero, formatarPorcentagem } from "../sim/formatar";
 import { useGameStore } from "../store/gameStore";
+import { Bipe } from "./bipe/Bipe";
 
 export function CardOffline() {
   const relatorio = useGameStore((s) => s.relatorioOffline);
@@ -10,9 +11,12 @@ export function CardOffline() {
   return (
     <div className="card-offline-fundo" role="dialog" aria-modal="true" aria-labelledby="card-offline-titulo">
       <article className="card card-offline">
-        <div className="card-cabecalho">
-          <h3 id="card-offline-titulo">Enquanto você esteve fora</h3>
-          <span className="card-qtd">{formatarDuracao(relatorio.duracaoMs)}</span>
+        <div className="card-cabecalho card-offline-cabecalho">
+          <Bipe papel="manutencao" expressao="cansado" tamanho={56} />
+          <div>
+            <h3 id="card-offline-titulo">Enquanto você esteve fora</h3>
+            <span className="card-qtd">{formatarDuracao(relatorio.duracaoMs)}</span>
+          </div>
         </div>
         <ul className="card-offline-lista">
           <li>

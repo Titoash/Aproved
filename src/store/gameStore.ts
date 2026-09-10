@@ -5,9 +5,11 @@
  * (peça selecionada, último aviso da grade).
  */
 import { create } from "zustand";
+import { cardParaEvento, CARDS_ERA1 } from "../content/cards-era1";
 import { OFFLINE } from "../content/era1";
 import * as acoes from "../sim/acoes";
 import * as nucleo from "../sim/acoesNucleo";
+import { cardVisto, marcarCardVisto } from "../sim/cards";
 import { comprarMelhoria } from "../sim/melhorias";
 import { calcularOffline, type RelatorioOffline } from "../sim/offline";
 import { carregar, exportarJson, importarJson, INTERVALO_SAVE_MS, limpar, salvar } from "../sim/save";
@@ -16,6 +18,11 @@ import { avancarTicks } from "../sim/tick";
 
 /** O que o clique numa casa da grade faz. */
 export type Ferramenta = PecaId | "remover";
+
+export interface CardAberto {
+  id: string;
+  tela: number;
+}
 
 export interface AvisoGrade {
   indice: number;
@@ -38,6 +45,11 @@ export interface GameStore {
   casaSobPonteiro: number | null;
   /** Relatório "Enquanto você esteve fora", mostrado uma vez por carregamento. */
   relatorioOffline: RelatorioOffline | null;
+  /** Card explicativo em exibição e os que esperam a vez. */
+  cardAberto: CardAberto | null;
+  filaCards: string[];
+  /** Só o card de abertura pausa o jogo. */
+  pausado: boolean;
 
   avancarTicks: (n: number) => void;
 
@@ -62,6 +74,8 @@ export interface GameStore {
   comprarReceptorCeramico: () => boolean;
   setCasaSobPonteiro: (indice: number | null) => void;
   fecharRelatorioOffline: () => void;
+  /** "Próximo" no card aberto; na última tela fecha e marca como visto. */
+  avancarCard: () => void;
 
   // Save
   salvarAgora: () => boolean;
@@ -82,12 +96,45 @@ function estadoCarregado(): { state: GameState; relatorio: RelatorioOffline | nu
   return { state: carregado.state, relatorio: relatorioVisivel(carregado.relatorio) };
 }
 
+/** Ids de card disparados pelos eventos do estado, ainda não vistos nem já enfileirados. */
+function cardsDosEventos(state: GameState, jaEnfileirados: readonly string[]): string[] {
+  const novos: string[] = [];
+  for (const evento of state.eventos) {
+    const id = cardParaEvento(evento);
+    if (id && CARDS_ERA1[id] && !cardVisto(state, id) && !jaEnfileirados.includes(id) && !novos.includes(id)) novos.push(id);
+  }
+  return novos;
+}
+
 export const useGameStore = create<GameStore>()((set, get) => {
-  const { state: inicial, relatorio: relatorioInicial } = estadoCarregado();
+  const carregado = estadoCarregado();
+  // Sem save: o jogo começa pelo card de abertura.
+  const inicial: GameState = carregado.relatorio === null && carregado.state.salvoEmMs === 0
+    ? { ...carregado.state, eventos: [{ tipo: "primeiroCarregamento" }] }
+    : carregado.state;
+  const relatorioInicial = carregado.relatorio;
+  // Cards devidos já na criação (jogo novo → abertura).
+  const cardsIniciais = cardsDosEventos(inicial, []);
+
+  /** Lê `state.eventos`, enfileira os cards devidos e abre o primeiro se nada está aberto. */
+  const processarEventos = (state: GameState) => {
+    const { cardAberto, filaCards } = get();
+    const enfileirados = [...filaCards, ...(cardAberto ? [cardAberto.id] : [])];
+    const novos = cardsDosEventos(state, enfileirados);
+    if (novos.length === 0) return;
+    const fila = [...filaCards, ...novos];
+    if (cardAberto) {
+      set({ filaCards: fila });
+      return;
+    }
+    const [primeiro, ...resto] = fila;
+    set({ cardAberto: { id: primeiro, tela: 0 }, filaCards: resto, pausado: !!CARDS_ERA1[primeiro].pausa });
+  };
 
   const aplicar = (proximo: GameState | null): boolean => {
     if (!proximo) return false;
     set({ state: proximo });
+    processarEventos(proximo);
     return true;
   };
 
@@ -109,11 +156,16 @@ export const useGameStore = create<GameStore>()((set, get) => {
     avisoGrade: null,
     casaSobPonteiro: null,
     relatorioOffline: relatorioInicial,
+    cardAberto: cardsIniciais.length > 0 ? { id: cardsIniciais[0], tela: 0 } : null,
+    filaCards: cardsIniciais.slice(1),
+    pausado: cardsIniciais.length > 0 ? !!CARDS_ERA1[cardsIniciais[0]].pausa : false,
 
     avancarTicks(n) {
-      const { state, salvoEmTempoMs } = get();
+      const { state, salvoEmTempoMs, pausado } = get();
+      if (pausado) return;
       const proximo = avancarTicks(state, n);
       set({ state: proximo });
+      processarEventos(proximo);
       if (proximo.tempoMs - salvoEmTempoMs >= INTERVALO_SAVE_MS) salvarEstado(proximo);
     },
 
@@ -162,6 +214,25 @@ export const useGameStore = create<GameStore>()((set, get) => {
     },
     fecharRelatorioOffline: () => set({ relatorioOffline: null }),
 
+    avancarCard() {
+      const { cardAberto, filaCards, state } = get();
+      if (!cardAberto) return;
+      const def = CARDS_ERA1[cardAberto.id];
+      if (def && cardAberto.tela < def.telas.length - 1) {
+        set({ cardAberto: { id: cardAberto.id, tela: cardAberto.tela + 1 } });
+        return;
+      }
+      const visto = marcarCardVisto(state, cardAberto.id);
+      const [proximo, ...resto] = filaCards;
+      set({
+        state: visto,
+        cardAberto: proximo ? { id: proximo, tela: 0 } : null,
+        filaCards: resto,
+        pausado: proximo ? !!CARDS_ERA1[proximo]?.pausa : false,
+      });
+      salvarEstado(visto);
+    },
+
     salvarAgora: () => salvarEstado(get().state),
     exportar: () => exportarJson(get().state),
 
@@ -169,13 +240,13 @@ export const useGameStore = create<GameStore>()((set, get) => {
       // Um save exportado há tempo também rende offline desde o carimbo.
       const agora = Date.now();
       const { state, relatorio } = calcularOffline(importarJson(json, agora), agora);
-      set({ state, avisoGrade: null, relatorioOffline: relatorioVisivel(relatorio) });
+      set({ state, avisoGrade: null, relatorioOffline: relatorioVisivel(relatorio), cardAberto: null, filaCards: [], pausado: false });
       salvarEstado(state);
     },
 
     resetar() {
       limpar();
-      const state = estadoInicial();
+      const state: GameState = { ...estadoInicial(), eventos: [{ tipo: "primeiroCarregamento" }] };
       set({
         state,
         salvoEmTempoMs: state.tempoMs,
@@ -184,7 +255,11 @@ export const useGameStore = create<GameStore>()((set, get) => {
         ferramenta: "heliostato",
         casaSobPonteiro: null,
         relatorioOffline: null,
+        cardAberto: null,
+        filaCards: [],
+        pausado: false,
       });
+      processarEventos(state);
     },
   };
 });

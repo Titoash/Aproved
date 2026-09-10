@@ -893,3 +893,103 @@ button {
     display: block;
   }
 }
+
+/* ---------- Sessão 4: cards explicativos e Bipes ---------- */
+
+.card-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(7, 10, 30, 0.72);
+}
+
+.card-explicativo {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px;
+  width: min(100%, 560px);
+  padding: 20px 22px;
+  border-radius: var(--raio);
+  background: var(--card);
+  border: 1px solid var(--card-borda);
+  box-shadow: var(--sombra-chapada);
+}
+
+.card-explicativo-bipe {
+  align-self: end;
+}
+
+.card-explicativo h3 {
+  margin: 0 0 8px;
+  font-family: var(--fonte-titulo);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.card-explicativo p {
+  margin: 0 0 14px;
+  max-width: 62ch;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.card-explicativo-passo {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.card-explicativo-acoes {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.card-offline-cabecalho {
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+}
+
+.bipe-palpebra {
+  transform-origin: center;
+  transform: scaleY(0);
+  animation: bipe-piscar 5s ease-in-out infinite;
+}
+
+.bipe--cansado .bipe-palpebra {
+  animation: none;
+}
+
+@keyframes bipe-piscar {
+  0%,
+  94%,
+  100% {
+    transform: scaleY(0);
+  }
+
+  96%,
+  98% {
+    transform: scaleY(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bipe-palpebra {
+    animation: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .card-explicativo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .card-explicativo-bipe {
+    justify-self: center;
+  }
+}

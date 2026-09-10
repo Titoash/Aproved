@@ -2,9 +2,15 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { USINAS } from "../content/era1";
 import { useGameStore } from "./gameStore";
 
+/** Jogo novo abre o card de abertura e pausa; os testes de jogo o fecham antes. */
+function fecharCards() {
+  for (let i = 0; i < 10 && useGameStore.getState().cardAberto; i++) useGameStore.getState().avancarCard();
+}
+
 describe("gameStore", () => {
   beforeEach(() => {
     useGameStore.getState().resetar();
+    fecharCards();
   });
 
   it("comprar cata-vento aumenta a potência e rende créditos ao avançar", () => {
@@ -42,6 +48,7 @@ describe("gameStore", () => {
 describe("gameStore — Núcleo", () => {
   beforeEach(() => {
     useGameStore.getState().resetar();
+    fecharCards();
   });
 
   it("desbloqueia o Núcleo por ₵ 100 e coloca peças pela ferramenta", () => {
@@ -67,5 +74,49 @@ describe("gameStore — Núcleo", () => {
     expect(useGameStore.getState().scramManual()).toBe(false); // já em SCRAM
     expect(useGameStore.getState().alternarModoSeguro()).toBe(true);
     expect(useGameStore.getState().state.nucleo?.modoSeguro).toBe(true);
+  });
+});
+
+describe("gameStore — cards explicativos", () => {
+  beforeEach(() => {
+    useGameStore.getState().resetar();
+  });
+
+  it("jogo novo abre o card de abertura, pausa, e ao terminar marca como visto e despausa", () => {
+    const g = () => useGameStore.getState();
+    expect(g().cardAberto).toEqual({ id: "abertura", tela: 0 });
+    expect(g().pausado).toBe(true);
+    const tempo = g().state.tempoMs;
+    g().avancarTicks(10);
+    expect(g().state.tempoMs).toBe(tempo); // pausado: nada anda
+    g().avancarCard();
+    expect(g().cardAberto).toEqual({ id: "abertura", tela: 1 });
+    g().avancarCard();
+    g().avancarCard();
+    expect(g().cardAberto).toBeNull();
+    expect(g().pausado).toBe(false);
+    expect(g().state.cardsVistos).toEqual(["abertura"]);
+    g().avancarTicks(10);
+    expect(g().state.tempoMs).toBe(tempo + 1000);
+  });
+
+  it("cards de compra aparecem uma vez e enfileiram", () => {
+    const g = () => useGameStore.getState();
+    g().avancarCard(); g().avancarCard(); g().avancarCard();
+    g().importar(JSON.stringify({ ...g().state, creditos: 5000, pesquisa: 50, cardsVistos: ["abertura"] }));
+    expect(g().cardAberto).toBeNull();
+    expect(g().comprarBateria()).toBe(true);
+    expect(g().cardAberto).toEqual({ id: "bateria", tela: 0 });
+    expect(g().pausado).toBe(false);
+    expect(g().comprarMelhoria("rastreamentoSolar")).toBe(true);
+    expect(g().filaCards).toEqual(["rastreamento"]);
+    g().avancarCard();
+    expect(g().cardAberto).toEqual({ id: "rastreamento", tela: 0 });
+    g().avancarCard();
+    expect(g().cardAberto).toBeNull();
+    expect(g().state.cardsVistos).toEqual(["abertura", "bateria", "rastreamento"]);
+    // Segunda bateria não repete o card.
+    expect(g().comprarBateria()).toBe(true);
+    expect(g().cardAberto).toBeNull();
   });
 });
