@@ -176,7 +176,9 @@ Desbloqueio: ₵ 100 (tutorial guiado: "construa o receptor").
 
 **Tanque de sal fundido** aumenta a capacidade sem mudar Q*: com um tanque, T = 100 ÷ 250 = 40 % — sai da zona de ouro e a pesquisa cai para ×0,5. O tanque compra margem e cobra em pesquisa (precisa de card explicativo).
 
-Melhorias do Núcleo: **Rastreamento solar** (₵ 150 + 🔬 30): cada espelho injeta 5 u/s em vez de 4 — isso muda `Q*`, e a marca do equilíbrio na barra move na hora para o jogador perceber que precisa reajustar · Receptor cerâmico (capacidade +50, ₵ 300 + 🔬 80) · Grade 7×7 (₵ 800 + 🔬 150; abre o anel 3 a 25 %; Sessão 4).
+Melhorias do Núcleo: **Rastreamento solar** (₵ 150 + 🔬 30): cada espelho injeta 5 u/s em vez de 4 — isso muda `Q*`, e a marca do equilíbrio na barra move na hora para o jogador perceber que precisa reajustar · Receptor cerâmico (capacidade +50, ₵ 300 + 🔬 80) · **Grade 7×7** (₵ 800 + 🔬 150): o 5×5 é embutido no 7×7 com deslocamento (+1, +1), peças e entulho preservados; o anel 3 (24 casas externas) pesa 0,25 e só aceita heliostato.
+
+**Consequência de balanço do 7×7:** com 2 turbinas e todas as casas de espelho, `h` chega a 6 + 8 + 24 × 0,25 = 20 → `Q* = 333 u`, que só cabe na zona de ouro com tanques (3 tanques → capacidade 550 → `T* ≈ 61 %`; 2 tanques + Receptor cerâmico → 450 → `T* ≈ 74 %`). A grade grande existe para ser usada **junto** com os tanques; a dica da barra de calor continua valendo.
 
 ### 8.4 Saída da Era 1
 Estabilidade 100 % + pesquisa "Fissão básica" (🔬 3 000) + ₵ 50 000 → Era 2. (Com o Núcleo em ~16 kW na zona de ouro, 🔬 3 000 leva 20–30 min de operação.) Card explicativo de transição: de kW para MW.
