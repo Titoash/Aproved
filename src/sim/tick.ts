@@ -7,14 +7,14 @@
  *   5. pesquisa e Estabilidade, pela faixa de T depois do passo 4;
  *   6. modo seguro, cronômetro e checagem da Cascata.
  */
-import { CASCATA, MODO_SEGURO, type FaixaCalor } from "../content/era1-nucleo";
+import { CASCATA, MODO_SEGURO, NUCLEO, type FaixaCalor } from "../content/era1-nucleo";
 import { faixaDeCalor, pesquisaPorSegundo, temperatura } from "./calor";
 import { aplicarCascata, atualizarCronometro, deveCascatear, emScram, scram } from "./cascata";
 import { passoEstabilidade } from "./estabilidade";
-import { capacidadeU, passoCalor, potenciaNucleoKw } from "./nucleo";
+import { capacidadeU, contar, espelhosEfetivosDe, passoCalor, potenciaNucleoKw } from "./nucleo";
 import { calorPorEspelho } from "./melhorias";
 import { balancoRede, passoRede, type BalancoRede } from "./rede";
-import type { GameState, NucleoState } from "./state";
+import type { EventoJogo, GameState, NucleoState } from "./state";
 import { DT_ACUMULADO_MAX_MS, TICK_MS } from "./tempo";
 
 export { DT_ACUMULADO_MAX_MS, TICK_MS };
@@ -39,6 +39,9 @@ export interface PassoNucleo {
   nucleo: NucleoState;
   pesquisaGanha: number;
   cascatou: boolean;
+  /** Fluxos de calor no início do tick (u/s), para o card da Cascata. */
+  entradaUs: number;
+  saidaUs: number;
   /** T depois do passo de calor. */
   t: number;
   faixa: FaixaCalor;
@@ -57,6 +60,11 @@ export function passoNucleo(
 ): PassoNucleo {
   const dtS = dtMs / 1000;
   const scramAtivo = emScram(nucleo);
+
+  // Fluxos do início do tick (o card da Cascata mostra estes números, não os do SCRAM que vem depois).
+  const c = contar(nucleo.grade);
+  const entradaUs = scramAtivo ? 0 : calorEspelho * espelhosEfetivosDe(c);
+  const saidaUs = NUCLEO.dissipacaoRadiador * c.radiadoresAdjacentes + (scramAtivo ? 0 : NUCLEO.consumoTurbina * c.turbinas * nucleo.calorU);
 
   // 4. calor
   const capacidade = capacidadeU(nucleo.grade, nucleo.receptorCeramico);
@@ -82,11 +90,11 @@ export function passoNucleo(
   proximo.tempoAcimaDoLimiteMs = atualizarCronometro(nucleo.tempoAcimaDoLimiteMs, tAntes, t, dtMs, emScram(proximo));
   let cascatou = false;
   if (deveCascatear(proximo.tempoAcimaDoLimiteMs)) {
-    proximo = aplicarCascata(proximo, tempoMs);
+    proximo = aplicarCascata(proximo, tempoMs, { entradaUs, saidaUs });
     cascatou = true;
   }
 
-  return { nucleo: proximo, pesquisaGanha, cascatou, t, faixa };
+  return { nucleo: proximo, pesquisaGanha, cascatou, entradaUs, saidaUs, t, faixa };
 }
 
 /** Avança o estado em um tick de `dtMs` (normalmente `TICK_MS`). Função pura. */
@@ -101,6 +109,8 @@ export function tick(state: GameState, dtMs: number = TICK_MS): GameState {
   let rede = passo.rede;
   let pesquisa = state.pesquisa;
   let nucleo = state.nucleo;
+  // A fila de eventos é limpa a cada tick; só o próprio tick adiciona aqui.
+  const eventos: EventoJogo[] = [];
 
   // 4–6. Núcleo
   if (nucleo) {
@@ -109,6 +119,7 @@ export function tick(state: GameState, dtMs: number = TICK_MS): GameState {
     pesquisa += pn.pesquisaGanha;
     if (pn.cascatou) {
       rede = { ...rede, bateria: { ...rede.bateria, kwh: rede.bateria.kwh * (1 - CASCATA.perdaBateria) } };
+      eventos.push({ tipo: "cascata", entradaUs: pn.entradaUs, saidaUs: pn.saidaUs });
     }
   }
 
@@ -119,6 +130,7 @@ export function tick(state: GameState, dtMs: number = TICK_MS): GameState {
     pesquisa,
     rede,
     nucleo,
+    eventos,
   };
 }
 

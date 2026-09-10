@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { MELHORIAS } from "../content/era1";
+import { MELHORIAS, ORDEM_MELHORIAS } from "../content/era1";
 import { CASCATA, FAIXAS_CALOR, MODO_SEGURO, NUCLEO, ORDEM_PECAS, PECAS, RECEPTOR_CERAMICO } from "../content/era1-nucleo";
 import { custoReconstrucao, faltaParaLimpezaMs, podeLimparEntulho } from "../sim/cascata";
 import {
@@ -65,6 +65,7 @@ function GradeArea() {
   const inicio = useRef<{ x: number; y: number; id: number } | null>(null);
   const agirNaCasa = useGameStore((s) => s.agirNaCasa);
   const setCasaSobPonteiro = useGameStore((s) => s.setCasaSobPonteiro);
+  const lado = useGameStore((s) => s.state.nucleo?.lado ?? NUCLEO.ladoInicial);
 
   useEffect(() => {
     setGradeElement(ref.current);
@@ -74,7 +75,7 @@ function GradeArea() {
   const casaDoEvento = (e: React.PointerEvent<HTMLDivElement>): number | null => {
     const el = ref.current;
     if (!el) return null;
-    return indiceDaCasa(e.clientX, e.clientY, el.getBoundingClientRect(), NUCLEO.lado);
+    return indiceDaCasa(e.clientX, e.clientY, el.getBoundingClientRect(), lado);
   };
 
   return (
@@ -229,7 +230,6 @@ function PainelOperacao({ nucleo }: { nucleo: NucleoState }) {
   const emScram = nucleo.scramRestanteMs > 0;
   const c = contar(nucleo.grade);
   const calorEspelho = calorPorEspelho(state.melhorias);
-  const rastreamento = MELHORIAS.rastreamentoSolar;
 
   return (
     <>
@@ -271,22 +271,33 @@ function PainelOperacao({ nucleo }: { nucleo: NucleoState }) {
             SCRAM a {formatarPorcentagem(MODO_SEGURO.limiarT)} · potência ×{formatarNumero(MODO_SEGURO.fatorPotencia, 1)}
           </span>
         </button>
-        {state.melhorias.rastreamentoSolar ? (
-          <div className="card-nota">✔ {rastreamento.nome}: espelhos a {rastreamento.efeito.tipo === "calorPorEspelho" ? rastreamento.efeito.valor : 5} u/s</div>
-        ) : (
-          <button
-            type="button"
-            className="botao botao--melhoria"
-            disabled={!podeComprarMelhoria(state, "rastreamentoSolar")}
-            onClick={() => comprarMelhoria("rastreamentoSolar")}
-            title={rastreamento.descricao}
-          >
-            <span className="botao-titulo">{rastreamento.nome}</span>
-            <span className={`botao-custo ${state.creditos < rastreamento.custo || state.pesquisa < (rastreamento.pesquisa ?? 0) ? "botao-custo--caro" : ""}`}>
-              {formatarCreditos(rastreamento.custo)} + 🔬 {rastreamento.pesquisa}
-            </span>
-          </button>
-        )}
+        {ORDEM_MELHORIAS.filter((id) => MELHORIAS[id].camada === "nucleo").map((id) => {
+          const def = MELHORIAS[id];
+          if (state.melhorias[id]) {
+            return (
+              <div key={id} className="card-nota">
+                ✔ {def.nome}
+              </div>
+            );
+          }
+          const caro = state.creditos < def.custo || state.pesquisa < (def.pesquisa ?? 0);
+          return (
+            <button
+              key={id}
+              type="button"
+              className="botao botao--melhoria"
+              disabled={!podeComprarMelhoria(state, id)}
+              onClick={() => comprarMelhoria(id)}
+              title={def.descricao}
+            >
+              <span className="botao-titulo">{def.nome}</span>
+              <span className={`botao-custo ${caro ? "botao-custo--caro" : ""}`}>
+                {formatarCreditos(def.custo)}
+                {def.pesquisa !== undefined ? ` + 🔬 ${def.pesquisa}` : ""}
+              </span>
+            </button>
+          );
+        })}
         {nucleo.receptorCeramico ? (
           <div className="card-nota">✔ {RECEPTOR_CERAMICO.nome}: +{RECEPTOR_CERAMICO.capacidadeExtraU} u</div>
         ) : (

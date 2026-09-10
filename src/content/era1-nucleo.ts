@@ -5,7 +5,7 @@
  */
 import type { PecaId } from "../sim/state";
 
-export type Anel = 1 | 2;
+export type Anel = 1 | 2 | 3;
 
 export interface PecaDef {
   id: PecaId;
@@ -13,7 +13,7 @@ export interface PecaDef {
   nomePlural: string;
   descricao: string;
   custo: number;
-  /** Anéis onde a peça pode ser colocada (anel 1 = 8 vizinhas do Receptor, diagonais incluídas). */
+  /** Anéis onde a peça pode ser colocada (anel 1 = 8 vizinhas do Receptor, diagonais incluídas; anel 3 só existe no 7×7). */
   aneis: readonly Anel[];
   /** A peça só produz efeito se estiver adjacente ao Receptor (anel 1). */
   efeitoSoAdjacente: boolean;
@@ -23,15 +23,16 @@ export interface PecaDef {
 export const NUCLEO = {
   /** Desbloqueio do Núcleo, em ₵. */
   custoDesbloqueio: 100,
-  /** Grade lado × lado; o Receptor fica no centro. */
-  lado: 5,
-  indiceReceptor: 12,
+  /** Lado inicial da grade (5×5); a Grade 7×7 é uma melhoria. O Receptor fica no centro. */
+  ladoInicial: 5,
   /** Capacidade do Receptor, em u. */
   capacidadeReceptorU: 100,
   /** Calor que um Heliostato do anel 1 injeta, em u/s. */
   calorEspelhoAnel1: 4,
   /** Um Heliostato do anel 2 vale esta fração de um do anel 1 (2 u/s). */
   pesoEspelhoAnel2: 0.5,
+  /** Um Heliostato do anel 3 (só no 7×7) vale esta fração (1 u/s). */
+  pesoEspelhoAnel3: 0.25,
   /** Dissipação de um Radiador adjacente, em u/s. */
   dissipacaoRadiador: 6,
   /** Fração do calor armazenado que cada Turbina consome por segundo. */
@@ -58,9 +59,9 @@ export const PECAS: Record<PecaId, PecaDef> = {
     id: "heliostato",
     nome: "Heliostato",
     nomePlural: "Heliostatos",
-    descricao: "Espelho que concentra sol no Receptor: +4 u/s no anel 1, +2 u/s no anel 2.",
+    descricao: "Espelho que concentra sol no Receptor: +4 u/s no anel 1, +2 u/s no anel 2, +1 u/s no anel 3.",
     custo: 30,
-    aneis: [1, 2],
+    aneis: [1, 2, 3],
     efeitoSoAdjacente: false,
   },
   turbina: {

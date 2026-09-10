@@ -117,7 +117,8 @@ export const BATERIA: ItemDef & { capacidadeKwh: number; potenciaKw: number } = 
 
 export type EfeitoMelhoria =
   | { tipo: "potenciaUsinas"; usinas: readonly UsinaId[]; fator: number }
-  | { tipo: "calorPorEspelho"; valor: number };
+  | { tipo: "calorPorEspelho"; valor: number }
+  | { tipo: "gradeLado"; lado: number };
 
 export interface MelhoriaDef {
   id: MelhoriaId;
@@ -148,9 +149,18 @@ export const MELHORIAS: Record<MelhoriaId, MelhoriaDef> = {
     camada: "nucleo",
     efeito: { tipo: "calorPorEspelho", valor: 5 },
   },
+  grade7x7: {
+    id: "grade7x7",
+    nome: "Grade 7×7",
+    descricao: "Abre o anel 3: 24 casas novas, só para espelhos, a 1 u/s cada. O 5×5 é preservado no centro. Use com tanques.",
+    custo: 800,
+    pesquisa: 150,
+    camada: "nucleo",
+    efeito: { tipo: "gradeLado", lado: 7 },
+  },
 };
 
-export const ORDEM_MELHORIAS: readonly MelhoriaId[] = ["laminasDeFibra", "rastreamentoSolar"];
+export const ORDEM_MELHORIAS: readonly MelhoriaId[] = ["laminasDeFibra", "rastreamentoSolar", "grade7x7"];
 
 /* ------------------------------------------------------------------ */
 /* Offline (GDD §7)                                                    */

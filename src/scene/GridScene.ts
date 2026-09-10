@@ -5,6 +5,7 @@
  */
 import Phaser from "phaser";
 import { NUCLEO, type PECAS } from "../content/era1-nucleo";
+import { indiceReceptor } from "../sim/state";
 import { temperaturaNucleo } from "../sim/calor";
 import { anel, podeColocar } from "../sim/nucleo";
 import type { Casa, NucleoState } from "../sim/state";
@@ -50,6 +51,7 @@ export class GridScene extends Phaser.Scene {
 
   private rect: Rect = { x: 0, y: 0, tamanho: 0 };
   private celula = 0;
+  private lado: number = NUCLEO.ladoInicial;
   private visivel = false;
   private dirty = true;
   private ultimaCascataVista: number | null = null;
@@ -123,8 +125,8 @@ export class GridScene extends Phaser.Scene {
   /* ---------------- geometria ---------------- */
 
   private centroDaCasa(indice: number): { x: number; y: number } {
-    const col = indice % NUCLEO.lado;
-    const lin = Math.floor(indice / NUCLEO.lado);
+    const col = indice % this.lado;
+    const lin = Math.floor(indice / this.lado);
     return { x: this.rect.x + (col + 0.5) * this.celula, y: this.rect.y + (lin + 0.5) * this.celula };
   }
 
@@ -146,9 +148,10 @@ export class GridScene extends Phaser.Scene {
     const tamanho = Math.min(dom.width, dom.height) * k;
     const x = (dom.left + (dom.width - tamanho / k) / 2) * k;
     const y = (dom.top + (dom.height - tamanho / k) / 2) * k;
-    if (!this.visivel || x !== this.rect.x || y !== this.rect.y || tamanho !== this.rect.tamanho) {
+    if (!this.visivel || x !== this.rect.x || y !== this.rect.y || tamanho !== this.rect.tamanho || nucleo.lado !== this.lado) {
       this.rect = { x, y, tamanho };
-      this.celula = tamanho / NUCLEO.lado;
+      this.lado = nucleo.lado;
+      this.celula = tamanho / this.lado;
       this.visivel = true;
       this.dirty = true;
     }
@@ -203,9 +206,9 @@ export class GridScene extends Phaser.Scene {
     g.fillStyle(CORES.sombra, 0.55);
     g.fillRoundedRect(this.rect.x + 6, this.rect.y + 6, this.rect.tamanho, this.rect.tamanho, raio * 1.5);
 
-    for (let i = 0; i < NUCLEO.lado * NUCLEO.lado; i++) {
+    for (let i = 0; i < this.lado * this.lado; i++) {
       const { x, y } = this.centroDaCasa(i);
-      const a = anel(i);
+      const a = anel(i, this.lado);
       g.fillStyle(a === 1 ? CORES.celulaAnel1 : CORES.celula, 1);
       g.fillRoundedRect(x - lado / 2, y - lado / 2, lado, lado, raio);
       g.lineStyle(1, CORES.borda, 1);
@@ -216,12 +219,12 @@ export class GridScene extends Phaser.Scene {
     gp.clear();
     nucleo.grade.forEach((casa, i) => {
       const { x, y } = this.centroDaCasa(i);
-      this.desenharCasa(gp, casa, x, y, anel(i), t);
+      this.desenharCasa(gp, casa, x, y, anel(i, this.lado), t);
     });
 
     // Realce da casa sob o ponteiro (vem do DOM): verde se a ferramenta cabe, coral se não.
     const hover = useGameStore.getState().casaSobPonteiro;
-    if (hover !== null && hover !== NUCLEO.indiceReceptor && hover >= 0 && hover < nucleo.grade.length) {
+    if (hover !== null && hover !== indiceReceptor(this.lado) && hover >= 0 && hover < nucleo.grade.length) {
       const { x, y } = this.centroDaCasa(hover);
       const casa = nucleo.grade[hover];
       let ok: boolean;
@@ -255,7 +258,7 @@ export class GridScene extends Phaser.Scene {
         break;
       }
       case "peca":
-        this.desenharPeca(g, casa.id, x, y, a === 2 ? tam * 0.8 : tam, deslocamento);
+        this.desenharPeca(g, casa.id, x, y, a === 2 ? tam * 0.8 : a === 3 ? tam * 0.7 : tam, deslocamento);
         break;
       case "entulho":
         this.desenharEntulho(g, x, y, tam, deslocamento);
@@ -366,7 +369,7 @@ export class GridScene extends Phaser.Scene {
       g.fillRoundedRect(x - lado / 2, y - lado / 2, lado, lado, this.celula * 0.14);
     }
     if (this.onda) {
-      const { x, y } = this.centroDaCasa(NUCLEO.indiceReceptor);
+      const { x, y } = this.centroDaCasa(indiceReceptor(this.lado));
       g.lineStyle(Math.max(2, this.celula * 0.12), CORES.onda, this.onda.alpha);
       g.strokeCircle(x, y, this.onda.raio);
     }
@@ -397,7 +400,7 @@ export class GridScene extends Phaser.Scene {
       if (emissor.emitting) emissor.stop();
       return;
     }
-    const { x, y } = this.centroDaCasa(NUCLEO.indiceReceptor);
+    const { x, y } = this.centroDaCasa(indiceReceptor(this.lado));
     emissor.setPosition(x, y - this.celula * 0.2);
     emissor.frequency = Math.max(25, 260 - t * 220);
     emissor.particleTint = corDaRampa(Math.min(1, t));

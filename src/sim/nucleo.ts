@@ -3,26 +3,27 @@
  * capacidade, balanço de calor, equilíbrio e potência. Funções puras.
  */
 import { NUCLEO, PECAS, RECEPTOR_CERAMICO } from "../content/era1-nucleo";
-import type { Casa, PecaId } from "./state";
+import { indiceReceptor, ladoDaGrade, type Casa, type PecaId } from "./state";
 
-export type AnelIndice = 0 | 1 | 2;
+export type AnelIndice = 0 | 1 | 2 | 3;
 
-/** 0 = Receptor; 1 = as 8 vizinhas (diagonais incluídas); 2 = as 16 restantes. */
-export function anel(indice: number): AnelIndice {
-  const centro = (NUCLEO.lado - 1) / 2;
-  const x = indice % NUCLEO.lado;
-  const y = Math.floor(indice / NUCLEO.lado);
+/** 0 = Receptor; 1 = as 8 vizinhas (diagonais incluídas); 2 = as 16 seguintes; 3 = as 24 externas do 7×7. */
+export function anel(indice: number, lado: number = NUCLEO.ladoInicial): AnelIndice {
+  const centro = (lado - 1) / 2;
+  const x = indice % lado;
+  const y = Math.floor(indice / lado);
   const d = Math.max(Math.abs(x - centro), Math.abs(y - centro));
-  return Math.min(2, d) as AnelIndice;
+  return Math.min(3, d) as AnelIndice;
 }
 
-export function adjacenteAoReceptor(indice: number): boolean {
-  return anel(indice) === 1;
+export function adjacenteAoReceptor(indice: number, lado: number = NUCLEO.ladoInicial): boolean {
+  return anel(indice, lado) === 1;
 }
 
 export interface Contagem {
   espelhosAnel1: number;
   espelhosAnel2: number;
+  espelhosAnel3: number;
   turbinas: number;
   radiadoresAdjacentes: number;
   tanquesAdjacentes: number;
@@ -35,12 +36,14 @@ export function contar(grade: readonly Casa[]): Contagem {
   const c: Contagem = {
     espelhosAnel1: 0,
     espelhosAnel2: 0,
+    espelhosAnel3: 0,
     turbinas: 0,
     radiadoresAdjacentes: 0,
     tanquesAdjacentes: 0,
     pecas: 0,
     entulhos: 0,
   };
+  const lado = ladoDaGrade(grade);
   grade.forEach((casa, i) => {
     if (!casa || casa.tipo === "receptor") return;
     if (casa.tipo === "entulho") {
@@ -48,11 +51,13 @@ export function contar(grade: readonly Casa[]): Contagem {
       return;
     }
     c.pecas++;
-    const adjacente = adjacenteAoReceptor(i);
+    const a = anel(i, lado);
+    const adjacente = a === 1;
     switch (casa.id) {
       case "heliostato":
-        if (adjacente) c.espelhosAnel1++;
-        else c.espelhosAnel2++;
+        if (a === 1) c.espelhosAnel1++;
+        else if (a === 2) c.espelhosAnel2++;
+        else c.espelhosAnel3++;
         break;
       case "turbina":
         // A regra de posicionamento já garante anel 1; a contagem respeita o dado mesmo assim.
@@ -69,10 +74,14 @@ export function contar(grade: readonly Casa[]): Contagem {
   return c;
 }
 
-/** `h`: espelhos do anel 1 contam 1, do anel 2 contam `pesoEspelhoAnel2`. */
+/** `h` a partir de uma contagem: anel 1 conta 1, anel 2 `pesoEspelhoAnel2`, anel 3 `pesoEspelhoAnel3`. */
+export function espelhosEfetivosDe(c: Contagem): number {
+  return c.espelhosAnel1 + c.espelhosAnel2 * NUCLEO.pesoEspelhoAnel2 + c.espelhosAnel3 * NUCLEO.pesoEspelhoAnel3;
+}
+
+/** `h`: espelhos efetivos da grade. */
 export function espelhosEfetivos(grade: readonly Casa[]): number {
-  const c = contar(grade);
-  return c.espelhosAnel1 + c.espelhosAnel2 * NUCLEO.pesoEspelhoAnel2;
+  return espelhosEfetivosDe(contar(grade));
 }
 
 export function capacidadeU(grade: readonly Casa[], receptorCeramico = false): number {
@@ -96,7 +105,7 @@ export function balancoDeCalor(
   calorEspelho: number = NUCLEO.calorEspelhoAnel1,
 ): number {
   const c = contar(grade);
-  const h = c.espelhosAnel1 + c.espelhosAnel2 * NUCLEO.pesoEspelhoAnel2;
+  const h = espelhosEfetivosDe(c);
   const entrada = emScram ? 0 : calorEspelho * h;
   const dissipacao = NUCLEO.dissipacaoRadiador * c.radiadoresAdjacentes;
   const consumo = emScram ? 0 : NUCLEO.consumoTurbina * c.turbinas * calorU;
@@ -109,7 +118,7 @@ export function balancoDeCalor(
  */
 export function equilibrioU(grade: readonly Casa[], calorEspelho: number = NUCLEO.calorEspelhoAnel1): number {
   const c = contar(grade);
-  const h = c.espelhosAnel1 + c.espelhosAnel2 * NUCLEO.pesoEspelhoAnel2;
+  const h = espelhosEfetivosDe(c);
   const liquido = calorEspelho * h - NUCLEO.dissipacaoRadiador * c.radiadoresAdjacentes;
   if (c.turbinas === 0) return liquido > 0 ? Infinity : 0;
   return Math.max(0, liquido / (NUCLEO.consumoTurbina * c.turbinas));
@@ -145,13 +154,14 @@ export function passoCalor(
 export type Validacao = { ok: true } | { ok: false; motivo: string };
 
 export function podeColocar(grade: readonly Casa[], indice: number, pecaId: PecaId): Validacao {
+  const lado = ladoDaGrade(grade);
   if (!Number.isInteger(indice) || indice < 0 || indice >= grade.length) return { ok: false, motivo: "Fora da grade." };
-  if (indice === NUCLEO.indiceReceptor) return { ok: false, motivo: "O Receptor é fixo." };
+  if (indice === indiceReceptor(lado)) return { ok: false, motivo: "O Receptor é fixo." };
   const casa = grade[indice];
   if (casa?.tipo === "entulho") return { ok: false, motivo: "Limpe o entulho primeiro." };
   if (casa) return { ok: false, motivo: "Casa ocupada." };
   const def = PECAS[pecaId];
-  const a = anel(indice);
+  const a = anel(indice, lado);
   if (a === 0 || !def.aneis.includes(a)) {
     return { ok: false, motivo: `${def.nome} só no anel ${def.aneis.join(" ou ")}.` };
   }
@@ -177,7 +187,25 @@ export function remover(grade: readonly Casa[], indice: number): Casa[] {
 
 /** Transforma as peças do anel 1 em entulho (GDD §5). */
 export function entulharAnel1(grade: readonly Casa[], tempoMs: number): Casa[] {
+  const lado = ladoDaGrade(grade);
   return grade.map((casa, i) =>
-    casa && casa.tipo === "peca" && adjacenteAoReceptor(i) ? { tipo: "entulho", id: casa.id, desdeMs: tempoMs } : casa,
+    casa && casa.tipo === "peca" && adjacenteAoReceptor(i, lado) ? { tipo: "entulho", id: casa.id, desdeMs: tempoMs } : casa,
   );
+}
+
+/**
+ * Embute uma grade `lado × lado` numa `(lado + 2) × (lado + 2)` com deslocamento (+1, +1):
+ * `(x, y) → (x + 1) + (y + 1) × novoLado`. Peças, entulho e Receptor preservados.
+ */
+export function expandirGrade(grade: readonly Casa[]): Casa[] {
+  const lado = ladoDaGrade(grade);
+  const novoLado = lado + 2;
+  const nova: Casa[] = new Array(novoLado * novoLado).fill(null);
+  grade.forEach((casa, i) => {
+    const x = i % lado;
+    const y = Math.floor(i / lado);
+    nova[x + 1 + (y + 1) * novoLado] = casa;
+  });
+  nova[indiceReceptor(novoLado)] = { tipo: "receptor" };
+  return nova;
 }

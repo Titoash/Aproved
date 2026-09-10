@@ -14,7 +14,7 @@ import {
   podeColocar,
   potenciaNucleoKw,
 } from "../nucleo";
-import { gradeVazia, type Casa, type PecaId } from "../state";
+import { gradeVazia, indiceReceptor, type Casa, type PecaId } from "../state";
 import { TICK_MS } from "../tick";
 
 /** Índices do 5×5: anel 1 = vizinhas do 12; anel 2 = borda. */
@@ -59,7 +59,7 @@ export function simularCalor(grade: Casa[], calorU: number, segundos: number): n
 
 describe("geometria", () => {
   it("anel 1 são as 8 vizinhas do centro, diagonais incluídas; anel 2 as 16 restantes", () => {
-    expect(anel(NUCLEO.indiceReceptor)).toBe(0);
+    expect(anel(indiceReceptor(5))).toBe(0);
     for (const i of ANEL1) expect(anel(i)).toBe(1);
     for (const i of ANEL2) expect(anel(i)).toBe(2);
     expect(ANEL1.length + ANEL2.length + 1).toBe(25);
@@ -178,7 +178,7 @@ describe("posicionamento como dado", () => {
 
   it("recusa o Receptor, casas ocupadas, entulho e fora da grade", () => {
     let grade = colocar(gradeVazia(), ANEL1[0], "heliostato");
-    expect(podeColocar(grade, NUCLEO.indiceReceptor, "heliostato").ok).toBe(false);
+    expect(podeColocar(grade, indiceReceptor(5), "heliostato").ok).toBe(false);
     expect(podeColocar(grade, ANEL1[0], "heliostato").ok).toBe(false);
     expect(podeColocar(grade, 25, "heliostato").ok).toBe(false);
     grade = entulharAnel1(grade, 1000);
@@ -192,7 +192,7 @@ describe("posicionamento como dado", () => {
     for (const i of ANEL1) if (antes[i]) expect(grade[i]?.tipo).toBe("entulho");
     expect(contar(grade).entulhos).toBe(6);
     expect(grade[ANEL2[0]]).toEqual({ tipo: "peca", id: "heliostato" });
-    expect(grade[NUCLEO.indiceReceptor]).toEqual({ tipo: "receptor" });
+    expect(grade[indiceReceptor(5)]).toEqual({ tipo: "receptor" });
     expect(contar(grade).pecas).toBe(2);
   });
 });

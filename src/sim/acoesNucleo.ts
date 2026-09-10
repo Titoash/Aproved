@@ -44,13 +44,21 @@ export function validarColocacao(state: GameState, indice: number, pecaId: PecaI
   return { ok: true };
 }
 
+/** Quantas peças intactas deste tipo há na grade. */
+function quantasPecas(state: GameState, pecaId: PecaId): number {
+  return state.nucleo?.grade.filter((c) => c?.tipo === "peca" && c.id === pecaId).length ?? 0;
+}
+
 export function colocarPeca(state: GameState, indice: number, pecaId: PecaId): GameState | null {
   if (!state.nucleo || !validarColocacao(state, indice, pecaId).ok) return null;
-  return comNucleo(
+  const primeira = quantasPecas(state, pecaId) === 0;
+  const proximo = comNucleo(
     state,
     { ...state.nucleo, grade: colocar(state.nucleo.grade, indice, pecaId) },
     state.creditos - custoPeca(pecaId),
   );
+  // A primeira unidade de um tipo dispara o card correspondente (só o tanque tem card hoje).
+  return primeira ? { ...proximo, eventos: [...state.eventos, { tipo: "primeiraCompra", item: pecaId }] } : proximo;
 }
 
 /** Remover não reembolsa (o preço das peças é fixo e baixo; a limitação é o espaço). */

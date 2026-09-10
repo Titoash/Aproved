@@ -66,7 +66,7 @@ describe("save", () => {
     expect(s.rede.usinas.cataVento).toEqual({ quantidade: 0, nivel: 0 });
     expect(s.era).toBe(1);
     expect(s.nucleo).toBeNull();
-    expect(s.melhorias).toEqual({ laminasDeFibra: false, rastreamentoSolar: false });
+    expect(s.melhorias).toEqual({ laminasDeFibra: false, rastreamentoSolar: false, grade7x7: false });
   });
 });
 
@@ -136,7 +136,7 @@ describe("migração v2 → v3", () => {
     expect(s.rede.vilas).toBe(2);
     expect(s.nucleo?.calorU).toBe(42);
     expect(s.nucleo?.estabilidade).toBe(33);
-    expect(s.melhorias).toEqual({ laminasDeFibra: false, rastreamentoSolar: false });
+    expect(s.melhorias).toEqual({ laminasDeFibra: false, rastreamentoSolar: false, grade7x7: false });
     expect(s.salvoEmMs).toBe(123_456);
   });
 

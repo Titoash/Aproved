@@ -3,7 +3,7 @@ import { ECONOMIA } from "../content/era1";
 import { NUCLEO } from "../content/era1-nucleo";
 
 export type UsinaId = "cataVento" | "painelSolar" | "turbinaEolica";
-export type MelhoriaId = "laminasDeFibra" | "rastreamentoSolar";
+export type MelhoriaId = "laminasDeFibra" | "rastreamentoSolar" | "grade7x7";
 export type Melhorias = Record<MelhoriaId, boolean>;
 
 export interface UsinaEstado {
@@ -31,15 +31,26 @@ export interface RedeState {
 
 export type PecaId = "heliostato" | "turbina" | "radiador" | "tanque";
 
-/** Uma casa da grade. `null` = vazia. O índice 12 é sempre o Receptor. */
+/** Uma casa da grade. `null` = vazia. O centro (`indiceReceptor(lado)`) é sempre o Receptor. */
 export type Casa =
   | { tipo: "receptor" }
   | { tipo: "peca"; id: PecaId }
   | { tipo: "entulho"; id: PecaId; desdeMs: number }
   | null;
 
+/** Fluxos de calor no tick da última Cascata, para o card explicativo (GDD §5). */
+export interface UltimaCascata {
+  tempoMs: number;
+  /** Calor entrando dos espelhos, em u/s. */
+  entradaUs: number;
+  /** Dissipação dos radiadores + consumo das turbinas, em u/s. */
+  saidaUs: number;
+}
+
 export interface NucleoState {
-  /** 25 casas, linha a linha. */
+  /** Lado da grade: 5, ou 7 com a Grade 7×7. */
+  lado: number;
+  /** `lado × lado` casas, linha a linha. */
   grade: Casa[];
   /** Calor armazenado no Receptor, Q, em u. Pode passar da capacidade. */
   calorU: number;
@@ -54,7 +65,15 @@ export interface NucleoState {
   cascatas: number;
   /** `tempoMs` da última Cascata, para a cena disparar a onda de choque. */
   ultimaCascataMs: number | null;
+  ultimaCascata: UltimaCascata | null;
 }
+
+/** Eventos de um tick ou de uma ação, para a UI reagir (cards). Limpos a cada tick; não vão para o save. */
+export type EventoJogo =
+  | { tipo: "primeiroCarregamento" }
+  | { tipo: "primeiraCompra"; item: PecaId | "bateria" }
+  | { tipo: "melhoriaComprada"; id: MelhoriaId }
+  | { tipo: "cascata"; entradaUs: number; saidaUs: number };
 
 export interface GameState {
   versao: number;
@@ -70,23 +89,38 @@ export interface GameState {
   melhorias: Melhorias;
   /** `Date.now()` do último save; 0 = nunca salvo. Base do cálculo offline (GDD §7). */
   salvoEmMs: number;
+  /** Ids dos cards explicativos já mostrados. */
+  cardsVistos: string[];
+  /** Fila de eventos do tick/ação corrente (não persiste). */
+  eventos: EventoJogo[];
 }
 
 /** Versão do formato de save. Incrementar ao mudar a forma do estado. */
-export const VERSAO_SAVE = 3;
+export const VERSAO_SAVE = 4;
 
 export function melhoriasIniciais(): Melhorias {
-  return { laminasDeFibra: false, rastreamentoSolar: false };
+  return { laminasDeFibra: false, rastreamentoSolar: false, grade7x7: false };
 }
 
-export function gradeVazia(): Casa[] {
-  const grade: Casa[] = new Array(NUCLEO.lado * NUCLEO.lado).fill(null);
-  grade[NUCLEO.indiceReceptor] = { tipo: "receptor" };
+/** Índice do Receptor: o centro de uma grade `lado × lado` (lado ímpar). */
+export function indiceReceptor(lado: number): number {
+  return (lado * lado - 1) / 2;
+}
+
+/** Lado de uma grade a partir do número de casas. */
+export function ladoDaGrade(grade: readonly unknown[]): number {
+  return Math.round(Math.sqrt(grade.length));
+}
+
+export function gradeVazia(lado: number = NUCLEO.ladoInicial): Casa[] {
+  const grade: Casa[] = new Array(lado * lado).fill(null);
+  grade[indiceReceptor(lado)] = { tipo: "receptor" };
   return grade;
 }
 
 export function nucleoInicial(): NucleoState {
   return {
+    lado: NUCLEO.ladoInicial,
     grade: gradeVazia(),
     calorU: 0,
     tempoAcimaDoLimiteMs: 0,
@@ -96,6 +130,7 @@ export function nucleoInicial(): NucleoState {
     receptorCeramico: false,
     cascatas: 0,
     ultimaCascataMs: null,
+    ultimaCascata: null,
   };
 }
 
@@ -119,5 +154,7 @@ export function estadoInicial(): GameState {
     nucleo: null,
     melhorias: melhoriasIniciais(),
     salvoEmMs: 0,
+    cardsVistos: [],
+    eventos: [],
   };
 }

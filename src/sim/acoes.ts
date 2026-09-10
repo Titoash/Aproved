@@ -96,5 +96,7 @@ export function comprarBateria(state: GameState): GameState | null {
       ...state.rede,
       bateria: { ...state.rede.bateria, unidades, capacidadeKwh: capacidadeBateriaKwh(unidades) },
     },
+    // A primeira unidade dispara o card da bateria.
+    eventos: unidades === 1 ? [...state.eventos, { tipo: "primeiraCompra", item: "bateria" }] : state.eventos,
   };
 }

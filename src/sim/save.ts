@@ -10,6 +10,8 @@ import { calcularOffline, type RelatorioOffline } from "./offline";
 import { capacidadeBateriaKwh } from "./rede";
 import {
   estadoInicial,
+  gradeVazia,
+  indiceReceptor,
   melhoriasIniciais,
   nucleoInicial,
   VERSAO_SAVE,
@@ -53,9 +55,9 @@ export class ErroSave extends Error {
 /* Serialização                                                       */
 /* ------------------------------------------------------------------ */
 
-/** Serializa carimbando `salvoEmMs` com o relógio real (base do cálculo offline). */
+/** Serializa carimbando `salvoEmMs` com o relógio real (base do cálculo offline). Eventos não persistem. */
 export function serializar(state: GameState, agoraMs: number = Date.now()): string {
-  return JSON.stringify({ ...state, salvoEmMs: agoraMs });
+  return JSON.stringify({ ...state, salvoEmMs: agoraMs, eventos: [] });
 }
 
 function numero(valor: unknown, padrao: number, minimo = 0): number {
@@ -81,11 +83,11 @@ function ehPecaId(valor: unknown): valor is PecaId {
   return typeof valor === "string" && valor in PECAS;
 }
 
-function normalizarCasa(bruto: unknown, indice: number): Casa {
-  if (indice === NUCLEO.indiceReceptor) return { tipo: "receptor" };
+function normalizarCasa(bruto: unknown, indice: number, lado: number): Casa {
+  if (indice === indiceReceptor(lado)) return { tipo: "receptor" };
   const c = objeto(bruto);
   if (!ehPecaId(c.id)) return null;
-  const a = anel(indice);
+  const a = anel(indice, lado);
   if (a === 0 || !PECAS[c.id].aneis.includes(a)) return null;
   if (c.tipo === "peca") return { tipo: "peca", id: c.id };
   if (c.tipo === "entulho") return { tipo: "entulho", id: c.id, desdeMs: numero(c.desdeMs, 0) };
@@ -96,11 +98,18 @@ function normalizarNucleo(bruto: unknown): NucleoState | null {
   if (bruto === null || bruto === undefined || typeof bruto !== "object") return null;
   const n = objeto(bruto);
   const base = nucleoInicial();
+  const lado = n.lado === 7 ? 7 : NUCLEO.ladoInicial;
   const gradeBruta = Array.isArray(n.grade) ? n.grade : [];
-  const grade = base.grade.map((_, i) => normalizarCasa(gradeBruta[i], i));
+  const grade = gradeVazia(lado).map((_, i) => normalizarCasa(gradeBruta[i], i, lado));
   const scramRestanteMs = numero(n.scramRestanteMs, base.scramRestanteMs);
   const ultimaCascataMs = typeof n.ultimaCascataMs === "number" && Number.isFinite(n.ultimaCascataMs) ? n.ultimaCascataMs : null;
+  const uc = objeto(n.ultimaCascata);
+  const ultimaCascata =
+    n.ultimaCascata && typeof uc.tempoMs === "number"
+      ? { tempoMs: numero(uc.tempoMs, 0), entradaUs: numero(uc.entradaUs, 0), saidaUs: numero(uc.saidaUs, 0) }
+      : null;
   return {
+    lado,
     grade,
     calorU: numero(n.calorU, base.calorU),
     tempoAcimaDoLimiteMs: numero(n.tempoAcimaDoLimiteMs, base.tempoAcimaDoLimiteMs),
@@ -110,7 +119,13 @@ function normalizarNucleo(bruto: unknown): NucleoState | null {
     receptorCeramico: booleano(n.receptorCeramico, base.receptorCeramico),
     cascatas: inteiro(n.cascatas, base.cascatas),
     ultimaCascataMs,
+    ultimaCascata,
   };
+}
+
+function normalizarCardsVistos(bruto: unknown): string[] {
+  if (!Array.isArray(bruto)) return [];
+  return Array.from(new Set(bruto.filter((x): x is string => typeof x === "string")));
 }
 
 function normalizarMelhorias(bruto: unknown): Melhorias {
@@ -159,6 +174,8 @@ function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState 
     nucleo: normalizarNucleo(bruto.nucleo),
     melhorias: normalizarMelhorias(bruto.melhorias),
     salvoEmMs: typeof bruto.salvoEmMs === "number" && bruto.salvoEmMs > 0 ? bruto.salvoEmMs : agoraMs,
+    cardsVistos: normalizarCardsVistos(bruto.cardsVistos),
+    eventos: [],
   };
 }
 
@@ -166,6 +183,7 @@ function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState 
  * Migra saves de versões anteriores, uma versão por vez.
  * v1 → v2: entra o Núcleo (`nucleo: null` até ser desbloqueado). Rede e créditos ficam como estão.
  * v2 → v3: entram `melhorias` (vazias) e `salvoEmMs` (= agora, sem ganho offline na primeira carga).
+ * v3 → v4: entram `nucleo.lado` (5), `nucleo.ultimaCascata` (null) e `cardsVistos` ([]).
  */
 function migrar(bruto: Record<string, unknown>, agoraMs: number): Record<string, unknown> {
   const versao = bruto.versao;
@@ -182,6 +200,11 @@ function migrar(bruto: Record<string, unknown>, agoraMs: number): Record<string,
   if (v === 2) {
     atual = { ...atual, melhorias: {}, salvoEmMs: agoraMs, versao: 3 };
     v = 3;
+  }
+  if (v === 3) {
+    const nucleo = atual.nucleo && typeof atual.nucleo === "object" ? { ...(atual.nucleo as Record<string, unknown>), lado: 5, ultimaCascata: null } : atual.nucleo;
+    atual = { ...atual, nucleo, cardsVistos: [], versao: 4 };
+    v = 4;
   }
   return { ...atual, versao: v };
 }
@@ -250,7 +273,7 @@ export function limpar(storage: Armazenamento | null = armazenamentoPadrao()): v
 /* ------------------------------------------------------------------ */
 
 export function exportarJson(state: GameState, agoraMs: number = Date.now()): string {
-  return JSON.stringify({ ...state, salvoEmMs: agoraMs }, null, 2);
+  return JSON.stringify({ ...state, salvoEmMs: agoraMs, eventos: [] }, null, 2);
 }
 
 /** Lança `ErroSave` se o JSON for inválido. Não aplica o offline: quem importa decide. */

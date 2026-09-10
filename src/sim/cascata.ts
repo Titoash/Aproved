@@ -2,7 +2,7 @@
 import { CASCATA, PECAS } from "../content/era1-nucleo";
 import { perdaCascata } from "./estabilidade";
 import { entulharAnel1 } from "./nucleo";
-import type { Casa, NucleoState } from "./state";
+import type { Casa, NucleoState, UltimaCascata } from "./state";
 
 /** Folga numérica: com h = 6 o calor encosta em 100 % e um ulp acima não pode contar. */
 const EPSILON_T = 1e-9;
@@ -47,7 +47,11 @@ export function scram(nucleo: NucleoState): NucleoState {
  * cronômetro zerado. A perda de bateria (−10 %) é aplicada pelo tick, na Rede.
  * Pesquisa acumulada não é tocada.
  */
-export function aplicarCascata(nucleo: NucleoState, tempoMs: number): NucleoState {
+export function aplicarCascata(
+  nucleo: NucleoState,
+  tempoMs: number,
+  fluxos: Omit<UltimaCascata, "tempoMs"> = { entradaUs: 0, saidaUs: 0 },
+): NucleoState {
   return {
     ...nucleo,
     grade: entulharAnel1(nucleo.grade, tempoMs),
@@ -56,6 +60,7 @@ export function aplicarCascata(nucleo: NucleoState, tempoMs: number): NucleoStat
     tempoAcimaDoLimiteMs: 0,
     cascatas: nucleo.cascatas + 1,
     ultimaCascataMs: tempoMs,
+    ultimaCascata: { tempoMs, ...fluxos },
   };
 }
 
