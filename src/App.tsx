@@ -16,12 +16,12 @@ export default function App() {
       <GameCanvas />
       <div className="camada-ui">
         <Hud />
-        <PainelKardashev />
-        <main className="paineis">
+        <main className="principal">
           <PainelNucleo />
           <PainelRede />
-          <PainelSave />
         </main>
+        <PainelKardashev />
+        <PainelSave />
       </div>
       <CardOffline />
       <CardExplicativo />

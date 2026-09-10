@@ -14,6 +14,7 @@ function baixarArquivo(nome: string, conteudo: string) {
   URL.revokeObjectURL(url);
 }
 
+/** Rodapé discreto: salvar, exportar, importar (abre a caixa) e resetar. */
 export function PainelSave() {
   const salvoEmRelogio = useGameStore((s) => s.salvoEmRelogio);
   const salvarAgora = useGameStore((s) => s.salvarAgora);
@@ -22,23 +23,19 @@ export function PainelSave() {
   const resetar = useGameStore((s) => s.resetar);
 
   const [texto, setTexto] = useState("");
+  const [aberto, setAberto] = useState(false);
   const [aviso, setAviso] = useState<Aviso>(null);
 
   const aoSalvar = () => {
-    setAviso(
-      salvarAgora()
-        ? { tipo: "ok", texto: "Progresso salvo." }
-        : { tipo: "erro", texto: "Não foi possível salvar (armazenamento indisponível)." },
-    );
+    setAviso(salvarAgora() ? { tipo: "ok", texto: "Progresso salvo." } : { tipo: "erro", texto: "Não foi possível salvar (armazenamento indisponível)." });
   };
-
   const aoExportar = () => {
     const json = exportar();
     setTexto(json);
-    baixarArquivo(`aproved-save-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.json`, json);
-    setAviso({ tipo: "ok", texto: "JSON exportado (arquivo baixado e copiado para a caixa abaixo)." });
+    setAberto(true);
+    baixarArquivo(`kardashev-save-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.json`, json);
+    setAviso({ tipo: "ok", texto: "JSON exportado: arquivo baixado e copiado para a caixa." });
   };
-
   const aoImportar = () => {
     try {
       importar(texto);
@@ -47,7 +44,6 @@ export function PainelSave() {
       setAviso({ tipo: "erro", texto: erro instanceof Error ? erro.message : "Falha ao importar." });
     }
   };
-
   const aoResetar = () => {
     if (window.confirm("Apagar todo o progresso e começar de novo?")) {
       resetar();
@@ -57,34 +53,33 @@ export function PainelSave() {
   };
 
   return (
-    <aside className="painel painel-save" aria-label="Progresso">
-      <h2>Progresso</h2>
-      <p>
-        Salvo automaticamente a cada {INTERVALO_SAVE_MS / 1000} s.
-        {salvoEmRelogio ? ` Último save: ${new Date(salvoEmRelogio).toLocaleTimeString("pt-BR")}.` : ""}
-      </p>
-      <div className="card-botoes">
-        <button type="button" className="botao botao--secundario" onClick={aoSalvar}>
-          <span className="botao-titulo">Salvar agora</span>
+    <footer className="rodape-save" aria-label="Progresso">
+      <span className="rodape-info">
+        Salvo a cada {INTERVALO_SAVE_MS / 1000} s{salvoEmRelogio ? ` · último ${new Date(salvoEmRelogio).toLocaleTimeString("pt-BR")}` : ""}
+      </span>
+      <div className="rodape-acoes">
+        <button type="button" className="pilula pilula--texto" onClick={aoSalvar}>
+          Salvar agora
         </button>
-        <button type="button" className="botao botao--secundario" onClick={aoExportar}>
-          <span className="botao-titulo">Exportar JSON</span>
+        <button type="button" className="pilula pilula--texto" onClick={aoExportar}>
+          Exportar JSON
         </button>
-        <button type="button" className="botao botao--secundario" onClick={aoImportar} disabled={texto.trim() === ""}>
-          <span className="botao-titulo">Importar JSON</span>
+        <button type="button" className="pilula pilula--texto" aria-expanded={aberto} onClick={() => setAberto((v) => !v)}>
+          Importar JSON…
         </button>
-        <button type="button" className="botao botao--perigo" onClick={aoResetar}>
-          <span className="botao-titulo">Resetar</span>
+        <button type="button" className="pilula pilula--texto pilula--perigo" onClick={aoResetar}>
+          Resetar
         </button>
       </div>
-      <textarea
-        aria-label="JSON do save"
-        placeholder="Cole aqui um save exportado e clique em Importar JSON."
-        value={texto}
-        onChange={(e) => setTexto(e.target.value)}
-        spellCheck={false}
-      />
-      {aviso ? <div className={`aviso aviso--${aviso.tipo}`}>{aviso.texto}</div> : null}
-    </aside>
+      {aberto ? (
+        <div className="rodape-importar">
+          <textarea aria-label="JSON do save" placeholder="Cole aqui um save exportado." value={texto} onChange={(e) => setTexto(e.target.value)} spellCheck={false} />
+          <button type="button" className="pilula" onClick={aoImportar} disabled={texto.trim() === ""}>
+            Importar
+          </button>
+        </div>
+      ) : null}
+      {aviso ? <span className={`aviso aviso--${aviso.tipo}`}>{aviso.texto}</span> : null}
+    </footer>
   );
 }

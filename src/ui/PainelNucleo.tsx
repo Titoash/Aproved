@@ -1,17 +1,10 @@
 import { useEffect, useRef } from "react";
 import { MELHORIAS, ORDEM_MELHORIAS } from "../content/era1";
 import { CASCATA, FAIXAS_CALOR, MODO_SEGURO, NUCLEO, ORDEM_PECAS, PECAS, RECEPTOR_CERAMICO } from "../content/era1-nucleo";
-import { custoReconstrucao, faltaParaLimpezaMs, podeLimparEntulho } from "../sim/cascata";
-import {
-  formatarCalor,
-  formatarCreditos,
-  formatarNumero,
-  formatarPorcentagem,
-  formatarPotencia,
-  formatarSegundos,
-} from "../sim/formatar";
-import { faixaDeCalor, pesquisaPorSegundo, temperatura, temperaturaNucleo } from "../sim/calor";
 import { podeComprarReceptorCeramico, podeDesbloquearNucleo } from "../sim/acoesNucleo";
+import { dicaDeEquilibrio, faixaDeCalor, pesquisaPorSegundo, temperatura, temperaturaNucleo } from "../sim/calor";
+import { custoReconstrucao, faltaParaLimpezaMs, podeLimparEntulho } from "../sim/cascata";
+import { formatarCalor, formatarCreditos, formatarNumero, formatarPorcentagem, formatarPotencia, formatarSegundos } from "../sim/formatar";
 import { calorPorEspelho, podeComprarMelhoria } from "../sim/melhorias";
 import { capacidadeU, contar, equilibrioU, espelhosEfetivos } from "../sim/nucleo";
 import type { NucleoState } from "../sim/state";
@@ -19,41 +12,30 @@ import { potenciaNucleoEfetivaKw } from "../sim/tick";
 import { indiceDaCasa, setGradeElement } from "../scene/layout";
 import { corDaRampaCss } from "../scene/rampa";
 import { useGameStore, type Ferramenta } from "../store/gameStore";
-import { BotaoCompra } from "./BotaoCompra";
 
 /** O aviso de casa recusada some sozinho; o painel re-renderiza a cada tick. */
 const DURACAO_AVISO_MS = 4000;
+/** Um toque que andou mais do que isto entre pointerdown e pointerup é rolagem, não clique. */
+const LIMIAR_ARRASTO_PX = 8;
 
-function CardDesbloqueio() {
+function Bloqueado() {
   const state = useGameStore((s) => s.state);
   const desbloquear = useGameStore((s) => s.desbloquearNucleo);
+  const pode = podeDesbloquearNucleo(state);
   return (
-    <section className="painel painel-nucleo" aria-label="Núcleo">
+    <section className="palco palco--bloqueado" aria-label="Núcleo">
       <h2>Núcleo · Torre Solar</h2>
-      <article className="card">
-        <div className="card-cabecalho">
-          <h3>🔒 Torre Solar</h3>
-        </div>
-        <p className="card-desc">
-          Uma torre com um Receptor no centro e espelhos em volta. Turbinas transformam o calor em potência e em
-          🔬 Pesquisa, que destrava a Bateria e a Turbina eólica. Calor demais por 5 s dispara a Cascata.
-        </p>
-        <div className="card-botoes">
-          <BotaoCompra
-            titulo="Desbloquear o Núcleo"
-            custo={NUCLEO.custoDesbloqueio}
-            creditos={state.creditos}
-            habilitado={podeDesbloquearNucleo(state)}
-            onClick={desbloquear}
-          />
-        </div>
-      </article>
+      <p className="palco-texto">
+        Uma torre com um Receptor no centro e espelhos em volta. Turbinas transformam o calor em potência e em 🔬 Pesquisa,
+        que destrava a Bateria e a Turbina eólica. Calor demais por 5 s dispara a Cascata.
+      </p>
+      <button type="button" className={`pilula pilula--primaria ${pode ? "pilula--brilho" : ""}`} disabled={!pode} onClick={desbloquear}>
+        <span>Desbloquear o Núcleo</span>
+        <span className={`pilula-custo ${pode ? "" : "pilula-custo--caro"}`}>{formatarCreditos(NUCLEO.custoDesbloqueio)}</span>
+      </button>
     </section>
   );
 }
-
-/** Um toque que andou mais do que isto entre pointerdown e pointerup é rolagem, não clique. */
-const LIMIAR_ARRASTO_PX = 8;
 
 /**
  * Área da grade. O Phaser só desenha nela; o input é do DOM: `pointerup` decide a
@@ -81,7 +63,7 @@ function GradeArea() {
   return (
     <div
       ref={ref}
-      className="grade-area"
+      className={`grade-area grade-area--${lado}`}
       role="grid"
       aria-label="Grade do Núcleo"
       onPointerDown={(e) => {
@@ -104,12 +86,18 @@ function GradeArea() {
   );
 }
 
+const TEXTO_DICA = {
+  adicionarEspelhos: "Adicione espelhos: a marca sobe.",
+  tirarEspelho: "Tire um espelho ou ponha um radiador.",
+} as const;
+
 function BarraCalor({ nucleo, calorEspelho }: { nucleo: NucleoState; calorEspelho: number }) {
   const t = temperaturaNucleo(nucleo);
   const faixa = faixaDeCalor(t);
   const capacidade = capacidadeU(nucleo.grade, nucleo.receptorCeramico);
   const qEq = equilibrioU(nucleo.grade, calorEspelho);
   const tEq = temperatura(qEq, capacidade);
+  const dica = dicaDeEquilibrio(tEq);
   const escalaMax = 1.2;
   const pos = (v: number) => `${Math.min(100, Math.max(0, (v / escalaMax) * 100))}%`;
   const critico = faixa.id === "critico";
@@ -118,7 +106,7 @@ function BarraCalor({ nucleo, calorEspelho }: { nucleo: NucleoState; calorEspelh
   return (
     <div className={`barra-calor barra-calor--${faixa.id}`}>
       <div className="barra-rotulo">
-        <span>🔥 Calor</span>
+        <span>🔥 Calor · {faixa.nome.toLowerCase()}</span>
         <span className="barra-valor" style={{ color: corDaRampaCss(Math.min(1, t)) }}>
           {formatarPorcentagem(t)} · {formatarCalor(nucleo.calorU)} / {formatarCalor(capacidade)}
         </span>
@@ -127,32 +115,21 @@ function BarraCalor({ nucleo, calorEspelho }: { nucleo: NucleoState; calorEspelh
         {FAIXAS_CALOR.map((f, i) => {
           const de = i === 0 ? 0 : FAIXAS_CALOR[i - 1].ate;
           const ate = Number.isFinite(f.ate) ? f.ate : escalaMax;
-          return (
-            <div
-              key={f.id}
-              className={`barra-calor-faixa barra-calor-faixa--${f.id}`}
-              style={{ left: pos(de), width: `calc(${pos(ate)} - ${pos(de)})` }}
-              title={`${f.nome}: pesquisa ×${formatarNumero(f.pesquisa, 2)}`}
-            />
-          );
+          return <div key={f.id} className={`barra-calor-faixa barra-calor-faixa--${f.id}`} style={{ left: pos(de), width: `calc(${pos(ate)} - ${pos(de)})` }} title={`${f.nome}: pesquisa ×${formatarNumero(f.pesquisa, 2)}`} />;
         })}
         <div className="barra-calor-preenchida" style={{ width: pos(t), background: corDaRampaCss(Math.min(1, t)) }} />
-        {Number.isFinite(tEq) && tEq > 0 ? (
-          <div className="barra-calor-marca" style={{ left: pos(tEq) }} title={`Equilíbrio: ${formatarPorcentagem(tEq)}`} />
-        ) : null}
+        {Number.isFinite(tEq) && tEq > 0 ? <div className="barra-calor-marca" style={{ left: pos(tEq) }} title={`Equilíbrio: ${formatarPorcentagem(tEq)}`} /> : null}
         <div className="barra-calor-limite" style={{ left: pos(1) }} />
       </div>
       <div className="barra-legenda">
-        <span className={`faixa-chip faixa-chip--calor-${faixa.id}`}>
-          {faixa.nome} · 🔬 ×{formatarNumero(faixa.pesquisa, 2)}
-        </span>
         <span className="barra-sub">
           {critico
-            ? `⚠ acima de 100 %: Cascata em ${formatarSegundos(faltaMs)}`
+            ? `acima de 100 %: Cascata em ${formatarSegundos(faltaMs)}`
             : Number.isFinite(qEq)
               ? `equilíbrio Q* = ${formatarCalor(qEq)} (${formatarPorcentagem(tEq)})`
               : "sem turbinas: o calor só sobe"}
         </span>
+        {dica ? <span className="barra-dica">{TEXTO_DICA[dica]}</span> : null}
       </div>
     </div>
   );
@@ -183,17 +160,9 @@ function SeletorPecas() {
   return (
     <div className="seletor-pecas" role="radiogroup" aria-label="Peça para colocar">
       {opcoes.map((o) => (
-        <button
-          key={o.id}
-          type="button"
-          role="radio"
-          aria-checked={ferramenta === o.id}
-          className={`botao botao--peca ${ferramenta === o.id ? "botao--ativo" : ""} ${o.custo !== null && state.creditos < o.custo ? "botao--caro" : ""}`}
-          title={o.descricao}
-          onClick={() => selecionar(o.id)}
-        >
-          <span className="botao-titulo">{o.nome}</span>
-          <span className="botao-custo">{o.custo === null ? "—" : formatarCreditos(o.custo)}</span>
+        <button key={o.id} type="button" role="radio" aria-checked={ferramenta === o.id} className={`pilula ${ferramenta === o.id ? "pilula--ativa" : ""}`} title={o.descricao} onClick={() => selecionar(o.id)}>
+          <span>{o.nome}</span>
+          {o.custo !== null ? <span className={`pilula-custo ${state.creditos < o.custo ? "pilula-custo--caro" : ""}`}>{formatarCreditos(o.custo)}</span> : null}
         </button>
       ))}
     </div>
@@ -201,23 +170,20 @@ function SeletorPecas() {
 }
 
 function Entulhos({ nucleo, tempoMs }: { nucleo: NucleoState; tempoMs: number }) {
-  const entulhos = nucleo.grade
-    .map((casa, i) => ({ casa, i }))
-    .filter((e): e is { casa: Extract<NonNullable<NucleoState["grade"][number]>, { tipo: "entulho" }>; i: number } => e.casa?.tipo === "entulho");
+  const entulhos = nucleo.grade.map((casa, i) => ({ casa, i })).filter((e): e is { casa: Extract<NonNullable<NucleoState["grade"][number]>, { tipo: "entulho" }>; i: number } => e.casa?.tipo === "entulho");
   if (entulhos.length === 0) return null;
   const gratis = entulhos.filter((e) => podeLimparEntulho(e.casa, tempoMs)).length;
   const maisProximo = Math.min(...entulhos.map((e) => faltaParaLimpezaMs(e.casa, tempoMs)));
   const custoTotal = entulhos.reduce((soma, e) => soma + custoReconstrucao(e.casa), 0);
   return (
-    <div className="nucleo-entulho">
-      🪨 {entulhos.length} entulho{entulhos.length > 1 ? "s" : ""}: clique para reconstruir por 50 % (
-      {formatarCreditos(custoTotal)} no total)
+    <p className="nucleo-entulho">
+      {entulhos.length} entulho{entulhos.length > 1 ? "s" : ""}: clique para reconstruir por 50 % ({formatarCreditos(custoTotal)} no total)
       {gratis > 0 ? ` · ${gratis} já limpa${gratis > 1 ? "m" : ""} de graça` : ` · limpeza grátis em ${formatarSegundos(maisProximo)}`}
-    </div>
+    </p>
   );
 }
 
-function PainelOperacao({ nucleo }: { nucleo: NucleoState }) {
+function Operacao({ nucleo }: { nucleo: NucleoState }) {
   const state = useGameStore((s) => s.state);
   const scramManual = useGameStore((s) => s.scramManual);
   const alternarModoSeguro = useGameStore((s) => s.alternarModoSeguro);
@@ -233,84 +199,57 @@ function PainelOperacao({ nucleo }: { nucleo: NucleoState }) {
 
   return (
     <>
-      <div className="nucleo-status">
+      <GradeArea />
+      {emScram ? (
+        <p className="nucleo-scram">SCRAM · Núcleo desligado por {formatarSegundos(nucleo.scramRestanteMs)}. Espelhos e turbinas parados; radiadores esfriando.</p>
+      ) : null}
+      <BarraCalor nucleo={nucleo} calorEspelho={calorEspelho} />
+      <p className="nucleo-status">
         <span>⚡ Núcleo {formatarPotencia(potencia)}</span>
         <span>🔬 +{formatarNumero(emScram ? 0 : pesquisaPorSegundo(potencia, t), 2)}/s</span>
         <span>
-          h = {formatarNumero(espelhosEfetivos(nucleo.grade), 1)} · t = {c.turbinas} · rad = {c.radiadoresAdjacentes} ·{" "}
-          {formatarNumero(calorEspelho, 0)} u/s por espelho
+          h = {formatarNumero(espelhosEfetivos(nucleo.grade), 2)} · t = {c.turbinas} · rad = {c.radiadoresAdjacentes} · {formatarNumero(calorEspelho, 0)} u/s por espelho
         </span>
         {nucleo.cascatas > 0 ? <span>💥 {nucleo.cascatas} cascata{nucleo.cascatas > 1 ? "s" : ""}</span> : null}
-      </div>
-      {emScram ? (
-        <div className="nucleo-scram">
-          ⛔ SCRAM · Núcleo desligado por {formatarSegundos(nucleo.scramRestanteMs)} — espelhos e turbinas parados, radiadores
-          esfriando.
-        </div>
-      ) : null}
-      <BarraCalor nucleo={nucleo} calorEspelho={calorEspelho} />
-      <BarraEstabilidade nucleo={nucleo} />
+      </p>
       <Entulhos nucleo={nucleo} tempoMs={state.tempoMs} />
-      <h3 className="nucleo-subtitulo">Peças · clique na grade para colocar</h3>
       <SeletorPecas />
-      {aviso && state.tempoMs - aviso.emTempoMs < DURACAO_AVISO_MS ? <div className="aviso aviso--erro">{aviso.texto}</div> : null}
-      <div className="card-botoes nucleo-controles">
-        <button type="button" className="botao botao--perigo" disabled={emScram} onClick={scramManual}>
-          <span className="botao-titulo">SCRAM manual</span>
-          <span className="botao-custo">desliga por {formatarSegundos(CASCATA.scramMs)}</span>
+      {aviso && state.tempoMs - aviso.emTempoMs < DURACAO_AVISO_MS ? <p className="aviso aviso--erro nucleo-aviso">{aviso.texto}</p> : null}
+      <BarraEstabilidade nucleo={nucleo} />
+      <div className="nucleo-controles">
+        <button type="button" className="pilula pilula--perigo" disabled={emScram} onClick={scramManual} title={`Desliga o Núcleo por ${formatarSegundos(CASCATA.scramMs)}`}>
+          SCRAM manual
         </button>
-        <button
-          type="button"
-          className={`botao botao--secundario ${nucleo.modoSeguro ? "botao--ativo" : ""}`}
-          role="switch"
-          aria-checked={nucleo.modoSeguro}
-          onClick={alternarModoSeguro}
-        >
-          <span className="botao-titulo">Modo seguro {nucleo.modoSeguro ? "ligado" : "desligado"}</span>
-          <span className="botao-custo">
-            SCRAM a {formatarPorcentagem(MODO_SEGURO.limiarT)} · potência ×{formatarNumero(MODO_SEGURO.fatorPotencia, 1)}
-          </span>
+        <button type="button" className={`pilula ${nucleo.modoSeguro ? "pilula--ativa" : ""}`} role="switch" aria-checked={nucleo.modoSeguro} onClick={alternarModoSeguro} title={`SCRAM automático a ${formatarPorcentagem(MODO_SEGURO.limiarT)}, potência ×${formatarNumero(MODO_SEGURO.fatorPotencia, 1)}`}>
+          Modo seguro {nucleo.modoSeguro ? "ligado" : "desligado"}
         </button>
         {ORDEM_MELHORIAS.filter((id) => MELHORIAS[id].camada === "nucleo").map((id) => {
           const def = MELHORIAS[id];
           if (state.melhorias[id]) {
             return (
-              <div key={id} className="card-nota">
+              <span key={id} className="marca-comprado">
                 ✔ {def.nome}
-              </div>
+              </span>
             );
           }
           const caro = state.creditos < def.custo || state.pesquisa < (def.pesquisa ?? 0);
           return (
-            <button
-              key={id}
-              type="button"
-              className="botao botao--melhoria"
-              disabled={!podeComprarMelhoria(state, id)}
-              onClick={() => comprarMelhoria(id)}
-              title={def.descricao}
-            >
-              <span className="botao-titulo">{def.nome}</span>
-              <span className={`botao-custo ${caro ? "botao-custo--caro" : ""}`}>
+            <button key={id} type="button" className="pilula" disabled={!podeComprarMelhoria(state, id)} onClick={() => comprarMelhoria(id)} title={def.descricao}>
+              <span>{def.nome}</span>
+              <span className={`pilula-custo ${caro ? "pilula-custo--caro" : ""}`}>
                 {formatarCreditos(def.custo)}
-                {def.pesquisa !== undefined ? ` + 🔬 ${def.pesquisa}` : ""}
+                {def.pesquisa !== undefined ? ` · 🔬 ${def.pesquisa}` : ""}
               </span>
             </button>
           );
         })}
         {nucleo.receptorCeramico ? (
-          <div className="card-nota">✔ {RECEPTOR_CERAMICO.nome}: +{RECEPTOR_CERAMICO.capacidadeExtraU} u</div>
+          <span className="marca-comprado">✔ {RECEPTOR_CERAMICO.nome}</span>
         ) : (
-          <button
-            type="button"
-            className="botao botao--melhoria"
-            disabled={!podeComprarReceptorCeramico(state)}
-            onClick={comprarReceptorCeramico}
-            title={RECEPTOR_CERAMICO.descricao}
-          >
-            <span className="botao-titulo">{RECEPTOR_CERAMICO.nome}</span>
-            <span className={`botao-custo ${state.creditos < RECEPTOR_CERAMICO.custo || state.pesquisa < RECEPTOR_CERAMICO.pesquisa ? "botao-custo--caro" : ""}`}>
-              {formatarCreditos(RECEPTOR_CERAMICO.custo)} + 🔬 {RECEPTOR_CERAMICO.pesquisa}
+          <button type="button" className="pilula" disabled={!podeComprarReceptorCeramico(state)} onClick={comprarReceptorCeramico} title={RECEPTOR_CERAMICO.descricao}>
+            <span>{RECEPTOR_CERAMICO.nome}</span>
+            <span className={`pilula-custo ${state.creditos < RECEPTOR_CERAMICO.custo || state.pesquisa < RECEPTOR_CERAMICO.pesquisa ? "pilula-custo--caro" : ""}`}>
+              {formatarCreditos(RECEPTOR_CERAMICO.custo)} · 🔬 {RECEPTOR_CERAMICO.pesquisa}
             </span>
           </button>
         )}
@@ -321,14 +260,10 @@ function PainelOperacao({ nucleo }: { nucleo: NucleoState }) {
 
 export function PainelNucleo() {
   const nucleo = useGameStore((s) => s.state.nucleo);
-  if (!nucleo) return <CardDesbloqueio />;
+  if (!nucleo) return <Bloqueado />;
   return (
-    <div className="coluna-nucleo">
-      <GradeArea />
-      <section className="painel painel-nucleo" aria-label="Núcleo">
-        <h2>Núcleo · Torre Solar</h2>
-        <PainelOperacao nucleo={nucleo} />
-      </section>
-    </div>
+    <section className="palco" aria-label="Núcleo">
+      <Operacao nucleo={nucleo} />
+    </section>
   );
 }

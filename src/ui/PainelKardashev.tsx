@@ -11,14 +11,12 @@ export function PainelKardashev() {
   const pos = posicaoNaBarra(w);
 
   return (
-    <section className="painel painel-kardashev" aria-label="Medidor Kardashev">
+    <section className="kardashev" aria-label="Medidor Kardashev">
       <div className="kardashev-cabecalho">
         <h2>Medidor Kardashev</h2>
         <div className="kardashev-valores">
           <span className="kardashev-p">P = {formatarWatts(w)}</span>
-          <span className="kardashev-k">
-            {k !== null && kVisivel(w) ? `K = ${formatarNumero(k, 2)}` : "K abaixo da escala"}
-          </span>
+          <span className="kardashev-k">{k !== null && kVisivel(w) ? `K = ${formatarNumero(k, 2)}` : "K abaixo da escala"}</span>
           {proximo ? (
             <span className="kardashev-proximo">
               próximo: {proximo.nome} · faltam {formatarPotencia((proximo.watts - w) / 1000)}

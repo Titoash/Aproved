@@ -11,12 +11,13 @@ import {
   podeMelhorarUsina,
 } from "../sim/acoes";
 import { fatorMelhoria } from "../sim/custos";
+import { formatarEnergia, formatarNumero, formatarPotencia } from "../sim/formatar";
 import { fatorPotenciaUsina, podeComprarMelhoria } from "../sim/melhorias";
-import { formatarCreditos, formatarEnergia, formatarNumero, formatarPotencia } from "../sim/formatar";
 import { potenciaUsina } from "../sim/rede";
 import type { GameState, UsinaId } from "../sim/state";
 import { useGameStore } from "../store/gameStore";
 import { BotaoCompra } from "./BotaoCompra";
+import { NumeroPop } from "./NumeroPop";
 
 function textoBloqueio(state: GameState, desbloqueio: Desbloqueio | undefined): string | null {
   if (desbloqueado(state, desbloqueio)) return null;
@@ -29,172 +30,131 @@ function textoBloqueio(state: GameState, desbloqueio: Desbloqueio | undefined): 
   if (desbloqueio?.pesquisa !== undefined && state.pesquisa < desbloqueio.pesquisa) {
     partes.push(`🔬 ${desbloqueio.pesquisa} (${formatarNumero(state.pesquisa, 0)}/${desbloqueio.pesquisa})`);
   }
-  return `🔒 Desbloqueia com ${partes.join(" e ")}`;
+  return `Desbloqueia com ${partes.join(" e ")}`;
 }
 
-function CardUsina({ id }: { id: UsinaId }) {
+function LinhaUsina({ id }: { id: UsinaId }) {
   const state = useGameStore((s) => s.state);
   const comprarUsina = useGameStore((s) => s.comprarUsina);
   const melhorarUsina = useGameStore((s) => s.melhorarUsina);
-
   const def = USINAS[id];
   const usina = state.rede.usinas[id];
   const bloqueio = textoBloqueio(state, def.desbloqueio);
   const potenciaCada = def.potenciaKw * fatorMelhoria(usina.nivel) * fatorPotenciaUsina(state.melhorias, id);
 
   return (
-    <article className={`card ${bloqueio ? "card--bloqueado" : ""}`}>
-      <div className="card-cabecalho">
-        <h3>{def.nome}</h3>
-        <span className="card-qtd">×{usina.quantidade}</span>
+    <li className={`linha ${bloqueio ? "linha--bloqueada" : ""}`}>
+      <div className="linha-texto">
+        <span className="linha-nome">{def.nome}</span>
+        <span className="linha-meta">
+          {bloqueio ? (
+            <span className="linha-bloqueio">🔒 {bloqueio}</span>
+          ) : (
+            <>
+              <NumeroPop valor={usina.quantidade}>×{usina.quantidade}</NumeroPop> · {formatarPotencia(potenciaUsina(id, usina, state.melhorias))} ·{" "}
+              {formatarPotencia(potenciaCada)} cada
+              {usina.nivel > 0 ? ` · nível ${usina.nivel}` : ""}
+            </>
+          )}
+        </span>
       </div>
-      <p className="card-desc">{def.descricao}</p>
-      <div className="card-stats">
-        <span>⚡ {formatarPotencia(potenciaUsina(id, usina, state.melhorias))}</span>
-        <span>{formatarPotencia(potenciaCada)} cada</span>
-        <span>nível {usina.nivel}</span>
-      </div>
-      {bloqueio ? (
-        <div className="card-bloqueio">{bloqueio}</div>
-      ) : (
-        <div className="card-botoes">
-          <BotaoCompra
-            titulo="Comprar"
-            custo={custoProximaUsina(state, id)}
-            creditos={state.creditos}
-            habilitado={podeComprarUsina(state, id)}
-            onClick={() => comprarUsina(id)}
-          />
-          <BotaoCompra
-            titulo={`Melhorar → nv. ${usina.nivel + 1}`}
-            custo={custoProximaMelhoria(state, id)}
-            creditos={state.creditos}
-            habilitado={podeMelhorarUsina(state, id)}
-            variante="melhoria"
-            onClick={() => melhorarUsina(id)}
-          />
+      {bloqueio ? null : (
+        <div className="linha-acoes">
+          <BotaoCompra titulo="Comprar" custo={custoProximaUsina(state, id)} creditos={state.creditos} habilitado={podeComprarUsina(state, id)} variante="primario" onClick={() => comprarUsina(id)} />
+          <BotaoCompra titulo={`Nível ${usina.nivel + 1}`} custo={custoProximaMelhoria(state, id)} creditos={state.creditos} habilitado={podeMelhorarUsina(state, id)} onClick={() => melhorarUsina(id)} />
         </div>
       )}
-    </article>
+    </li>
   );
 }
 
-function CardVila() {
+function LinhaVila() {
   const state = useGameStore((s) => s.state);
   const comprarVila = useGameStore((s) => s.comprarVila);
-  const bloqueio = textoBloqueio(state, VILA.desbloqueio);
-
   return (
-    <article className={`card ${bloqueio ? "card--bloqueado" : ""}`}>
-      <div className="card-cabecalho">
-        <h3>🏙 {VILA.nome}</h3>
-        <span className="card-qtd">×{state.rede.vilas}</span>
+    <li className="linha">
+      <div className="linha-texto">
+        <span className="linha-nome">Vila</span>
+        <span className="linha-meta">
+          <NumeroPop valor={state.rede.vilas}>×{state.rede.vilas}</NumeroPop> · +{formatarPotencia(VILA.demandaKw)} de demanda cada
+        </span>
       </div>
-      <p className="card-desc">{VILA.descricao}</p>
-      <div className="card-stats">
-        <span>+{formatarPotencia(VILA.demandaKw)} de demanda cada</span>
+      <div className="linha-acoes">
+        <BotaoCompra titulo="Comprar" custo={custoProximaVila(state)} creditos={state.creditos} habilitado={podeComprarVila(state)} variante="primario" onClick={comprarVila} />
       </div>
-      {bloqueio ? (
-        <div className="card-bloqueio">{bloqueio}</div>
-      ) : (
-        <div className="card-botoes">
-          <BotaoCompra
-            titulo="Comprar"
-            custo={custoProximaVila(state)}
-            creditos={state.creditos}
-            habilitado={podeComprarVila(state)}
-            onClick={comprarVila}
-          />
-        </div>
-      )}
-    </article>
+    </li>
   );
 }
 
-function CardBateria() {
+function LinhaBateria() {
   const state = useGameStore((s) => s.state);
   const comprarBateria = useGameStore((s) => s.comprarBateria);
   const bloqueio = textoBloqueio(state, BATERIA.desbloqueio);
   const { bateria } = state.rede;
-
   return (
-    <article className={`card ${bloqueio ? "card--bloqueado" : ""}`}>
-      <div className="card-cabecalho">
-        <h3>🔋 {BATERIA.nome}</h3>
-        <span className="card-qtd">×{bateria.unidades}</span>
+    <li className={`linha ${bloqueio ? "linha--bloqueada" : ""}`}>
+      <div className="linha-texto">
+        <span className="linha-nome">Bateria</span>
+        <span className="linha-meta">
+          {bloqueio ? (
+            <span className="linha-bloqueio">🔒 {bloqueio}</span>
+          ) : (
+            <>
+              <NumeroPop valor={bateria.unidades}>×{bateria.unidades}</NumeroPop> · {formatarEnergia(bateria.kwh)} / {formatarEnergia(bateria.capacidadeKwh)} · ±
+              {formatarPotencia(BATERIA.potenciaKw * bateria.unidades)}
+            </>
+          )}
+        </span>
       </div>
-      <p className="card-desc">{BATERIA.descricao}</p>
-      <div className="card-stats">
-        <span>{formatarEnergia(bateria.capacidadeKwh)} de capacidade</span>
-        <span>{formatarEnergia(BATERIA.capacidadeKwh)} cada</span>
-      </div>
-      {bloqueio ? (
-        <div className="card-bloqueio">{bloqueio}</div>
-      ) : (
-        <div className="card-botoes">
-          <BotaoCompra
-            titulo="Comprar"
-            custo={custoProximaBateria(state)}
-            creditos={state.creditos}
-            habilitado={podeComprarBateria(state)}
-            onClick={comprarBateria}
-          />
+      {bloqueio ? null : (
+        <div className="linha-acoes">
+          <BotaoCompra titulo="Comprar" custo={custoProximaBateria(state)} creditos={state.creditos} habilitado={podeComprarBateria(state)} variante="primario" onClick={comprarBateria} />
         </div>
       )}
-    </article>
+    </li>
   );
 }
 
-function CardMelhoria({ id }: { id: (typeof ORDEM_MELHORIAS)[number] }) {
+function LinhaMelhoria({ id }: { id: (typeof ORDEM_MELHORIAS)[number] }) {
   const state = useGameStore((s) => s.state);
   const comprarMelhoria = useGameStore((s) => s.comprarMelhoria);
   const def = MELHORIAS[id];
   const comprada = state.melhorias[id];
-  const requisito = def.pesquisa !== undefined ? ` + 🔬 ${def.pesquisa}` : "";
   return (
-    <article className={`card ${comprada ? "card--comprada" : ""}`}>
-      <div className="card-cabecalho">
-        <h3>{def.nome}</h3>
-        <span className="card-qtd">{comprada ? "✔ comprada" : "melhoria"}</span>
+    <li className={`linha ${comprada ? "linha--comprada" : ""}`}>
+      <div className="linha-texto">
+        <span className="linha-nome">
+          {def.nome}
+          {comprada ? <span className="marca-comprado"> ✔ comprada</span> : null}
+        </span>
+        <span className="linha-meta">{def.descricao}</span>
       </div>
-      <p className="card-desc">{def.descricao}</p>
       {comprada ? null : (
-        <div className="card-botoes">
-          <button
-            type="button"
-            className="botao botao--melhoria"
-            disabled={!podeComprarMelhoria(state, id)}
-            onClick={() => comprarMelhoria(id)}
-          >
-            <span className="botao-titulo">Comprar</span>
-            <span className={`botao-custo ${state.creditos < def.custo || state.pesquisa < (def.pesquisa ?? 0) ? "botao-custo--caro" : ""}`}>
-              {formatarCreditos(def.custo)}
-              {requisito}
-            </span>
-          </button>
+        <div className="linha-acoes">
+          <BotaoCompra titulo="Comprar" custo={def.custo} creditos={state.creditos} habilitado={podeComprarMelhoria(state, id)} requisito={def.pesquisa !== undefined ? `🔬 ${def.pesquisa}` : undefined} onClick={() => comprarMelhoria(id)} />
         </div>
       )}
-    </article>
+    </li>
   );
 }
 
 export function PainelRede() {
   return (
-    <section className="painel painel-rede" aria-label="Rede">
+    <section className="rede" aria-label="Rede">
       <h2>Rede</h2>
-      <div className="cards">
+      <ul className="lista">
         {ORDEM_USINAS.map((id) => (
-          <CardUsina key={id} id={id} />
+          <LinhaUsina key={id} id={id} />
         ))}
-        <CardVila />
-        <CardBateria />
-      </div>
-      <h3 className="melhorias-titulo">Melhorias da Rede</h3>
-      <div className="cards">
+        <LinhaVila />
+        <LinhaBateria />
+      </ul>
+      <h2 className="rede-subtitulo">Melhorias</h2>
+      <ul className="lista">
         {ORDEM_MELHORIAS.filter((id) => MELHORIAS[id].camada === "rede").map((id) => (
-          <CardMelhoria key={id} id={id} />
+          <LinhaMelhoria key={id} id={id} />
         ))}
-      </div>
+      </ul>
     </section>
   );
 }

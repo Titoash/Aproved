@@ -1,3 +1,11 @@
+/* ============================================================
+   Kardashev — Era 1. Direção de arte (GDD §10, Sessão 4):
+   a ousadia vai toda para o Núcleo; o resto é quieto.
+   Hierarquia por espaçamento e divisórias, não por caixas.
+   Sombra chapada e deslocada; nada de contorno preto;
+   movimento só como resposta a uma ação ou no Núcleo.
+   ============================================================ */
+
 *,
 *::before,
 *::after {
@@ -15,8 +23,8 @@ body {
   background: var(--navy);
   color: var(--ink);
   font-family: var(--fonte-texto);
-  font-size: 15px;
-  line-height: 1.4;
+  font-size: var(--t-14);
+  line-height: 1.45;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
 }
@@ -24,6 +32,20 @@ body {
 button {
   font: inherit;
   color: inherit;
+}
+
+h2 {
+  margin: 0;
+  font-family: var(--fonte-titulo);
+  font-size: var(--t-16);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--sky);
+  outline-offset: 2px;
+  border-radius: 999px;
 }
 
 .app {
@@ -35,470 +57,202 @@ button {
   position: fixed;
   inset: 0;
   z-index: 0;
+  pointer-events: none;
 }
 
 .game-canvas canvas {
   display: block;
 }
 
+/* ---------- layout ---------- */
+
 .camada-ui {
   position: relative;
   z-index: 1;
   height: 100%;
   display: grid;
-  grid-template-rows: auto 1fr;
-  gap: 16px;
-  padding: 16px;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  gap: 8px 0;
+  padding: 0 20px 8px;
   overflow: hidden;
 }
 
-/* ---------- HUD ---------- */
+.principal {
+  display: grid;
+  grid-template-columns: minmax(380px, 0.95fr) minmax(0, 1.05fr);
+  gap: 28px;
+  min-height: 0;
+}
+
+/* ---------- HUD: faixa fina, sem cartão ---------- */
 
 .hud {
-  display: grid;
-  grid-template-columns: minmax(180px, 1.4fr) repeat(4, minmax(120px, 1fr));
-  gap: 12px;
+  display: flex;
+  align-items: flex-end;
+  gap: 32px;
+  padding: 12px 4px 10px;
+  border-bottom: 1px solid var(--card-borda);
 }
 
 .hud-item {
-  background: var(--card);
-  border: 1px solid var(--card-borda);
-  border-radius: var(--raio);
-  padding: 12px 14px;
-  box-shadow: var(--sombra-chapada);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
   min-width: 0;
 }
 
-.hud-rotulo {
-  color: var(--muted);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-bottom: 4px;
-  white-space: nowrap;
-}
-
 .hud-valor {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-family: var(--fonte-titulo);
-  font-size: 22px;
+  font-size: var(--t-20);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
 .hud-valor--grande {
-  font-size: 30px;
+  font-size: var(--t-28);
   color: var(--sun);
 }
 
-.hud-sub {
+.hud-rotulo {
+  font-size: var(--t-12);
   color: var(--muted);
-  font-size: 13px;
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
-  margin-top: 2px;
 }
 
-.faixa-chip {
-  display: inline-block;
-  margin-top: 4px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 12px;
+.hud-ponto {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.hud-faixa {
+  font-family: var(--fonte-texto);
+  font-size: var(--t-12);
   font-weight: 600;
-  background: color-mix(in srgb, var(--faixa-cor) 18%, transparent);
-  color: var(--faixa-cor);
-  border: 1px solid color-mix(in srgb, var(--faixa-cor) 45%, transparent);
+  color: var(--muted);
 }
 
-.faixa-chip--ouro {
-  box-shadow: 0 0 14px color-mix(in srgb, var(--sun) 55%, transparent);
+.hud-esfera {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
 }
 
-.hud-item--r {
-  border-color: color-mix(in srgb, var(--faixa-cor) 50%, var(--card-borda));
-}
+/* ---------- Núcleo: palco, sem cartão ---------- */
 
-.hud-item--r .hud-valor {
-  color: var(--faixa-cor);
-}
-
-.barra {
-  position: relative;
-  height: 6px;
-  margin-top: 8px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  overflow: hidden;
-}
-
-.barra-preenchida {
-  height: 100%;
-  border-radius: 999px;
-  background: var(--leaf);
-  transition: width 120ms linear;
-}
-
-.fluxo-bateria {
-  font-size: 13px;
-  margin-top: 4px;
-}
-
-.fluxo-bateria--carregando {
-  color: var(--leaf);
-}
-
-.fluxo-bateria--descarregando {
-  color: var(--coral);
-}
-
-.fluxo-bateria--parada {
-  color: color-mix(in srgb, var(--muted) 65%, transparent);
-}
-
-/* ---------- Painéis ---------- */
-
-.paineis {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
-  gap: 16px;
-  min-height: 0;
-}
-
-.painel {
-  background: var(--card);
-  border: 1px solid var(--card-borda);
-  border-radius: var(--raio);
-  box-shadow: var(--sombra-chapada);
-  padding: 16px;
+.palco {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   min-height: 0;
   overflow: auto;
+  padding: 4px 2px 12px;
 }
 
-.painel h2 {
-  margin: 0 0 12px;
-  font-family: var(--fonte-titulo);
-  font-size: 16px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-}
-
-.cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+.palco--bloqueado {
+  justify-content: center;
+  align-items: flex-start;
   gap: 12px;
+  max-width: 48ch;
 }
 
-.card {
-  border: 1px solid var(--card-borda);
-  border-radius: var(--raio-sm);
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  box-shadow: var(--sombra-chapada-sm);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.card--bloqueado {
-  opacity: 0.6;
-}
-
-.card-cabecalho {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.card-cabecalho h3 {
-  margin: 0;
-  font-family: var(--fonte-titulo);
-  font-size: 17px;
-  font-weight: 600;
-}
-
-.card-qtd {
-  font-variant-numeric: tabular-nums;
-  color: var(--muted);
-  font-size: 14px;
-}
-
-.card-desc {
+.palco-texto {
   margin: 0;
   color: var(--muted);
-  font-size: 13px;
-}
-
-.card-stats {
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink);
-}
-
-.card-stats span + span::before {
-  content: " · ";
-  color: color-mix(in srgb, var(--muted) 65%, transparent);
-}
-
-.card-bloqueio {
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.card-botoes {
-  display: flex;
-  gap: 8px;
-  margin-top: auto;
-}
-
-.botao {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 8px 10px;
-  border-radius: var(--raio-sm);
-  border: 1px solid color-mix(in srgb, var(--sky) 45%, transparent);
-  background: color-mix(in srgb, var(--sky) 14%, transparent);
-  cursor: pointer;
-  transition: background 120ms ease, transform 80ms ease;
-}
-
-.botao:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--sky) 26%, transparent);
-}
-
-.botao:active:not(:disabled) {
-  transform: translateY(1px);
-}
-
-.botao:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
-.botao--melhoria {
-  border-color: color-mix(in srgb, var(--sun) 45%, transparent);
-  background: color-mix(in srgb, var(--sun) 12%, transparent);
-}
-
-.botao--melhoria:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--sun) 24%, transparent);
-}
-
-.botao--secundario {
-  border-color: var(--card-borda);
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.botao--perigo {
-  border-color: color-mix(in srgb, var(--coral) 45%, transparent);
-  background: color-mix(in srgb, var(--coral) 10%, transparent);
-}
-
-.botao-titulo {
-  font-weight: 600;
-  font-size: 14px;
-}
-
-.botao-custo {
-  font-size: 12px;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.botao:disabled .botao-custo--caro {
-  color: var(--coral);
-}
-
-/* ---------- Save ---------- */
-
-.painel-save p {
-  margin: 0 0 10px;
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.painel-save .card-botoes {
-  flex-wrap: wrap;
-  margin-bottom: 10px;
-}
-
-.painel-save .botao {
-  flex: 1 1 45%;
-}
-
-.painel-save textarea {
-  width: 100%;
-  min-height: 140px;
-  resize: vertical;
-  font-family: var(--fonte-mono);
-  font-size: 12px;
-  color: var(--ink);
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid var(--card-borda);
-  border-radius: var(--raio-sm);
-  padding: 8px;
-}
-
-.aviso {
-  margin-top: 8px;
-  font-size: 13px;
-}
-
-.aviso--erro {
-  color: var(--coral);
-}
-
-.aviso--ok {
-  color: var(--leaf);
-}
-
-@media (max-width: 900px) {
-  .hud {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .paineis {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .camada-ui {
-    overflow: auto;
-  }
-}
-
-/* Mobile-first (GDD §11): HUD em uma coluna. */
-@media (max-width: 600px) {
-  .hud {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .camada-ui {
-    padding: 12px;
-    gap: 12px;
-  }
-}
-
-.card-nota {
-  font-size: 12px;
-  color: var(--muted);
-}
-
-/* ---------- Sessão 2: Núcleo ---------- */
-
-/* A UI é transparente ao ponteiro; só HUD e painéis capturam. Assim o clique
-   na área da grade chega ao canvas do Phaser, que fica atrás. */
-.camada-ui {
-  pointer-events: none;
-}
-
-.hud,
-.painel {
-  pointer-events: auto;
-}
-
-.hud {
-  grid-template-columns: minmax(160px, 1.3fr) repeat(5, minmax(110px, 1fr));
-}
-
-.paineis {
-  grid-template-columns: minmax(300px, 1fr) minmax(0, 1.25fr) minmax(220px, 0.6fr);
-}
-
-/* A coluna inteira rola (a grade do canvas acompanha o elemento a cada frame). */
-.coluna-nucleo {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-height: 0;
-  overflow: auto;
-  padding-right: 2px;
-}
-
-.coluna-nucleo .painel {
-  overflow: visible;
-  flex: none;
+  max-width: 62ch;
 }
 
 .grade-area {
-  width: min(100%, 400px);
+  width: min(100%, 420px);
   aspect-ratio: 1;
-  margin: 0 auto;
+  margin: 6px auto 14px;
   flex: none;
+  pointer-events: auto;
+  touch-action: pan-y;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.painel-nucleo h2 {
-  margin-bottom: 8px;
-}
-
-.nucleo-subtitulo {
-  margin: 12px 0 6px;
-  font-family: var(--fonte-titulo);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--muted);
+.grade-area--7 {
+  width: min(100%, 460px);
 }
 
 .nucleo-status {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 14px;
-  font-size: 13px;
+  gap: 4px 14px;
+  margin: 0;
+  font-size: var(--t-12);
+  color: var(--muted);
   font-variant-numeric: tabular-nums;
-  margin-bottom: 8px;
+}
+
+.nucleo-scram,
+.nucleo-entulho,
+.nucleo-aviso {
+  margin: 0;
+  font-size: var(--t-14);
 }
 
 .nucleo-scram {
-  margin: 4px 0 8px;
-  padding: 8px 10px;
-  border-radius: var(--raio-sm);
-  border: 1px solid color-mix(in srgb, var(--coral) 55%, transparent);
-  background: color-mix(in srgb, var(--coral) 14%, transparent);
   color: var(--coral);
-  font-size: 13px;
 }
 
 .nucleo-entulho {
-  margin: 6px 0;
-  font-size: 13px;
   color: var(--muted);
 }
+
+.nucleo-controles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding-top: 8px;
+  border-top: 1px solid var(--card-borda);
+}
+
+/* ---------- barras ---------- */
 
 .barra-rotulo {
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--t-12);
   color: var(--muted);
 }
 
 .barra-valor {
+  font-family: var(--fonte-titulo);
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
 }
 
-.barra-calor,
-.barra-estabilidade {
-  margin: 8px 0;
-}
-
 .barra-calor-trilho {
   position: relative;
-  height: 14px;
+  height: 12px;
   margin-top: 6px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.06);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .barra-calor-faixa {
   position: absolute;
   top: 0;
   bottom: 0;
-  opacity: 0.22;
+  opacity: 0.2;
+}
+
+.barra-calor-faixa:first-child {
+  border-radius: 999px 0 0 999px;
 }
 
 .barra-calor-faixa--frio {
@@ -511,7 +265,7 @@ button {
 
 .barra-calor-faixa--ouro {
   background: var(--sun);
-  opacity: 0.45;
+  opacity: 0.25;
 }
 
 .barra-calor-faixa--alerta {
@@ -520,6 +274,7 @@ button {
 
 .barra-calor-faixa--critico {
   background: var(--coral);
+  border-radius: 0 999px 999px 0;
 }
 
 .barra-calor-preenchida {
@@ -531,20 +286,23 @@ button {
   transition: width 100ms linear;
 }
 
+/* marca de Q*: triângulo pequeno acima do trilho */
 .barra-calor-marca {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  margin-left: -1px;
-  background: var(--ink);
-  opacity: 0.7;
+  top: -7px;
+  width: 0;
+  height: 0;
+  margin-left: -5px;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid var(--ink);
+  transition: left 200ms ease-out;
 }
 
 .barra-calor-limite {
   position: absolute;
-  top: 0;
-  bottom: 0;
+  top: -2px;
+  bottom: -2px;
   width: 2px;
   margin-left: -1px;
   background: var(--coral);
@@ -553,149 +311,220 @@ button {
 .barra-legenda {
   display: flex;
   justify-content: space-between;
-  align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
 .barra-sub {
-  font-size: 12px;
+  font-size: var(--t-12);
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
 
-.faixa-chip--calor-frio {
-  --faixa-cor: #7aa2ff;
+.barra-dica {
+  font-size: var(--t-12);
+  color: var(--sun);
 }
 
-.faixa-chip--calor-normal {
-  --faixa-cor: var(--muted);
-}
-
-.faixa-chip--calor-ouro {
-  --faixa-cor: var(--sun);
-  box-shadow: 0 0 14px color-mix(in srgb, var(--sun) 55%, transparent);
-}
-
-.faixa-chip--calor-alerta {
-  --faixa-cor: #ff7a1a;
-  animation: piscar 0.9s ease-in-out infinite;
-}
-
-.faixa-chip--calor-critico {
-  --faixa-cor: var(--coral);
-  animation: piscar 0.45s ease-in-out infinite;
-}
-
-@keyframes piscar {
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.45;
-  }
-}
-
-.barra-preenchida--estabilidade {
-  background: var(--sky);
-}
-
-.seletor-pecas {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-  gap: 6px;
-}
-
-.botao--peca {
-  padding: 6px 8px;
-}
-
-.botao--ativo {
-  border-color: var(--sun);
-  background: color-mix(in srgb, var(--sun) 22%, transparent);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--sun) 40%, transparent);
-}
-
-.botao--caro .botao-custo {
+.barra-calor--critico .barra-sub {
   color: var(--coral);
 }
 
-.nucleo-controles {
-  margin-top: 10px;
-  flex-wrap: wrap;
+.barra {
+  position: relative;
+  height: 6px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
 }
 
-.nucleo-controles .botao {
-  flex: 1 1 45%;
+.barra-preenchida {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--leaf);
+  transition: width 120ms linear;
 }
 
-@media (max-width: 1100px) {
-  .paineis {
-    grid-template-columns: minmax(280px, 1fr) minmax(0, 1fr);
-  }
-
-  .painel-save {
-    grid-column: 1 / -1;
-  }
-
-  .hud {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
+.barra-preenchida--estabilidade {
+  background: linear-gradient(90deg, var(--leaf), var(--sun));
 }
 
-@media (max-width: 900px) {
-  .paineis {
-    grid-template-columns: minmax(0, 1fr);
-  }
+/* ---------- pílulas ---------- */
 
-  .painel-save {
-    grid-column: auto;
-  }
-
-  .coluna-nucleo {
-    overflow: visible;
-  }
-
-  .hud {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 600px) {
-  .hud {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-/* ---------- Sessão 3 ---------- */
-
-/* O input da grade voltou ao DOM: o canvas não recebe mais nenhum toque. */
-.game-canvas {
-  pointer-events: none;
-}
-
-.camada-ui {
-  pointer-events: auto;
-  grid-template-rows: auto auto 1fr;
-}
-
-.grade-area {
-  pointer-events: auto;
-  touch-action: pan-y;
+.pilula {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--card-borda);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink);
+  font-size: var(--t-14);
+  font-weight: 600;
+  line-height: 1.2;
   cursor: pointer;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
+  transition: transform 80ms ease-out;
 }
 
-/* Kardashev */
+.pilula:active:not(:disabled) {
+  transform: scale(0.97);
+}
 
-.painel-kardashev {
-  padding: 10px 16px 14px;
-  overflow: visible;
+.pilula:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pilula--primaria {
+  background: var(--sun);
+  border-color: var(--sun);
+  color: var(--navy);
+}
+
+.pilula--primaria .pilula-custo {
+  color: rgba(13, 18, 48, 0.75);
+}
+
+.pilula--brilho {
+  box-shadow: var(--glow-sun);
+}
+
+.pilula--ativa {
+  border-color: var(--sun);
+  background: color-mix(in srgb, var(--sun) 18%, transparent);
+}
+
+.pilula--perigo {
+  border-color: color-mix(in srgb, var(--coral) 55%, transparent);
+  color: var(--coral);
+}
+
+.pilula--texto {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+  padding: 4px 8px;
+  font-weight: 600;
+}
+
+.pilula--texto.pilula--perigo {
+  color: var(--coral);
+}
+
+.pilula-custo {
+  font-family: var(--fonte-titulo);
+  font-size: var(--t-12);
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pilula-custo--caro {
+  color: var(--coral);
+}
+
+.pilula--primaria .pilula-custo--caro {
+  color: var(--navy);
+}
+
+.seletor-pecas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.marca-comprado {
+  font-size: var(--t-12);
+  color: var(--leaf);
+  font-weight: 600;
+}
+
+/* pop: só o número que mudou */
+.pop {
+  display: inline-block;
+  animation: pop 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(1.35);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* ---------- Rede: lista com divisórias ---------- */
+
+.rede {
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 2px 12px;
+}
+
+.rede h2 {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--card-borda);
+}
+
+.rede-subtitulo {
+  margin-top: 18px;
+}
+
+.lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.linha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--card-borda);
+}
+
+.linha-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.linha-nome {
+  font-family: var(--fonte-titulo);
+  font-size: var(--t-16);
+  font-weight: 600;
+}
+
+.linha-meta {
+  font-size: var(--t-12);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.linha--bloqueada .linha-nome {
+  color: var(--muted);
+}
+
+.linha-acoes {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+
+/* ---------- Kardashev: barra log, largura total ---------- */
+
+.kardashev {
+  padding: 8px 4px 22px;
+  border-top: 1px solid var(--card-borda);
 }
 
 .kardashev-cabecalho {
@@ -706,15 +535,11 @@ button {
   flex-wrap: wrap;
 }
 
-.kardashev-cabecalho h2 {
-  margin: 0;
-}
-
 .kardashev-valores {
   display: flex;
   gap: 14px;
   flex-wrap: wrap;
-  font-size: 13px;
+  font-size: var(--t-12);
   font-variant-numeric: tabular-nums;
   color: var(--muted);
 }
@@ -731,10 +556,10 @@ button {
 
 .kardashev-barra {
   position: relative;
-  height: 8px;
-  margin: 12px 0 22px;
+  height: 6px;
+  margin: 10px 0 0;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .kardashev-preenchida {
@@ -748,16 +573,16 @@ button {
   position: absolute;
   top: -4px;
   width: 2px;
-  height: 16px;
+  height: 14px;
   margin-left: -1px;
   background: var(--muted);
-  opacity: 0.8;
+  opacity: 0.7;
 }
 
 .kardashev-marco--auxiliar {
-  height: 12px;
+  height: 10px;
   top: -2px;
-  opacity: 0.5;
+  opacity: 0.45;
 }
 
 .kardashev-marco--passado {
@@ -766,13 +591,20 @@ button {
 
 .kardashev-marco-rotulo {
   position: absolute;
-  top: 18px;
+  top: 16px;
   left: 50%;
   transform: translateX(-50%);
   white-space: nowrap;
   font-size: 10px;
   color: var(--muted);
-  letter-spacing: 0.02em;
+}
+
+.kardashev-marco:last-of-type .kardashev-marco-rotulo {
+  top: -20px;
+}
+
+.kardashev-marco-rotulo--curto {
+  display: none;
 }
 
 .kardashev-cursor {
@@ -780,29 +612,136 @@ button {
   top: -6px;
   width: 0;
   height: 0;
-  margin-left: -6px;
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
-  border-top: 8px solid var(--ink);
+  margin-left: -5px;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 7px solid var(--ink);
   transition: left 200ms linear;
 }
 
-/* Card offline */
+/* ---------- rodapé de save ---------- */
 
+.rodape-save {
+  display: flex;
+  align-items: center;
+  gap: 8px 14px;
+  flex-wrap: wrap;
+  padding: 6px 4px 4px;
+  border-top: 1px solid var(--card-borda);
+  font-size: var(--t-12);
+  color: var(--muted);
+}
+
+.rodape-acoes {
+  display: flex;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
+.rodape-importar {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  align-items: flex-start;
+}
+
+.rodape-importar textarea {
+  flex: 1;
+  min-height: 80px;
+  resize: vertical;
+  font-family: var(--fonte-mono);
+  font-size: var(--t-12);
+  color: var(--ink);
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--card-borda);
+  border-radius: var(--raio-sm);
+  padding: 8px;
+}
+
+.aviso {
+  font-size: var(--t-12);
+}
+
+.aviso--erro {
+  color: var(--coral);
+}
+
+.aviso--ok {
+  color: var(--leaf);
+}
+
+/* ---------- cards sobre a tela ---------- */
+
+.card-fundo,
 .card-offline-fundo {
   position: fixed;
   inset: 0;
-  z-index: 10;
+  z-index: 20;
   display: grid;
   place-items: center;
   padding: 16px;
-  background: rgba(7, 10, 30, 0.7);
+  background: rgba(7, 10, 30, 0.72);
 }
 
-.card-offline {
-  width: min(100%, 440px);
+.card-offline-fundo {
+  z-index: 10;
+}
+
+.card,
+.card-explicativo {
   background: var(--card);
+  border: 1px solid var(--card-borda);
+  border-radius: var(--raio);
   box-shadow: var(--sombra-chapada);
+}
+
+.card {
+  width: min(100%, 440px);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.card-cabecalho {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.card-cabecalho h3,
+.card-explicativo h3 {
+  margin: 0;
+  font-family: var(--fonte-titulo);
+  font-size: var(--t-20);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.card-qtd {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-size: var(--t-14);
+}
+
+.card-desc {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--t-14);
+  max-width: 62ch;
+}
+
+.card-botoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.card-offline-cabecalho {
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
 }
 
 .card-offline-lista {
@@ -824,121 +763,27 @@ button {
   color: var(--leaf);
 }
 
-/* Melhorias */
-
-.melhorias-titulo {
-  margin: 14px 0 8px;
-  font-family: var(--fonte-titulo);
-  font-size: 13px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-}
-
-.card--comprada {
-  border-color: color-mix(in srgb, var(--leaf) 45%, transparent);
-}
-
-.hud-sub--bateria {
-  color: var(--leaf);
-}
-
-@media (max-width: 600px) {
-  .kardashev-marco-rotulo {
-    font-size: 9px;
-  }
-}
-
-/* Mobile: a página inteira rola; nada de painel espremido com rolagem interna. */
-@media (max-width: 900px) {
-  body {
-    overflow: auto;
-  }
-
-  .camada-ui {
-    height: auto;
-    min-height: 100%;
-    overflow: visible;
-    grid-template-rows: auto auto auto;
-  }
-
-  .paineis {
-    grid-template-columns: minmax(0, 1fr);
-    min-height: auto;
-  }
-
-  .painel,
-  .coluna-nucleo {
-    overflow: visible;
-    min-height: auto;
-  }
-}
-
-/* Kardashev: o rótulo do último marco vai para cima da barra (Tipo II e Sol ficam a 2 % um do outro). */
-.kardashev-marco:last-of-type .kardashev-marco-rotulo {
-  top: -22px;
-}
-
-.kardashev-marco-rotulo--curto {
-  display: none;
-}
-
-@media (max-width: 600px) {
-  .kardashev-marco-rotulo--longo {
-    display: none;
-  }
-
-  .kardashev-marco-rotulo--curto {
-    display: block;
-  }
-}
-
-/* ---------- Sessão 4: cards explicativos e Bipes ---------- */
-
-.card-fundo {
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  background: rgba(7, 10, 30, 0.72);
-}
-
 .card-explicativo {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 16px;
   width: min(100%, 560px);
   padding: 20px 22px;
-  border-radius: var(--raio);
-  background: var(--card);
-  border: 1px solid var(--card-borda);
-  box-shadow: var(--sombra-chapada);
 }
 
 .card-explicativo-bipe {
   align-self: end;
 }
 
-.card-explicativo h3 {
-  margin: 0 0 8px;
-  font-family: var(--fonte-titulo);
-  font-size: 20px;
-  font-weight: 600;
-  line-height: 1.2;
-}
-
 .card-explicativo p {
-  margin: 0 0 14px;
+  margin: 8px 0 14px;
   max-width: 62ch;
-  font-size: 15px;
+  font-size: var(--t-16);
   line-height: 1.5;
 }
 
 .card-explicativo-passo {
-  font-size: 12px;
+  font-size: var(--t-12);
   color: var(--muted);
   margin-bottom: 4px;
   font-variant-numeric: tabular-nums;
@@ -949,11 +794,7 @@ button {
   justify-content: flex-end;
 }
 
-.card-offline-cabecalho {
-  align-items: center;
-  justify-content: flex-start;
-  gap: 12px;
-}
+/* ---------- Bipes ---------- */
 
 .bipe-palpebra {
   transform-origin: center;
@@ -978,13 +819,132 @@ button {
   }
 }
 
+/* ---------- movimento reduzido ---------- */
+
 @media (prefers-reduced-motion: reduce) {
-  .bipe-palpebra {
+  .bipe-palpebra,
+  .pop {
     animation: none;
+  }
+
+  .pilula,
+  .barra-calor-preenchida,
+  .barra-calor-marca,
+  .kardashev-preenchida,
+  .kardashev-cursor {
+    transition: none;
+  }
+}
+
+/* ---------- telas menores ---------- */
+
+@media (max-width: 1100px) {
+  .principal {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 20px;
+  }
+
+  .hud {
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+}
+
+/* Mobile: a página rola; HUD compacto fixo; ordem grade → barras → Kardashev → Rede → save. */
+@media (max-width: 900px) {
+  body {
+    overflow: auto;
+  }
+
+  .camada-ui {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+    padding: 0 14px 12px;
+    gap: 10px;
+  }
+
+  .hud {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: color-mix(in srgb, var(--navy) 90%, transparent);
+    backdrop-filter: blur(6px);
+    margin: 0 -14px;
+    padding: 10px 14px 8px;
+    gap: 14px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .hud-valor--grande {
+    font-size: var(--t-20);
+  }
+
+  .principal {
+    display: contents;
+  }
+
+  .palco {
+    order: 1;
+    overflow: visible;
+  }
+
+  .kardashev {
+    order: 2;
+  }
+
+  .rede {
+    order: 3;
+    overflow: visible;
+  }
+
+  .rodape-save {
+    order: 4;
+  }
+
+  .grade-area {
+    margin-top: 0;
+  }
+
+  .seletor-pecas {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    margin: 0 -14px;
+    padding-left: 14px;
+    padding-right: 14px;
   }
 }
 
 @media (max-width: 600px) {
+  .hud-item--extra {
+    display: none;
+  }
+
+  .hud-rotulo {
+    display: none;
+  }
+
+  .kardashev-marco-rotulo--longo {
+    display: none;
+  }
+
+  .kardashev-marco-rotulo--curto {
+    display: block;
+  }
+
+  .linha {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .linha-acoes {
+    justify-content: flex-start;
+  }
+
   .card-explicativo {
     grid-template-columns: minmax(0, 1fr);
   }
