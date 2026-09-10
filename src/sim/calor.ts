@@ -27,3 +27,18 @@ export function multiplicadorPesquisa(t: number): number {
 export function pesquisaPorSegundo(potenciaNucleoKw: number, t: number): number {
   return potenciaNucleoKw * NUCLEO.pesquisaPorKw * multiplicadorPesquisa(t);
 }
+
+export type DicaEquilibrio = "adicionarEspelhos" | "tirarEspelho" | null;
+
+/**
+ * Dica derivada de `T*` (o equilíbrio), não do `T` atual: abaixo da zona de ouro
+ * pede espelhos; acima do limite pede menos calor; dentro, nada.
+ */
+export function dicaDeEquilibrio(tEquilibrio: number): DicaEquilibrio {
+  if (!Number.isFinite(tEquilibrio)) return tEquilibrio > 0 ? "tirarEspelho" : null;
+  const ouro = FAIXAS_CALOR.find((f) => f.id === "ouro");
+  const inicioOuro = ouro ? FAIXAS_CALOR[FAIXAS_CALOR.indexOf(ouro) - 1].ate : 0.7;
+  if (tEquilibrio < inicioOuro) return "adicionarEspelhos";
+  if (tEquilibrio > 1) return "tirarEspelho";
+  return null;
+}

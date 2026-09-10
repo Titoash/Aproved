@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { NUCLEO, PECAS, RECEPTOR_CERAMICO } from "../../content/era1-nucleo";
-import { faixaDeCalor, multiplicadorPesquisa, pesquisaPorSegundo, temperatura } from "../calor";
+import { dicaDeEquilibrio, faixaDeCalor, multiplicadorPesquisa, pesquisaPorSegundo, temperatura } from "../calor";
 import {
   anel,
   balancoDeCalor,
@@ -194,5 +194,17 @@ describe("posicionamento como dado", () => {
     expect(grade[ANEL2[0]]).toEqual({ tipo: "peca", id: "heliostato" });
     expect(grade[indiceReceptor(5)]).toEqual({ tipo: "receptor" });
     expect(contar(grade).pecas).toBe(2);
+  });
+});
+
+describe("dica da barra (derivada de Q*)", () => {
+  it("Q* = 55 % → adicionar espelhos; 108 % → tirar espelho; 83 % → sem dica", () => {
+    expect(dicaDeEquilibrio(0.55)).toBe("adicionarEspelhos");
+    expect(dicaDeEquilibrio(1.08)).toBe("tirarEspelho");
+    expect(dicaDeEquilibrio(0.83)).toBeNull();
+    expect(dicaDeEquilibrio(0.7)).toBeNull();
+    expect(dicaDeEquilibrio(1)).toBeNull();
+    expect(dicaDeEquilibrio(Infinity)).toBe("tirarEspelho");
+    expect(dicaDeEquilibrio(0)).toBe("adicionarEspelhos");
   });
 });
