@@ -11,6 +11,18 @@ export function getGradeRect(): DOMRect | null {
   return gradeElement.getBoundingClientRect();
 }
 
+let palcoElement: HTMLElement | null = null;
+
+/** O palco rola; a cena recorta o desenho a ele para a grade não vazar por cima do HUD. */
+export function setPalcoElement(el: HTMLElement | null): void {
+  palcoElement = el;
+}
+
+export function getPalcoRect(): DOMRect | null {
+  if (!palcoElement || !palcoElement.isConnected) return null;
+  return palcoElement.getBoundingClientRect();
+}
+
 /** Retângulo mínimo para localizar casas (o mesmo cálculo da cena e do DOM). */
 export interface RectGrade {
   left: number;

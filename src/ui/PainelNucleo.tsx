@@ -9,7 +9,7 @@ import { calorPorEspelho, podeComprarMelhoria } from "../sim/melhorias";
 import { capacidadeU, contar, equilibrioU, espelhosEfetivos } from "../sim/nucleo";
 import type { NucleoState } from "../sim/state";
 import { potenciaNucleoEfetivaKw } from "../sim/tick";
-import { indiceDaCasa, setGradeElement } from "../scene/layout";
+import { indiceDaCasa, setGradeElement, setPalcoElement } from "../scene/layout";
 import { corDaRampaCss } from "../scene/rampa";
 import { useGameStore, type Ferramenta } from "../store/gameStore";
 
@@ -258,12 +258,21 @@ function Operacao({ nucleo }: { nucleo: NucleoState }) {
   );
 }
 
-export function PainelNucleo() {
-  const nucleo = useGameStore((s) => s.state.nucleo);
-  if (!nucleo) return <Bloqueado />;
+function Palco({ nucleo }: { nucleo: NucleoState }) {
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    setPalcoElement(ref.current);
+    return () => setPalcoElement(null);
+  }, []);
   return (
-    <section className="palco" aria-label="Núcleo">
+    <section ref={ref} className="palco" aria-label="Núcleo">
       <Operacao nucleo={nucleo} />
     </section>
   );
+}
+
+export function PainelNucleo() {
+  const nucleo = useGameStore((s) => s.state.nucleo);
+  if (!nucleo) return <Bloqueado />;
+  return <Palco nucleo={nucleo} />;
 }

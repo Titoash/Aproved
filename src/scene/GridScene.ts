@@ -14,7 +14,7 @@ import { temperaturaNucleo } from "../sim/calor";
 import { anel, contar, podeColocar } from "../sim/nucleo";
 import { indiceReceptor, type NucleoState } from "../sim/state";
 import { useGameStore, type Ferramenta } from "../store/gameStore";
-import { getGradeRect } from "./layout";
+import { getGradeRect, getPalcoRect } from "./layout";
 import { corDaRampa } from "./rampa";
 
 /** Tokens do GDD §10 (tokens.css) em número, para o canvas. */
@@ -57,6 +57,9 @@ export class GridScene extends Phaser.Scene {
   private gEfeitos!: Phaser.GameObjects.Graphics;
   private particulas: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
   private brasas: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
+  /** Recorte ao retângulo do palco (que rola): a grade não pode vazar por cima do HUD. */
+  private mascaraForma!: Phaser.GameObjects.Graphics;
+  private recorte = { x: 0, y: 0, w: 0, h: 0 };
 
   private rect: Rect = { x: 0, y: 0, tamanho: 0 };
   private celula = 0;
@@ -112,6 +115,10 @@ export class GridScene extends Phaser.Scene {
         blendMode: Phaser.BlendModes.ADD,
       })
       .setDepth(5);
+
+    this.mascaraForma = this.make.graphics({ x: 0, y: 0 }, false);
+    const mascara = this.mascaraForma.createGeometryMask();
+    for (const alvo of [this.gFundo, this.gEstatico, this.gDinamico, this.gEfeitos, this.particulas, this.brasas]) alvo?.setMask(mascara);
 
     const nucleo = useGameStore.getState().state.nucleo;
     this.ultimaCascataVista = nucleo?.ultimaCascataMs ?? null;
@@ -194,6 +201,8 @@ export class GridScene extends Phaser.Scene {
       this.dirty = true;
     }
 
+    this.atualizarRecorte(k);
+
     const agora = this.time.now;
     if (nucleo.ultimaCascataMs !== null && nucleo.ultimaCascataMs !== this.ultimaCascataVista) {
       this.ultimaCascataVista = nucleo.ultimaCascataMs;
@@ -221,6 +230,19 @@ export class GridScene extends Phaser.Scene {
     }
     this.desenharDinamico(nucleo, t, emScram, c.turbinas > 0 ? consumoPorTurbina : 0, agora, store.state.tempoMs, !!store.state.melhorias.rastreamentoSolar);
     this.desenharEfeitos(agora);
+  }
+
+  /** A máscara acompanha o palco a cada frame; sem palco, recorta ao canvas inteiro. */
+  private atualizarRecorte(k: number) {
+    const palco = getPalcoRect();
+    const r = palco
+      ? { x: palco.left * k, y: palco.top * k, w: palco.width * k, h: palco.height * k }
+      : { x: 0, y: 0, w: this.scale.width, h: this.scale.height };
+    if (r.x === this.recorte.x && r.y === this.recorte.y && r.w === this.recorte.w && r.h === this.recorte.h) return;
+    this.recorte = r;
+    this.mascaraForma.clear();
+    this.mascaraForma.fillStyle(0xffffff, 1);
+    this.mascaraForma.fillRect(r.x, r.y, r.w, r.h);
   }
 
   private esconder() {
