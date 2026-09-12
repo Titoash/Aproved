@@ -4,6 +4,7 @@
  */
 import { RECEPTOR_CERAMICO } from "../content/era1-nucleo";
 import { NUCLEO_PADRAO, pecaDe } from "../content/eras";
+import { decaimentoDaGrade, estaQuente } from "./decaimento";
 import type { DefinicaoNucleo } from "../content/tipos";
 import { indiceReceptor, ladoDaGrade, type Casa, type PecaId } from "./state";
 
@@ -140,23 +141,33 @@ export function balancoDeCalor(
   calorU: number,
   emScram = false,
   calorPorAquecedor?: number,
+  tempoMs = 0,
   def: DefinicaoNucleo = PADRAO,
 ): number {
   const c = contar(grade, def);
   const h = aquecedoresEfetivosDe(c, def);
-  const entrada = emScram ? 0 : (calorPorAquecedor ?? calorBasePorAquecedor(def)) * h;
+  const fissao = emScram ? 0 : (calorPorAquecedor ?? calorBasePorAquecedor(def)) * h;
+  // O decaimento **não** é zerado pelo SCRAM: é isso que muda a era (GDD §8.5.5).
+  const decaimento = decaimentoDaGrade(grade, tempoMs, def);
   const consumo = emScram ? 0 : def.consumoConversor * c.conversores * calorU;
-  return entrada - c.dissipacaoUs - consumo;
+  return fissao + decaimento - c.dissipacaoUs - consumo;
 }
 
 /**
- * Q*: calor em que dQ/dt = 0. Sem turbinas não há consumo proporcional a Q:
- * devolve `Infinity` se o calor só sobe, `0` se só desce ou nada acontece.
+ * Q*: calor em que dQ/dt = 0, avaliado **no instante** `tempoMs`. Com decaimento
+ * o equilíbrio não é fixo — ele escorrega enquanto as peças gastas esfriam —,
+ * então este é o alvo de agora, que é o que a dica da barra e o offline querem.
  */
-export function equilibrioU(grade: readonly Casa[], calorPorAquecedor?: number, def: DefinicaoNucleo = PADRAO): number {
+export function equilibrioU(
+  grade: readonly Casa[],
+  calorPorAquecedor?: number,
+  tempoMs = 0,
+  def: DefinicaoNucleo = PADRAO,
+): number {
   const c = contar(grade, def);
   const h = aquecedoresEfetivosDe(c, def);
-  const liquido = (calorPorAquecedor ?? calorBasePorAquecedor(def)) * h - c.dissipacaoUs;
+  const liquido =
+    (calorPorAquecedor ?? calorBasePorAquecedor(def)) * h + decaimentoDaGrade(grade, tempoMs, def) - c.dissipacaoUs;
   if (c.conversores === 0) return liquido > 0 ? Infinity : 0;
   return Math.max(0, liquido / (def.consumoConversor * c.conversores));
 }
@@ -180,9 +191,10 @@ export function passoCalor(
   dtS: number,
   emScram = false,
   calorPorAquecedor?: number,
+  tempoMs = 0,
   def: DefinicaoNucleo = PADRAO,
 ): number {
-  return Math.max(0, calorU + balancoDeCalor(grade, calorU, emScram, calorPorAquecedor, def) * dtS);
+  return Math.max(0, calorU + balancoDeCalor(grade, calorU, emScram, calorPorAquecedor, tempoMs, def) * dtS);
 }
 
 /* ------------------------------------------------------------------ */
@@ -216,9 +228,23 @@ export function colocar(grade: readonly Casa[], indice: number, pecaId: PecaId, 
   return nova;
 }
 
-export function podeRemover(grade: readonly Casa[], indice: number): boolean {
+/** Peça quente não sai da grade: o decaimento tem de cair abaixo do corte (GDD §8.5.4). */
+export function validarRemocao(
+  grade: readonly Casa[],
+  indice: number,
+  tempoMs = 0,
+  def: DefinicaoNucleo = PADRAO,
+): Validacao {
   const casa = grade[indice];
-  return !!casa && casa.tipo === "peca";
+  if (!casa || casa.tipo !== "peca") return { ok: false, motivo: "Nada para remover." };
+  if (estaQuente(casa, indice, ladoDaGrade(grade), tempoMs, def)) {
+    return { ok: false, motivo: "Ainda quente. Recarregue ou espere esfriar." };
+  }
+  return { ok: true };
+}
+
+export function podeRemover(grade: readonly Casa[], indice: number, tempoMs = 0, def: DefinicaoNucleo = PADRAO): boolean {
+  return validarRemocao(grade, indice, tempoMs, def).ok;
 }
 
 export function remover(grade: readonly Casa[], indice: number): Casa[] {

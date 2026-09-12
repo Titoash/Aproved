@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CASCATA, MODO_SEGURO } from "../../content/era1-nucleo";
 import { temperaturaNucleo } from "../calor";
-import { custoReconstrucao, faltaParaLimpezaMs, podeLimparEntulho, reconstruir, scram } from "../cascata";
+import { atualizarCronometro, custoReconstrucao, faltaParaLimpezaMs, podeLimparEntulho, reconstruir, scram } from "../cascata";
 import { equilibrioU } from "../nucleo";
 import { estadoInicial, nucleoInicial, type Casa, type GameState } from "../state";
 import { avancarTicks, balancoDoEstado, potenciaNucleoEfetivaKw, tick, TICK_MS } from "../tick";
@@ -178,5 +178,22 @@ describe("entulho", () => {
     const grade = montar(["turbina"]);
     grade[ANEL1[0]] = casa;
     expect(reconstruir(grade, ANEL1[0])[ANEL1[0]]).toEqual({ tipo: "peca", id: "turbina" });
+  });
+});
+
+describe("cronômetro durante o SCRAM", () => {
+  it("na Era 1 o SCRAM continua protegendo: sem entrada, o cronômetro zera", () => {
+    // T bem acima de 100 %, em SCRAM, sem nada entrando: não conta.
+    expect(atualizarCronometro(4000, 1.5, 1.5, 100, true)).toBe(0);
+    expect(atualizarCronometro(4000, 1.5, 1.5, 100, true, 0)).toBe(0);
+  });
+
+  it("com calor ainda entrando apesar do SCRAM, o cronômetro conta", () => {
+    expect(atualizarCronometro(4000, 1.5, 1.5, 100, true, 14)).toBe(4100);
+  });
+
+  it("abaixo do limite zera, com ou sem SCRAM e com ou sem entrada", () => {
+    expect(atualizarCronometro(4000, 1.5, 0.9, 100, true, 14)).toBe(0);
+    expect(atualizarCronometro(4000, 1.5, 0.9, 100, false, 14)).toBe(0);
   });
 });

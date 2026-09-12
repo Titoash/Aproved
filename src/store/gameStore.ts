@@ -6,7 +6,8 @@
  */
 import { create } from "zustand";
 import { cardParaEvento, CARDS_ERA1 } from "../content/cards-era1";
-import { OFFLINE } from "../content/era1";
+import { OFFLINE } from "../content/regras";
+import { defDoNucleo } from "../content/eras";
 import * as acoes from "../sim/acoes";
 import * as nucleo from "../sim/acoesNucleo";
 import { cardVisto, marcarCardVisto } from "../sim/cards";
@@ -190,9 +191,16 @@ export const useGameStore = create<GameStore>()((set, get) => {
         return false;
       }
       if (ferramenta === "remover") {
-        if (aplicar(nucleo.removerPeca(state, indice))) return true;
-        avisar(indice, casa?.tipo === "receptor" ? "O Receptor é fixo." : "Nada para remover.");
-        return false;
+        if (casa?.tipo === "receptor") {
+          avisar(indice, `O ${defDoNucleo(state.nucleo).nomeCentro} é fixo.`);
+          return false;
+        }
+        const r = nucleo.validarRemocaoDaPeca(state, indice);
+        if (!r.ok) {
+          avisar(indice, r.motivo);
+          return false;
+        }
+        return aplicar(nucleo.removerPeca(state, indice));
       }
       const v = nucleo.validarColocacao(state, indice, ferramenta);
       if (!v.ok) {

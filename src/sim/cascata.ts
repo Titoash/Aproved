@@ -20,7 +20,13 @@ export function acimaDoLimite(t: number): boolean {
  * Cronômetro contínuo em ms. Conta cada tick passado inteiro acima de 100 %
  * (T acima antes e depois do passo de calor), de modo que a Cascata dispara
  * 5 000 ms depois do tick em que T passou do limite. Zera assim que T volta
- * a ≤ 100 % e também durante o SCRAM (Núcleo desligado não cascateia).
+ * a ≤ 100 %.
+ *
+ * Durante o SCRAM o cronômetro zera **se nada mais estiver entrando**: não faz
+ * sentido punir quem apertou o botão e não tem como reagir. Na Era 1 a entrada
+ * em SCRAM é sempre 0, então o comportamento é o de sempre. Na Era 2, o calor
+ * de decaimento continua entrando mesmo com a fissão parada — e aí a Cascata
+ * acontece durante o SCRAM, que é justamente o que o GDD §8.5.5 exige.
  */
 export function atualizarCronometro(
   tempoAcimaMs: number,
@@ -28,8 +34,11 @@ export function atualizarCronometro(
   tDepois: number,
   dtMs: number,
   scram: boolean,
+  /** u/s ainda entrando apesar do SCRAM (calor de decaimento). 0 na Era 1. */
+  entradaEmScramUs = 0,
 ): number {
-  if (scram || !acimaDoLimite(tDepois)) return 0;
+  if (!acimaDoLimite(tDepois)) return 0;
+  if (scram && entradaEmScramUs <= 0) return 0;
   if (!acimaDoLimite(tAntes)) return 0;
   return tempoAcimaMs + dtMs;
 }

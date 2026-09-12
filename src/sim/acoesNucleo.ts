@@ -9,8 +9,8 @@ import {
   reconstruir as reconstruirGrade,
   scram,
 } from "./cascata";
-import { custoRecarga, recarregar } from "./combustivel";
-import { colocar, podeColocar, podeRemover, remover, type Validacao } from "./nucleo";
+import { custoRecarga, pararFissao, recarregar } from "./combustivel";
+import { colocar, podeColocar, remover, validarRemocao, type Validacao } from "./nucleo";
 import { nucleoInicial, type GameState, type NucleoState, type PecaId } from "./state";
 
 function comNucleo(state: GameState, nucleo: NucleoState, creditos = state.creditos): GameState {
@@ -64,8 +64,18 @@ export function colocarPeca(state: GameState, indice: number, pecaId: PecaId): G
 }
 
 /** Remover não reembolsa (o preço das peças é fixo e baixo; a limitação é o espaço). */
+/** Recusa com motivo: peça gasta ainda quente não sai da grade (GDD §8.5.4). */
+export function validarRemocaoDaPeca(state: GameState, indice: number): Validacao {
+  if (!state.nucleo) return { ok: false, motivo: "Núcleo bloqueado." };
+  return validarRemocao(state.nucleo.grade, indice, state.tempoMs, defDoNucleo(state.nucleo));
+}
+
+export function podeRemoverPeca(state: GameState, indice: number): boolean {
+  return validarRemocaoDaPeca(state, indice).ok;
+}
+
 export function removerPeca(state: GameState, indice: number): GameState | null {
-  if (!state.nucleo || !podeRemover(state.nucleo.grade, indice)) return null;
+  if (!state.nucleo || !podeRemoverPeca(state, indice)) return null;
   return comNucleo(state, { ...state.nucleo, grade: remover(state.nucleo.grade, indice) });
 }
 
@@ -101,7 +111,9 @@ export function podeScramManual(state: GameState): boolean {
 
 export function scramManual(state: GameState): GameState | null {
   if (!state.nucleo || !podeScramManual(state)) return null;
-  return comNucleo(state, scram(state.nucleo));
+  // O SCRAM para a fissão e, com ela, começa o relógio do decaimento (GDD §8.5.5).
+  const parado = scram(state.nucleo);
+  return comNucleo(state, { ...parado, grade: [...pararFissao(parado.grade, state.tempoMs, defDoNucleo(state.nucleo))] });
 }
 
 /* ------------------------------------------------------------------ */

@@ -44,7 +44,8 @@ export function calcularOffline(state: GameState, agoraMs: number): { state: Gam
     const def = defDoNucleo(nucleo);
     const calorEspelho = nucleo.tipo === "torreSolar" ? calorPorEspelho(state.melhorias) : undefined;
     const capacidade = capacidadeU(nucleo.grade, nucleo.receptorCeramico, def);
-    const qEquilibrio = equilibrioU(nucleo.grade, calorEspelho, def);
+    // T* já com o decaimento das peças gastas no instante do save (GDD §8.5.7).
+    const qEquilibrio = equilibrioU(nucleo.grade, calorEspelho, state.tempoMs, def);
     const tEq = temperatura(qEquilibrio, capacidade);
     tEquilibrio = tEq;
 

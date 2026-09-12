@@ -13,7 +13,8 @@ import { faixaDeCalor, pesquisaPorSegundo, temperatura } from "./calor";
 import { aplicarCascata, atualizarCronometro, deveCascatear, emScram, scram } from "./cascata";
 import { passoEstabilidade } from "./estabilidade";
 import { aquecedoresEfetivosDe, calorBasePorAquecedor, capacidadeU, contar, passoCalor, potenciaNucleoKw } from "./nucleo";
-import { queimarGrade } from "./combustivel";
+import { pararFissao, queimarGrade, retomarFissao } from "./combustivel";
+import { decaimentoDaGrade } from "./decaimento";
 import { calorPorEspelho } from "./melhorias";
 import { balancoRede, passoRede, type BalancoRede } from "./rede";
 import type { EventoJogo, GameState, NucleoState } from "./state";
@@ -72,13 +73,16 @@ export function passoNucleo(
 
   // Fluxos do início do tick (o card da Cascata mostra estes números, não os do SCRAM que vem depois).
   const c = contar(grade, def);
-  const entradaUs = scramAtivo ? 0 : calorPorAquecedor * aquecedoresEfetivosDe(c, def);
+  const fissaoUs = scramAtivo ? 0 : calorPorAquecedor * aquecedoresEfetivosDe(c, def);
+  // O decaimento entra mesmo em SCRAM: é o que a Era 2 ensina (GDD §8.5.5).
+  const decaimentoUs = decaimentoDaGrade(grade, tempoMs, def);
+  const entradaUs = fissaoUs + decaimentoUs;
   const saidaUs = c.dissipacaoUs + (scramAtivo ? 0 : def.consumoConversor * c.conversores * nucleo.calorU);
 
   // 4. calor
   const capacidade = capacidadeU(grade, nucleo.receptorCeramico, def);
   const tAntes = temperatura(nucleo.calorU, capacidade);
-  const calorU = passoCalor(grade, nucleo.calorU, dtS, scramAtivo, calorPorAquecedor, def);
+  const calorU = passoCalor(grade, nucleo.calorU, dtS, scramAtivo, calorPorAquecedor, tempoMs, def);
   const t = temperatura(calorU, capacidade);
   const faixa = faixaDeCalor(t);
 
@@ -87,20 +91,28 @@ export function passoNucleo(
   const porMinuto = scramAtivo || potenciaKw <= 0 ? 0 : faixa.estabilidadePorMinuto;
   const estabilidade = passoEstabilidade(nucleo.estabilidade, porMinuto, dtS);
 
+  const scramRestanteMs = Math.max(0, nucleo.scramRestanteMs - dtMs);
+  // Ao sair do SCRAM, quem ainda tem combustível volta a fissionar e zera o
+  // relógio do decaimento; as gastas continuam paradas e continuam quentes.
+  const gradeApos = scramAtivo && scramRestanteMs === 0 ? retomarFissao(grade, def) : grade;
+
   let proximo: NucleoState = {
     ...nucleo,
-    grade: grade === nucleo.grade ? nucleo.grade : [...grade],
+    grade: gradeApos === nucleo.grade ? nucleo.grade : [...gradeApos],
     calorU,
     estabilidade,
-    scramRestanteMs: Math.max(0, nucleo.scramRestanteMs - dtMs),
+    scramRestanteMs,
   };
 
   // 6. modo seguro → cronômetro → Cascata
-  if (proximo.modoSeguro && !scramAtivo && t >= MODO_SEGURO.limiarT) proximo = scram(proximo);
-  proximo.tempoAcimaDoLimiteMs = atualizarCronometro(nucleo.tempoAcimaDoLimiteMs, tAntes, t, dtMs, emScram(proximo));
+  if (proximo.modoSeguro && !scramAtivo && t >= MODO_SEGURO.limiarT) {
+    proximo = { ...scram(proximo), grade: [...pararFissao(proximo.grade, tempoMs, def)] };
+  }
+  proximo.tempoAcimaDoLimiteMs = atualizarCronometro(nucleo.tempoAcimaDoLimiteMs, tAntes, t, dtMs, emScram(proximo), decaimentoUs);
   let cascatou = false;
   if (deveCascatear(proximo.tempoAcimaDoLimiteMs)) {
     proximo = aplicarCascata(proximo, tempoMs, { entradaUs, saidaUs });
+    proximo = { ...proximo, grade: [...pararFissao(proximo.grade, tempoMs, def)] };
     cascatou = true;
   }
 
