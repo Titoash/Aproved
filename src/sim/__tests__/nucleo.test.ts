@@ -9,7 +9,7 @@ import {
   contar,
   entulharAnel1,
   equilibrioU,
-  espelhosEfetivos,
+  aquecedoresEfetivos,
   passoCalor,
   podeColocar,
   potenciaNucleoKw,
@@ -66,9 +66,9 @@ describe("geometria", () => {
   });
 
   it("espelhos efetivos: anel 1 conta 1, anel 2 conta 0,5", () => {
-    expect(espelhosEfetivos(configuracao(5))).toBe(5);
-    expect(espelhosEfetivos(configuracao(5.5))).toBe(5.5);
-    expect(contar(configuracao(5))).toMatchObject({ espelhosAnel1: 4, espelhosAnel2: 2, turbinas: 2 });
+    expect(aquecedoresEfetivos(configuracao(5))).toBe(5);
+    expect(aquecedoresEfetivos(configuracao(5.5))).toBe(5.5);
+    expect(contar(configuracao(5))).toMatchObject({ aquecedoresPorAnel: [4, 2, 0], conversores: 2 });
   });
 });
 
@@ -108,14 +108,14 @@ describe("equilíbrio do calor (GDD §8.3 corrigido, t = 2, capacidade 100)", ()
 
   it("h = 6,5 + 1 radiador devolve a zona de ouro (Q* = 83,3)", () => {
     const grade = configuracao(6.5, { radiadores: 1 });
-    expect(contar(grade).radiadoresAdjacentes).toBe(1);
+    expect(contar(grade).dissipadoresAdjacentes).toBe(1);
     expect(equilibrioU(grade)).toBeCloseTo(83.3, 1);
     expect(faixaDeCalor(temperatura(equilibrioU(grade), capacidadeU(grade))).id).toBe("ouro");
   });
 
   it("1 tanque de sal com h = 6, t = 2 → capacidade 250, T → 40 % e pesquisa ×0,5", () => {
     const grade = configuracao(6, { tanques: 1 });
-    expect(contar(grade).tanquesAdjacentes).toBe(1);
+    expect(contar(grade).armazenadoresAdjacentes).toBe(1);
     expect(capacidadeU(grade)).toBe(250);
     expect(temperatura(equilibrioU(grade), capacidadeU(grade))).toBeCloseTo(0.4, 10);
     // Chegando por baixo, T fica logo abaixo de 40 %: faixa fria.
@@ -132,8 +132,8 @@ describe("equilíbrio do calor (GDD §8.3 corrigido, t = 2, capacidade 100)", ()
 
   it("radiador e tanque no anel 2 não têm efeito", () => {
     const grade = montar(["turbina", "heliostato"], ["radiador", "tanque"]);
-    expect(contar(grade).radiadoresAdjacentes).toBe(0);
-    expect(contar(grade).tanquesAdjacentes).toBe(0);
+    expect(contar(grade).dissipadoresAdjacentes).toBe(0);
+    expect(contar(grade).armazenadoresAdjacentes).toBe(0);
     expect(capacidadeU(grade)).toBe(100);
   });
 });

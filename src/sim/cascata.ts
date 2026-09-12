@@ -1,5 +1,6 @@
 /** Cascata e SCRAM (GDD §5): cronômetro, efeitos, entulho e modo seguro. */
-import { CASCATA, definicaoDaPeca } from "../content/era1-nucleo";
+import { CASCATA } from "../content/regras";
+import { definicaoDaPeca } from "../content/eras";
 import { perdaCascata } from "./estabilidade";
 import { entulharAnel1 } from "./nucleo";
 import type { Casa, NucleoState, UltimaCascata } from "./state";

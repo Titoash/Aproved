@@ -1,11 +1,18 @@
 /** Tipos do estado do jogo e estado inicial (GDD §3, §8.1, §8.3, §11). */
 import { ECONOMIA } from "../content/era1";
-import { NUCLEO } from "../content/era1-nucleo";
+import { defDaEra } from "../content/eras";
 
 /** Eras implementadas (GDD §6, §8). */
 export type Era = 1 | 2;
 
-export type UsinaId = "cataVento" | "painelSolar" | "turbinaEolica";
+export type UsinaEra1Id = "cataVento" | "painelSolar" | "turbinaEolica";
+export type UsinaEra2Id = "hidreletrica" | "termeletricaGas" | "usinaNuclear";
+/**
+ * Todas as usinas de todas as eras. A Rede guarda uma entrada por usina desde o
+ * começo: as da Era 2 ficam em zero até a era chegar, e as da Era 1 continuam
+ * na lista depois dela (GDD §8.5.1 — o custo inflacionado já as aposenta).
+ */
+export type UsinaId = UsinaEra1Id | UsinaEra2Id;
 export type MelhoriaId = "laminasDeFibra" | "rastreamentoSolar" | "grade7x7";
 export type Melhorias = Record<MelhoriaId, boolean>;
 
@@ -142,7 +149,7 @@ export function ladoDaGrade(grade: readonly unknown[]): number {
   return Math.round(Math.sqrt(grade.length));
 }
 
-export function gradeVazia(lado: number = NUCLEO.ladoInicial): Casa[] {
+export function gradeVazia(lado: number = defDaEra(1).nucleo.ladoInicial): Casa[] {
   const grade: Casa[] = new Array(lado * lado).fill(null);
   grade[indiceReceptor(lado)] = { tipo: "receptor" };
   return grade;
@@ -151,7 +158,7 @@ export function gradeVazia(lado: number = NUCLEO.ladoInicial): Casa[] {
 export function nucleoInicial(): NucleoState {
   return {
     tipo: "torreSolar",
-    lado: NUCLEO.ladoInicial,
+    lado: defDaEra(1).nucleo.ladoInicial,
     grade: gradeVazia(),
     calorU: 0,
     tempoAcimaDoLimiteMs: 0,
@@ -177,9 +184,12 @@ export function estadoInicial(): GameState {
         cataVento: { quantidade: 0, nivel: 0 },
         painelSolar: { quantidade: 0, nivel: 0 },
         turbinaEolica: { quantidade: 0, nivel: 0 },
+        hidreletrica: { quantidade: 0, nivel: 0 },
+        termeletricaGas: { quantidade: 0, nivel: 0 },
+        usinaNuclear: { quantidade: 0, nivel: 0 },
       },
       vilas: 0,
-      demandaBaseKw: ECONOMIA.demandaInicialKw,
+      demandaBaseKw: defDaEra(1).demandaInicialKw,
       bateria: { kwh: 0, capacidadeKwh: 0, unidades: 0 },
     },
     nucleo: null,

@@ -1,4 +1,5 @@
-import { BATERIA, MELHORIAS, ORDEM_MELHORIAS, ORDEM_USINAS, USINAS, VILA, type Desbloqueio } from "../content/era1";
+import { BATERIA, MELHORIAS, ORDEM_MELHORIAS, ORDEM_USINAS, VILA, type Desbloqueio } from "../content/era1";
+import { USINAS_TODAS } from "../content/eras";
 import {
   custoProximaBateria,
   custoProximaMelhoria,
@@ -24,7 +25,7 @@ function textoBloqueio(state: GameState, desbloqueio: Desbloqueio | undefined): 
   const partes: string[] = [];
   if (desbloqueio?.usina) {
     const [id, n] = desbloqueio.usina;
-    const nome = n === 1 ? USINAS[id].nome : USINAS[id].nomePlural;
+    const nome = n === 1 ? USINAS_TODAS[id].nome : USINAS_TODAS[id].nomePlural;
     if (state.rede.usinas[id].quantidade < n) partes.push(`${n} ${nome.toLowerCase()} (${state.rede.usinas[id].quantidade}/${n})`);
   }
   if (desbloqueio?.pesquisa !== undefined && state.pesquisa < desbloqueio.pesquisa) {
@@ -37,7 +38,7 @@ function LinhaUsina({ id }: { id: UsinaId }) {
   const state = useGameStore((s) => s.state);
   const comprarUsina = useGameStore((s) => s.comprarUsina);
   const melhorarUsina = useGameStore((s) => s.melhorarUsina);
-  const def = USINAS[id];
+  const def = USINAS_TODAS[id];
   const usina = state.rede.usinas[id];
   const bloqueio = textoBloqueio(state, def.desbloqueio);
   const potenciaCada = def.potenciaKw * fatorMelhoria(usina.nivel) * fatorPotenciaUsina(state.melhorias, id);

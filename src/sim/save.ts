@@ -4,7 +4,8 @@
  * migra saves de versões anteriores.
  */
 import { MELHORIAS } from "../content/era1";
-import { NUCLEO, PECAS } from "../content/era1-nucleo";
+import { defDaEra, defDoNucleo, pecaDe } from "../content/eras";
+import type { DefinicaoNucleo } from "../content/tipos";
 import { anel } from "./nucleo";
 import { calcularOffline, type RelatorioOffline } from "./offline";
 import { capacidadeBateriaKwh } from "./rede";
@@ -80,11 +81,7 @@ function objeto(valor: unknown): Record<string, unknown> {
   return valor !== null && typeof valor === "object" ? (valor as Record<string, unknown>) : {};
 }
 
-const IDS_USINA: readonly UsinaId[] = ["cataVento", "painelSolar", "turbinaEolica"];
-
-function ehPecaId(valor: unknown): valor is PecaEra1Id {
-  return typeof valor === "string" && valor in PECAS;
-}
+const IDS_USINA: readonly UsinaId[] = ["cataVento", "painelSolar", "turbinaEolica", "hidreletrica", "termeletricaGas", "usinaNuclear"];
 
 /** Só as peças que queimam trazem este campo; ausente vira `undefined`, não um objeto vazio. */
 function normalizarCombustivel(bruto: unknown): EstadoCombustivel | undefined {
@@ -97,17 +94,21 @@ function normalizarCombustivel(bruto: unknown): EstadoCombustivel | undefined {
   };
 }
 
-function normalizarCasa(bruto: unknown, indice: number, lado: number): Casa {
+/** Uma casa só sobrevive se a peça existir **naquele** Núcleo e couber no anel. */
+function normalizarCasa(bruto: unknown, indice: number, lado: number, def: DefinicaoNucleo): Casa {
   if (indice === indiceReceptor(lado)) return { tipo: "receptor" };
   const c = objeto(bruto);
-  if (!ehPecaId(c.id)) return null;
+  if (typeof c.id !== "string") return null;
+  const peca = pecaDe(def, c.id as PecaEra1Id);
+  if (!peca) return null;
   const a = anel(indice, lado);
-  if (a === 0 || !PECAS[c.id].aneis.includes(a)) return null;
+  if (a === 0 || !peca.aneis.includes(a)) return null;
   if (c.tipo === "peca") {
-    const combustivel = normalizarCombustivel(c.combustivel);
-    return combustivel ? { tipo: "peca", id: c.id, combustivel } : { tipo: "peca", id: c.id };
+    // Só as peças que queimam guardam combustível; nas outras o campo é descartado.
+    const combustivel = peca.queima ? normalizarCombustivel(c.combustivel) : undefined;
+    return combustivel ? { tipo: "peca", id: peca.id, combustivel } : { tipo: "peca", id: peca.id };
   }
-  if (c.tipo === "entulho") return { tipo: "entulho", id: c.id, desdeMs: numero(c.desdeMs, 0) };
+  if (c.tipo === "entulho") return { tipo: "entulho", id: peca.id, desdeMs: numero(c.desdeMs, 0) };
   return null;
 }
 
@@ -116,9 +117,10 @@ function normalizarNucleo(bruto: unknown): NucleoState | null {
   const n = objeto(bruto);
   const base = nucleoInicial();
   const tipo: NucleoTipo = n.tipo === "reatorPwr" ? "reatorPwr" : "torreSolar";
-  const lado = n.lado === 7 ? 7 : NUCLEO.ladoInicial;
+  const def = defDoNucleo({ tipo });
+  const lado = n.lado === 7 ? 7 : def.ladoInicial;
   const gradeBruta = Array.isArray(n.grade) ? n.grade : [];
-  const grade = gradeVazia(lado).map((_, i) => normalizarCasa(gradeBruta[i], i, lado));
+  const grade = gradeVazia(lado).map((_, i) => normalizarCasa(gradeBruta[i], i, lado, def));
   const scramRestanteMs = numero(n.scramRestanteMs, base.scramRestanteMs);
   const ultimaCascataMs = typeof n.ultimaCascataMs === "number" && Number.isFinite(n.ultimaCascataMs) ? n.ultimaCascataMs : null;
   const uc = objeto(n.ultimaCascata);
@@ -170,12 +172,13 @@ function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState 
     };
   }
 
+  const era: Era = bruto.era === 2 ? 2 : 1;
   const unidades = inteiro(bateriaBruta.unidades, base.rede.bateria.unidades);
   const capacidadeKwh = capacidadeBateriaKwh(unidades);
   const rede: RedeState = {
     usinas,
     vilas: inteiro(redeBruta.vilas, base.rede.vilas),
-    demandaBaseKw: numero(redeBruta.demandaBaseKw, base.rede.demandaBaseKw),
+    demandaBaseKw: numero(redeBruta.demandaBaseKw, defDaEra(era).demandaInicialKw),
     bateria: {
       unidades,
       capacidadeKwh,
@@ -188,7 +191,7 @@ function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState 
     tempoMs: numero(bruto.tempoMs, base.tempoMs),
     creditos: numero(bruto.creditos, base.creditos),
     pesquisa: numero(bruto.pesquisa, base.pesquisa),
-    era: bruto.era === 2 ? (2 as Era) : (1 as Era),
+    era,
     rede,
     nucleo: normalizarNucleo(bruto.nucleo),
     melhorias: normalizarMelhorias(bruto.melhorias),

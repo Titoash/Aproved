@@ -1,5 +1,6 @@
 /** Ações do jogador sobre o Núcleo. Funções puras: devolvem `null` quando a ação não é possível. */
-import { definicaoDaPeca, NUCLEO, RECEPTOR_CERAMICO } from "../content/era1-nucleo";
+import { NUCLEO, RECEPTOR_CERAMICO } from "../content/era1-nucleo";
+import { definicaoDaPeca } from "../content/eras";
 import {
   custoReconstrucao,
   emScram,

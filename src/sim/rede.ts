@@ -2,17 +2,19 @@
  * Balança da Rede (GDD §4.1): potência ofertada, demanda, razão `r`,
  * multiplicador de preço por faixa, bateria e receita.
  */
-import { BATERIA, ECONOMIA, FAIXAS_R, USINAS, VILA, type FaixaR } from "../content/era1";
+import { BATERIA, ECONOMIA, VILA } from "../content/era1";
+import { FAIXAS_R, type FaixaR } from "../content/regras";
+import { defDaEra, USINAS_TODAS } from "../content/eras";
 import { fatorMelhoria } from "./custos";
 import { fatorPotenciaUsina } from "./melhorias";
 import { TICK_MS } from "./tempo";
-import type { BateriaEstado, Melhorias, RedeState, UsinaEstado, UsinaId } from "./state";
+import type { BateriaEstado, Era, Melhorias, RedeState, UsinaEstado, UsinaId } from "./state";
 
 /* ------------------------------------------------------------------ */
-/* Faixas de r (tabela em content/era1.ts)                            */
+/* Faixas de r (tabela em content/regras.ts)                          */
 /* ------------------------------------------------------------------ */
 
-export type { FaixaId, FaixaR } from "../content/era1";
+export type { FaixaId, FaixaR } from "../content/regras";
 
 export function faixaDeR(r: number): FaixaR {
   for (const faixa of FAIXAS_R) {
@@ -30,7 +32,7 @@ export function multiplicadorPreco(r: number): number {
 /* ------------------------------------------------------------------ */
 
 export function potenciaUsina(id: UsinaId, estado: UsinaEstado, melhorias?: Melhorias): number {
-  return USINAS[id].potenciaKw * estado.quantidade * fatorMelhoria(estado.nivel) * fatorPotenciaUsina(melhorias, id);
+  return USINAS_TODAS[id].potenciaKw * estado.quantidade * fatorMelhoria(estado.nivel) * fatorPotenciaUsina(melhorias, id);
 }
 
 export function potenciaOfertadaKw(rede: RedeState, melhorias?: Melhorias): number {
@@ -121,6 +123,8 @@ export interface OpcoesBalanco {
   melhorias?: Melhorias;
   /** Offline (GDD §7): a bateria nem carrega nem descarrega. */
   semBateria?: boolean;
+  /** Era corrente: decide o preço da energia (GDD §7). Sem ela, Era 1. */
+  era?: Era;
 }
 
 export interface BalancoRede {
@@ -186,7 +190,7 @@ export function balancoRede(rede: RedeState, opcoes: OpcoesBalanco = {}): Balanc
 
   const vendidoKw = vendaDiretaKw + cobertoKw;
   // Receita/s = potência vendida (kW) × preço (₵ por kW·s) × multiplicador da balança (GDD §7).
-  const receitaPorSegundo = vendidoKw * ECONOMIA.precoBase * faixa.multiplicador;
+  const receitaPorSegundo = vendidoKw * defDaEra(opcoes.era ?? 1).precoBase * faixa.multiplicador;
 
   return {
     ofertaKw,
@@ -230,7 +234,7 @@ export function passoRede(rede: RedeState, dtMs: number, opcoes: Omit<OpcoesBala
     ? { bateria: rede.bateria, carregadoKwh: 0, descarregadoKwh: 0 }
     : atualizarBateria(rede.bateria, balanco.excedenteKw, balanco.deficitKw, dtS);
   const vendidoKwS = balanco.vendaDiretaKw * dtS + bat.descarregadoKwh / ECONOMIA.kwhPorKwSegundo;
-  const receita = vendidoKwS * ECONOMIA.precoBase * balanco.multiplicador;
+  const receita = vendidoKwS * defDaEra(opcoes.era ?? 1).precoBase * balanco.multiplicador;
   return {
     rede: { ...rede, bateria: bat.bateria },
     balanco,

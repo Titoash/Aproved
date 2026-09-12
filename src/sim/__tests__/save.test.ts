@@ -247,13 +247,19 @@ describe("migração v4 → v5 (multi-era)", () => {
     expect(s.nucleo!.grade[7]).toEqual({ tipo: "peca", id: "radiador" });
   });
 
-  it("combustível válido sobrevive ao save, com restante limitado a 1 e parada saneada", () => {
-    const s0 = { ...estadoInicial(), nucleo: nucleoInicial() };
-    s0.nucleo.grade[6] = { tipo: "peca", id: "turbina", combustivel: { restante: 0.4, paradaEmMs: 1234 } };
-    s0.nucleo.grade[7] = { tipo: "peca", id: "radiador", combustivel: { restante: 5, paradaEmMs: null } };
+  it("combustível sobrevive ao save numa peça que queima, com restante limitado e parada saneada", () => {
+    const s0 = { ...estadoInicial(), era: 2 as const, nucleo: { ...nucleoInicial(), tipo: "reatorPwr" as const, lado: 7, grade: gradeVazia(7) } };
+    s0.nucleo.grade[17] = { tipo: "peca", id: "vareta", combustivel: { restante: 0.4, paradaEmMs: 1234 } };
+    s0.nucleo.grade[23] = { tipo: "peca", id: "vareta", combustivel: { restante: 5, paradaEmMs: null } };
     const s = importarJson(exportarJson(s0, 3), 3);
-    expect(s.nucleo!.grade[6]).toEqual({ tipo: "peca", id: "turbina", combustivel: { restante: 0.4, paradaEmMs: 1234 } });
-    expect(s.nucleo!.grade[7]).toEqual({ tipo: "peca", id: "radiador", combustivel: { restante: 1, paradaEmMs: null } });
+    expect(s.nucleo!.grade[17]).toEqual({ tipo: "peca", id: "vareta", combustivel: { restante: 0.4, paradaEmMs: 1234 } });
+    expect(s.nucleo!.grade[23]).toEqual({ tipo: "peca", id: "vareta", combustivel: { restante: 1, paradaEmMs: null } });
+  });
+
+  it("peça de outra era é descartada ao carregar", () => {
+    const bruto = JSON.parse(exportarJson({ ...estadoInicial(), nucleo: nucleoInicial() }));
+    bruto.nucleo.grade[6] = { tipo: "peca", id: "vareta" }; // vareta numa Torre Solar
+    expect(desserializar(JSON.stringify(bruto), 1).nucleo!.grade[6]).toBeNull();
   });
 
   it("save da versão 6 é recusado", () => {

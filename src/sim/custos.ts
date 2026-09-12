@@ -1,5 +1,5 @@
 /** Custos de unidades e melhorias (GDD §7). */
-import { MELHORIA } from "../content/era1";
+import { MELHORIA } from "../content/regras";
 
 export interface CustoDef {
   custoBase: number;

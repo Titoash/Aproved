@@ -3,21 +3,13 @@
  * Só dados. Regras de posicionamento entram como dado (`aneis`, `efeitoSoAdjacente`),
  * não como `if` espalhado pela UI.
  */
-import type { PecaEra1Id, PecaId } from "../sim/state";
+import type { PecaEra1Id } from "../sim/state";
+import type { DefinicaoNucleo, PecaDef } from "./tipos";
 
-export type Anel = 1 | 2 | 3;
+export { CASCATA, FAIXAS_CALOR, MODO_SEGURO } from "./regras";
+export type { FaixaCalor, FaixaCalorId } from "./regras";
 
-export interface PecaDef {
-  id: PecaEra1Id;
-  nome: string;
-  nomePlural: string;
-  descricao: string;
-  custo: number;
-  /** Anéis onde a peça pode ser colocada (anel 1 = 8 vizinhas do Receptor, diagonais incluídas; anel 3 só existe no 7×7). */
-  aneis: readonly Anel[];
-  /** A peça só produz efeito se estiver adjacente ao Receptor (anel 1). */
-  efeitoSoAdjacente: boolean;
-}
+export type { Anel, PecaDef } from "./tipos";
 
 /** Constantes da Torre Solar (GDD §8.3). */
 export const NUCLEO = {
@@ -63,6 +55,8 @@ export const PECAS: Record<PecaEra1Id, PecaDef> = {
     custo: 30,
     aneis: [1, 2, 3],
     efeitoSoAdjacente: false,
+    papel: "aquece",
+    valor: 4,
   },
   turbina: {
     id: "turbina",
@@ -72,6 +66,8 @@ export const PECAS: Record<PecaEra1Id, PecaDef> = {
     custo: 50,
     aneis: [1],
     efeitoSoAdjacente: true,
+    papel: "converte",
+    valor: 0,
   },
   radiador: {
     id: "radiador",
@@ -81,6 +77,8 @@ export const PECAS: Record<PecaEra1Id, PecaDef> = {
     custo: 40,
     aneis: [1, 2],
     efeitoSoAdjacente: true,
+    papel: "dissipa",
+    valor: 6,
   },
   tanque: {
     id: "tanque",
@@ -90,76 +88,30 @@ export const PECAS: Record<PecaEra1Id, PecaDef> = {
     custo: 60,
     aneis: [1, 2],
     efeitoSoAdjacente: true,
+    papel: "armazena",
+    valor: 150,
   },
 };
 
 export const ORDEM_PECAS: readonly PecaEra1Id[] = ["heliostato", "turbina", "radiador", "tanque"];
 
-/**
- * Definição de uma peça pelo id, aceitando qualquer `PecaId`. Enquanto só a
- * Era 1 tem catálogo, um id de outra era é erro de programação e estoura aqui
- * em vez de virar `undefined` silencioso três chamadas adiante.
- */
-export function definicaoDaPeca(id: PecaId): PecaDef {
-  const def = (PECAS as Partial<Record<PecaId, PecaDef>>)[id];
-  if (!def) throw new Error(`Peça sem definição na Era 1: ${id}`);
-  return def;
-}
+/** A Torre Solar como definição de Núcleo — o que o sim lê (GDD §8.3). */
+export const NUCLEO_TORRE_SOLAR: DefinicaoNucleo = {
+  tipo: "torreSolar",
+  nomeCentro: "Receptor",
+  ladoInicial: NUCLEO.ladoInicial,
+  capacidadeCentroU: NUCLEO.capacidadeReceptorU,
+  pesosAnel: [1, NUCLEO.pesoEspelhoAnel2, NUCLEO.pesoEspelhoAnel3],
+  consumoConversor: NUCLEO.consumoTurbina,
+  kwPorUnidade: NUCLEO.kwPorUnidade,
+  pesquisaPorKw: NUCLEO.pesquisaPorKw,
+  pecas: PECAS,
+  ordemPecas: ORDEM_PECAS,
+};
 
 /* ------------------------------------------------------------------ */
 /* Balança do Calor (GDD §4.2) e Estabilidade (GDD §6, §7)              */
 /* ------------------------------------------------------------------ */
-
-export type FaixaCalorId = "frio" | "normal" | "ouro" | "alerta" | "critico";
-
-export interface FaixaCalor {
-  id: FaixaCalorId;
-  nome: string;
-  /** Limite superior de T = Q ÷ capacidade. */
-  ate: number;
-  ateInclusivo: boolean;
-  /** Multiplicador de pesquisa. */
-  pesquisa: number;
-  /** Estabilidade ganha por minuto de operação nesta faixa. */
-  estabilidadePorMinuto: number;
-}
-
-/**
- *   T < 40 %          frio      pesquisa ×0,5
- *   40 % ≤ T < 70 %   normal    ×1
- *   70 % ≤ T ≤ 90 %   ouro      ×1,3, Estabilidade acelerada
- *   90 % < T ≤ 100 %  alerta    ×1
- *   T > 100 %         crítico   conta o cronômetro da Cascata
- */
-export const FAIXAS_CALOR: readonly FaixaCalor[] = [
-  { id: "frio", nome: "Frio", ate: 0.4, ateInclusivo: false, pesquisa: 0.5, estabilidadePorMinuto: 1.5 },
-  { id: "normal", nome: "Normal", ate: 0.7, ateInclusivo: false, pesquisa: 1, estabilidadePorMinuto: 1.5 },
-  { id: "ouro", nome: "Zona de ouro", ate: 0.9, ateInclusivo: true, pesquisa: 1.3, estabilidadePorMinuto: 2.5 },
-  { id: "alerta", nome: "Alerta", ate: 1, ateInclusivo: true, pesquisa: 1, estabilidadePorMinuto: 1.5 },
-  { id: "critico", nome: "Crítico", ate: Infinity, ateInclusivo: true, pesquisa: 1, estabilidadePorMinuto: 0 },
-];
-
-/** Cascata (GDD §5). */
-export const CASCATA = {
-  /** T acima deste valor conta o cronômetro. */
-  limiarT: 1,
-  /** Tempo contínuo acima do limiar até a Cascata, em ms. */
-  atrasoMs: 5000,
-  perdaEstabilidade: 30,
-  scramMs: 20_000,
-  /** Fração da carga da bateria perdida. */
-  perdaBateria: 0.1,
-  /** Reconstruir uma peça de entulho custa esta fração do preço. */
-  fracaoReconstrucao: 0.5,
-  /** Limpar entulho sem reconstruir é grátis depois deste tempo. */
-  limpezaGratisMs: 30_000,
-} as const;
-
-/** Modo seguro (GDD §5): SCRAM automático e potência reduzida. */
-export const MODO_SEGURO = {
-  limiarT: 0.95,
-  fatorPotencia: 0.7,
-} as const;
 
 /** Rampa de calor (GDD §10): corpo negro, do frio ao branco em 100 %. */
 export const RAMPA_CALOR: readonly { t: number; cor: string }[] = [

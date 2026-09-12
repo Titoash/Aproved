@@ -3,7 +3,7 @@ import { MELHORIAS } from "../../content/era1";
 import { NUCLEO, PECAS } from "../../content/era1-nucleo";
 import { colocarPeca } from "../acoesNucleo";
 import { comprarMelhoria, podeComprarMelhoria } from "../melhorias";
-import { anel, colocar, contar, entulharAnel1, equilibrioU, espelhosEfetivos, expandirGrade, podeColocar } from "../nucleo";
+import { anel, colocar, contar, entulharAnel1, equilibrioU, aquecedoresEfetivos, expandirGrade, podeColocar } from "../nucleo";
 import { desserializar } from "../save";
 import { estadoInicial, gradeVazia, indiceReceptor, ladoDaGrade, nucleoInicial, VERSAO_SAVE, type Casa, type GameState } from "../state";
 import { ANEL1, ANEL2, configuracao } from "./nucleo.test";
@@ -42,7 +42,7 @@ describe("Grade 7×7 (Parte D)", () => {
     });
     for (const i of ANEL3) expect(g7[i]).toBeNull();
     expect(contar(g7).entulhos).toBe(contar(g5).entulhos);
-    expect(espelhosEfetivos(g7)).toBe(espelhosEfetivos(g5));
+    expect(aquecedoresEfetivos(g7)).toBe(aquecedoresEfetivos(g5));
   });
 
   it("h com anel 3 a 0,25; só heliostato entra no anel 3", () => {
@@ -55,16 +55,16 @@ describe("Grade 7×7 (Parte D)", () => {
     expect(podeColocar(g7, ANEL3[0], "tanque").ok).toBe(false);
     expect(podeColocar(g7, 24, "heliostato").ok).toBe(false); // Receptor no centro do 7×7
     for (const i of ANEL3) g7 = colocar(g7, i, "heliostato");
-    expect(contar(g7).espelhosAnel3).toBe(24);
-    expect(espelhosEfetivos(g7)).toBe(6);
+    expect(contar(g7).aquecedoresPorAnel[2]).toBe(24);
+    expect(aquecedoresEfetivos(g7)).toBe(6);
     // Cheia de espelhos com 2 turbinas: h = 6 + 8 + 6 = 20 → Q* = 333 (GDD §8.3).
     let cheia = expandirGrade(configuracao(6)); // 4 no anel 1 + 4 no anel 2, 2 turbinas
     // completa o anel 1 (2 casas livres) e o anel 2 (12 livres) do 7×7
     cheia.forEach((casa, i) => {
       if (casa === null && anel(i, 7) !== 0) cheia = colocar(cheia, i, "heliostato");
     });
-    expect(contar(cheia).turbinas).toBe(2);
-    expect(espelhosEfetivos(cheia)).toBe(6 + 8 + 6);
+    expect(contar(cheia).conversores).toBe(2);
+    expect(aquecedoresEfetivos(cheia)).toBe(6 + 8 + 6);
     expect(equilibrioU(cheia)).toBeCloseTo(333.3, 1);
   });
 
@@ -83,7 +83,7 @@ describe("Grade 7×7 (Parte D)", () => {
     expect(s1.pesquisa).toBe(200);
     expect(s1.nucleo!.lado).toBe(7);
     expect(s1.nucleo!.grade).toHaveLength(49);
-    expect(espelhosEfetivos(s1.nucleo!.grade)).toBe(5);
+    expect(aquecedoresEfetivos(s1.nucleo!.grade)).toBe(5);
     expect(podeColocar(s1.nucleo!.grade, 48, "heliostato").ok).toBe(true);
     expect(colocarPeca(s1, 48, "heliostato")!.nucleo!.grade[48]).toEqual({ tipo: "peca", id: "heliostato" });
     expect(comprarMelhoria({ ...s1, creditos: 5000 }, "grade7x7")).toBeNull();

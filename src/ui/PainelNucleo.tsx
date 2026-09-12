@@ -6,7 +6,7 @@ import { dicaDeEquilibrio, faixaDeCalor, pesquisaPorSegundo, temperatura, temper
 import { custoReconstrucao, faltaParaLimpezaMs, podeLimparEntulho } from "../sim/cascata";
 import { formatarCalor, formatarCreditos, formatarNumero, formatarPorcentagem, formatarPotencia, formatarSegundos } from "../sim/formatar";
 import { calorPorEspelho, podeComprarMelhoria } from "../sim/melhorias";
-import { capacidadeU, contar, equilibrioU, espelhosEfetivos } from "../sim/nucleo";
+import { capacidadeU, contar, equilibrioU, aquecedoresEfetivos } from "../sim/nucleo";
 import type { NucleoState } from "../sim/state";
 import { potenciaNucleoEfetivaKw } from "../sim/tick";
 import { indiceDaCasa, setGradeElement, setPalcoElement } from "../scene/layout";
@@ -208,7 +208,7 @@ function Operacao({ nucleo }: { nucleo: NucleoState }) {
         <span>⚡ Núcleo {formatarPotencia(potencia)}</span>
         <span>🔬 +{formatarNumero(emScram ? 0 : pesquisaPorSegundo(potencia, t), 2)}/s</span>
         <span>
-          h = {formatarNumero(espelhosEfetivos(nucleo.grade), 2)} · t = {c.turbinas} · rad = {c.radiadoresAdjacentes} · {formatarNumero(calorEspelho, 0)} u/s por espelho
+          h = {formatarNumero(aquecedoresEfetivos(nucleo.grade), 2)} · t = {c.conversores} · rad = {c.dissipadoresAdjacentes} · {formatarNumero(calorEspelho, 0)} u/s por espelho
         </span>
         {nucleo.cascatas > 0 ? <span>💥 {nucleo.cascatas} cascata{nucleo.cascatas > 1 ? "s" : ""}</span> : null}
       </p>

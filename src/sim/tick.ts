@@ -7,11 +7,12 @@
  *   5. pesquisa e Estabilidade, pela faixa de T depois do passo 4;
  *   6. modo seguro, cronômetro e checagem da Cascata.
  */
-import { CASCATA, MODO_SEGURO, NUCLEO, type FaixaCalor } from "../content/era1-nucleo";
+import { CASCATA, MODO_SEGURO, type FaixaCalor } from "../content/regras";
+import { defDoNucleo } from "../content/eras";
 import { faixaDeCalor, pesquisaPorSegundo, temperatura } from "./calor";
 import { aplicarCascata, atualizarCronometro, deveCascatear, emScram, scram } from "./cascata";
 import { passoEstabilidade } from "./estabilidade";
-import { capacidadeU, contar, espelhosEfetivosDe, passoCalor, potenciaNucleoKw } from "./nucleo";
+import { aquecedoresEfetivosDe, calorBasePorAquecedor, capacidadeU, contar, passoCalor, potenciaNucleoKw } from "./nucleo";
 import { calorPorEspelho } from "./melhorias";
 import { balancoRede, passoRede, type BalancoRede } from "./rede";
 import type { EventoJogo, GameState, NucleoState } from "./state";
@@ -22,7 +23,7 @@ export { DT_ACUMULADO_MAX_MS, TICK_MS };
 /** Potência que o Núcleo entrega à Rede: 0 em SCRAM, ×0,7 no modo seguro. */
 export function potenciaNucleoEfetivaKw(nucleo: NucleoState | null): number {
   if (!nucleo || emScram(nucleo)) return 0;
-  const bruta = potenciaNucleoKw(nucleo.grade, nucleo.calorU);
+  const bruta = potenciaNucleoKw(nucleo.grade, nucleo.calorU, defDoNucleo(nucleo));
   return nucleo.modoSeguro ? bruta * MODO_SEGURO.fatorPotencia : bruta;
 }
 
@@ -32,6 +33,7 @@ export function balancoDoEstado(state: GameState): BalancoRede {
     potenciaNucleoKw: potenciaNucleoEfetivaKw(state.nucleo),
     dtS: TICK_MS / 1000,
     melhorias: state.melhorias,
+    era: state.era,
   });
 }
 
@@ -56,25 +58,27 @@ export function passoNucleo(
   potenciaKw: number,
   dtMs: number,
   tempoMs: number,
-  calorEspelho: number = calorPorEspelho(undefined),
+  calorAquecedor?: number,
 ): PassoNucleo {
   const dtS = dtMs / 1000;
   const scramAtivo = emScram(nucleo);
+  const def = defDoNucleo(nucleo);
+  const calorPorAquecedor = calorAquecedor ?? calorBasePorAquecedor(def);
 
   // Fluxos do início do tick (o card da Cascata mostra estes números, não os do SCRAM que vem depois).
-  const c = contar(nucleo.grade);
-  const entradaUs = scramAtivo ? 0 : calorEspelho * espelhosEfetivosDe(c);
-  const saidaUs = NUCLEO.dissipacaoRadiador * c.radiadoresAdjacentes + (scramAtivo ? 0 : NUCLEO.consumoTurbina * c.turbinas * nucleo.calorU);
+  const c = contar(nucleo.grade, def);
+  const entradaUs = scramAtivo ? 0 : calorPorAquecedor * aquecedoresEfetivosDe(c, def);
+  const saidaUs = c.dissipacaoUs + (scramAtivo ? 0 : def.consumoConversor * c.conversores * nucleo.calorU);
 
   // 4. calor
-  const capacidade = capacidadeU(nucleo.grade, nucleo.receptorCeramico);
+  const capacidade = capacidadeU(nucleo.grade, nucleo.receptorCeramico, def);
   const tAntes = temperatura(nucleo.calorU, capacidade);
-  const calorU = passoCalor(nucleo.grade, nucleo.calorU, dtS, scramAtivo, calorEspelho);
+  const calorU = passoCalor(nucleo.grade, nucleo.calorU, dtS, scramAtivo, calorPorAquecedor, def);
   const t = temperatura(calorU, capacidade);
   const faixa = faixaDeCalor(t);
 
   // 5. pesquisa e Estabilidade (nada durante o SCRAM; Estabilidade só com o Núcleo produzindo)
-  const pesquisaGanha = scramAtivo ? 0 : pesquisaPorSegundo(potenciaKw, t) * dtS;
+  const pesquisaGanha = scramAtivo ? 0 : pesquisaPorSegundo(potenciaKw, t, def) * dtS;
   const porMinuto = scramAtivo || potenciaKw <= 0 ? 0 : faixa.estabilidadePorMinuto;
   const estabilidade = passoEstabilidade(nucleo.estabilidade, porMinuto, dtS);
 

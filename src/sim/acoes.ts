@@ -1,5 +1,7 @@
 /** Ações do jogador sobre o estado. Funções puras: devolvem `null` quando a ação não é possível. */
-import { BATERIA, USINAS, VILA, type Desbloqueio } from "../content/era1";
+import { BATERIA, VILA } from "../content/era1";
+import { USINAS_TODAS } from "../content/eras";
+import type { Desbloqueio } from "../content/tipos";
 import { custoMelhoria, custoUnidade } from "./custos";
 import { capacidadeBateriaKwh } from "./rede";
 import type { GameState, UsinaId } from "./state";
@@ -16,11 +18,11 @@ export function desbloqueado(state: GameState, desbloqueio?: Desbloqueio): boole
 }
 
 export function custoProximaUsina(state: GameState, id: UsinaId): number {
-  return custoUnidade(USINAS[id], state.rede.usinas[id].quantidade);
+  return custoUnidade(USINAS_TODAS[id], state.rede.usinas[id].quantidade);
 }
 
 export function custoProximaMelhoria(state: GameState, id: UsinaId): number {
-  return custoMelhoria(USINAS[id], state.rede.usinas[id].nivel);
+  return custoMelhoria(USINAS_TODAS[id], state.rede.usinas[id].nivel);
 }
 
 export function custoProximaVila(state: GameState): number {
@@ -32,7 +34,7 @@ export function custoProximaBateria(state: GameState): number {
 }
 
 export function podeComprarUsina(state: GameState, id: UsinaId): boolean {
-  return desbloqueado(state, USINAS[id].desbloqueio) && state.creditos >= custoProximaUsina(state, id);
+  return desbloqueado(state, USINAS_TODAS[id].desbloqueio) && state.creditos >= custoProximaUsina(state, id);
 }
 
 export function podeMelhorarUsina(state: GameState, id: UsinaId): boolean {

@@ -1,5 +1,5 @@
 /** Estabilidade (GDD §6, §7): 0–100 %, sobe enquanto o Núcleo opera dentro da faixa. */
-import { CASCATA } from "../content/era1-nucleo";
+import { CASCATA } from "../content/regras";
 
 export function limitarEstabilidade(valor: number): number {
   return Math.min(100, Math.max(0, valor));

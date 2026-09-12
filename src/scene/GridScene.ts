@@ -228,7 +228,7 @@ export class GridScene extends Phaser.Scene {
       this.redesenharEstatico(nucleo, store.ferramenta, store.casaSobPonteiro, !!store.state.melhorias.rastreamentoSolar);
       this.dirty = false;
     }
-    this.desenharDinamico(nucleo, t, emScram, c.turbinas > 0 ? consumoPorTurbina : 0, agora, store.state.tempoMs, !!store.state.melhorias.rastreamentoSolar);
+    this.desenharDinamico(nucleo, t, emScram, c.conversores > 0 ? consumoPorTurbina : 0, agora, store.state.tempoMs, !!store.state.melhorias.rastreamentoSolar);
     this.desenharEfeitos(agora);
   }
 

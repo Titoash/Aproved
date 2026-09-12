@@ -2,8 +2,8 @@
  * Cálculo offline (GDD §7): balanço congelado do save vezes o tempo ausente.
  * Não roda ticks, não compra nada, nunca cascateia.
  */
-import { OFFLINE } from "../content/era1";
-import { MODO_SEGURO } from "../content/era1-nucleo";
+import { MODO_SEGURO, OFFLINE } from "../content/regras";
+import { defDoNucleo } from "../content/eras";
 import { faixaDeCalor, pesquisaPorSegundo, temperatura } from "./calor";
 import { limitarEstabilidade } from "./estabilidade";
 import { calorPorEspelho } from "./melhorias";
@@ -41,9 +41,10 @@ export function calcularOffline(state: GameState, agoraMs: number): { state: Gam
   let nucleo = state.nucleo;
 
   if (nucleo) {
-    const calorEspelho = calorPorEspelho(state.melhorias);
-    const capacidade = capacidadeU(nucleo.grade, nucleo.receptorCeramico);
-    const qEquilibrio = equilibrioU(nucleo.grade, calorEspelho);
+    const def = defDoNucleo(nucleo);
+    const calorEspelho = nucleo.tipo === "torreSolar" ? calorPorEspelho(state.melhorias) : undefined;
+    const capacidade = capacidadeU(nucleo.grade, nucleo.receptorCeramico, def);
+    const qEquilibrio = equilibrioU(nucleo.grade, calorEspelho, def);
     const tEq = temperatura(qEquilibrio, capacidade);
     tEquilibrio = tEq;
 
@@ -51,8 +52,8 @@ export function calcularOffline(state: GameState, agoraMs: number): { state: Gam
       // Modo seguro obrigatório: a configuração dispararia o SCRAM, então fica desligado o tempo todo.
       nucleoDesligado = true;
     } else {
-      potenciaNucleo = potenciaNucleoKw(nucleo.grade, qEquilibrio) * OFFLINE.fatorNucleo;
-      pesquisaPorS = pesquisaPorSegundo(potenciaNucleo, tEq);
+      potenciaNucleo = potenciaNucleoKw(nucleo.grade, qEquilibrio, def) * OFFLINE.fatorNucleo;
+      pesquisaPorS = pesquisaPorSegundo(potenciaNucleo, tEq, def);
       if (potenciaNucleo > 0) estabilidadePorS = (faixaDeCalor(tEq).estabilidadePorMinuto / 60) * OFFLINE.fatorNucleo;
     }
 
@@ -71,6 +72,7 @@ export function calcularOffline(state: GameState, agoraMs: number): { state: Gam
     potenciaNucleoKw: potenciaNucleo,
     melhorias: state.melhorias,
     semBateria: true,
+    era: state.era,
   });
   const creditos = balanco.receitaPorSegundo * OFFLINE.fatorRede * segundos;
   const pesquisa = pesquisaPorS * segundos;
