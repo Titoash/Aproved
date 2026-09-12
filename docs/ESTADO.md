@@ -1,6 +1,6 @@
 # Estado do projeto
 
-Atualizado ao fim da **Sessão 4** (Era 1 bonita: arte, cards, Bipes, Grade 7×7).
+Atualizado ao fim da **Sessão 5** (Era 2: fissão, calor de decaimento e transição de era). **MVP das Eras 1–2 fechado.**
 
 ## Implementado
 
@@ -16,30 +16,46 @@ Atualizado ao fim da **Sessão 4** (Era 1 bonita: arte, cards, Bipes, Grade 7×7
 - Bateria como amortecedor (faixa efetiva), melhorias nomeadas (Lâminas, Rastreamento), offline puro, medidor Kardashev, input da grade pelo DOM, hi-DPI, página rolando no mobile.
 
 ### Sessão 4 — Era 1 bonita
-- **Parte D — Grade 7×7:** `nucleo.lado` (5 ou 7) no estado; `anel()`, `contar()`, `podeColocar()`, `entulharAnel1()` por lado; anel 3 a 0,25 só para heliostato; `expandirGrade()` embute o 5×5 no 7×7 com deslocamento (+1, +1); Grade 7×7 como melhoria (₵ 800 + 🔬 150) que expande a grade na compra; `GridScene` e o input do DOM leem o lado. Save **v4** (`nucleo.lado`, `nucleo.ultimaCascata`, `cardsVistos`) com migração v3 → v4. Nota de balanço do 7×7 no GDD §8.3.
-- **Parte B — Cards explicativos:** `content/cards-era1.ts` com os textos finais (abertura em 3 telas, tanque, Rastreamento, Cascata, bateria) e `cardParaEvento()` como única tabela evento → card. O sim expõe `eventos` por tick/ação (`primeiroCarregamento`, `primeiraCompra` só na primeira unidade, `melhoriaComprada`, `cascata` com `entrada`/`saida` do tick, também gravados em `nucleo.ultimaCascata`). O store enfileira os cards, mostra um por vez, marca como visto ao fechar (`cardsVistos` no save); só a abertura pausa o jogo. `CardExplicativo` com Bipe narrador, "Próximo"/"Entendi".
-- **Parte C — Bipes:** `ui/bipe/Bipe.tsx` (SVG original: corpo, um olho com brilho, antena, braços em cápsula, sombra elíptica; papéis operador/manutenção/cientista; expressões neutro/apontando/alarmado/cansado; piscar em CSS, desligado em reduced-motion). Narrador dos cards, cansado no card offline, versão mínima em `Graphics` flutuando sobre cada entulho.
-- **Parte A — Direção de arte:**
-  - Fontes locais: `public/fonts/Outfit-latin.woff2` e `Nunito-latin.woff2` (variáveis, OFL incluída) com `@font-face` e `font-display: swap`; nenhuma requisição ao Google Fonts. Favicon próprio (esfera da rampa sobre a torre).
-  - Tokens novos em `tokens.css` (`--casa`, `--casa-anel1`, `--torre`, `--turbina-carcaca`, `--tanque`, `--entulho`, `--glow-sun`, `--glow-coral`, escala 12/14/16/20/28/40).
-  - `GridScene`: camadas fundo/estático/dinâmico/efeitos; base elíptica sob a grade; espelhos girados para a torre com a face escurecendo pelo anel e faixa de brilho (varre a face a cada 6 s com o Rastreamento); turbinas com pás girando pelo consumo e fio de vapor; radiadores com aletas que clareiam ao dissipar; tanques com nível na rampa; torre com esfera na rampa, brilho por `T`, pulso acima de 90 %, cinza-azulada com anel pontilhado em SCRAM; entulho em dois pedaços com borda verde quando a limpeza é grátis; Cascata com flash, 12 brasas e pop do entulho; partículas pela metade; `prefers-reduced-motion` desliga partículas, giro, pulso, tremor e varredura. O desenho é recortado ao retângulo do palco (máscara) para não vazar por cima do HUD quando o palco rola.
-  - UI: HUD em faixa sem cartão (₵, ⚡ com o ponto de `r`, 🔥 na rampa com a esfera brilhando na zona de ouro, 🔬, 🛡); Núcleo como palco solto sobre o fundo; barra de calor segmentada com marca de `Q*` em triângulo, limite e **dica derivada de `Q*`** (`dicaDeEquilibrio()` no sim); Estabilidade de leaf a sun; seletor e controles em pílulas; Rede em lista com divisórias e melhorias como linhas com marca de comprado; Kardashev em largura total; save num rodapé discreto com a caixa de importar escondida; pop de 180 ms só no número que mudou; foco de teclado visível; sem caixa alta em rótulo; sombra chapada em tudo. Mobile: HUD compacto fixo no topo, ordem grade → calor → seletor (rolável) → Estabilidade → Kardashev → Rede → save.
-- **Testes (`npm test`, 235):** anel para lado 7; `expandirGrade`; `h` com anel 3 e recusas no anel 3; compra da Grade 7×7 (₵, 🔬, única, índice 48); migração v3 → v4; eventos (`primeiraCompra` só na primeira, `cascata` com os fluxos do tick, `marcarCardVisto` persistido); dica da barra; store (abertura pausa, cards uma vez, fila).
-- **Verificação no navegador (Playwright + Chromium, 1280×800 e 390×844):** abertura em 3 telas pausando o jogo; fontes de `/fonts/` e nenhuma ao Google; favicon; sem caixa alta; Receptor laranja na zona de ouro e cinza no SCRAM; cards de tanque, Rastreamento, Cascata (25 u/s entrando, 24,7 u/s saindo, do tick) e bateria, uma vez cada e ausentes após recarregar; dica aparece com o tanque e some ao tirá-lo; Grade 7×7 expande preservando as peças, recusa turbina e aceita espelho no anel 3 (`h = 5,25`); ordem mobile confirmada por posição; reduced-motion desliga o piscar do Bipe.
+- Grade 7×7 como melhoria (anel 3 a 0,25 só para heliostato), cards explicativos com os textos finais, Bipes em SVG próprio, passe de arte completo (tokens, rampa de calor, HUD em faixa, Núcleo como palco, Rede em lista, mobile em uma coluna). Save v4. 235 testes.
+
+### Sessão 5 — Era 2 (fissão) e transição de era
+- **GDD v0.5, §8.5 (passo 0).** O §7 remetia os números finos das Eras 2–6 a uma "Parte 2" que nunca foi escrita. A Era 2 saiu de lá e virou **§8.5**, antes de qualquer código: Reator PWR em grade 7×7, peças, combustível, decaimento, Rede e a tabela da transição. Seção 8 renomeada para "As duas eras do MVP" sem renumerar nada. Ver `docs/correcoes-gdd-v0.5.md`.
+- **Estado multi-era e save v5 (passo 1).** `era: 1 | 2`, `NucleoState.tipo` (`torreSolar` | `reatorPwr`), `PecaId` e `UsinaId` como união das duas eras, `combustivel` opcional na casa (`restante` + `paradaEmMs`). Migração v4 → v5; v1, v2 e v3 sobem em cadeia. O centro da grade segue sendo `{ tipo: "receptor" }` — é a marca estrutural do centro; o nome visível vem do conteúdo da era, então nenhuma grade salva precisou migrar.
+- **Registry de eras (passo 2).** A chave é contar a grade por **papel**, não por peça: heliostato e vareta aquecem, turbina e gerador convertem, radiador e bomba dissipam, tanque e pressurizador armazenam. `contar()` soma papéis e `nucleo.ts` serve às duas eras sem um `if` de era.
+  - `content/tipos.ts` (interfaces), `content/regras.ts` (o que vale em todas as eras e morava em `era1*` por acidente: faixas de calor e de `r`, Cascata, modo seguro, offline, crescimento de melhoria), `content/era2.ts`, `content/era2-nucleo.ts`, `content/eras.ts` (o registry: `defDaEra`, `defDoNucleo`, `usinasAte`).
+  - `defDoNucleo` resolve pelo `tipo` da grade, não pela era do estado: é a grade que diz o que ela é.
+  - `Contagem` renomeada para nomes de papel (`aquecedoresPorAnel`, `conversores`, `dissipadoresAdjacentes`, `armazenadoresAdjacentes`) e `espelhosEfetivos` → `aquecedoresEfetivos`. Renomeação mecânica: nenhum resultado de teste mudou.
+- **Combustível (passo 3).** `sim/combustivel.ts`: queima 0,25 %/s ponderada pelo anel (400 s no anel 1, 800 s no anel 2), exaustão com carimbo do instante da parada, recarga por 60 % do preço. Entra como passo **4a** do tick, antes do balanço: a vareta que esgota neste tick já não injeta calor neste tick. Em SCRAM não queima. Corte de 1e-9 no restante — sem ele o resíduo de ponto flutuante (~1e-13) deixaria a vareta "quase gasta" para sempre e o decaimento nunca começaria.
+- **Calor de decaimento (passo 4).** `sim/decaimento.ts`: `0,07 × nominal × 2^(−t/90 s)`, corte em 0,05 u/s, contado de `paradaEmMs` (exaustão **ou** início do SCRAM). O termo entra como entrada no balanço e **não** é zerado pelo SCRAM. `equilibrioU()` passou a receber o instante, porque com decaimento o equilíbrio escorrega. Peça quente não sai da grade.
+- **Transição de era (passo 5).** `sim/era.ts`: portão do §8.4 (🛡 100 + 🔬 3 000 + ₵ 50 000) e `avancarEra()`. `faltaParaAvancar()` alimenta o botão, que diz o que falta em vez de só ficar cinza.
+- **Rede da Era 2 (passo 6).** Hidrelétrica, termelétrica a gás e usina nuclear a partir da Era 2 (`Desbloqueio.era`); as da Era 1 continuam compráveis. Cidade (+800 kW) e Banco de baterias (2 000 kWh, ±1 000 kW). Preço 0,1 vindo do registry.
+- **Cards, paleta e cena (passo 7).** `content/cards-era2.ts` com os três cards (transição em 3 telas, combustível baixo, calor de decaimento) e `content/cards.ts` reunindo as duas eras. Seletor de peças e cena leem a era; a cena despacha o desenho por papel, com vareta (barra de combustível na peça, halo de decaimento pulsando na meia-vida) e Vaso no lugar da torre. Paleta do fundo por era, com fade na troca.
+- **Testes (`npm test`, 302):** migrações v3/v4 → v5; combustível (duração por anel, exaustão, recarga, SCRAM não queima); decaimento (meia-vida, corte, anel 2, recusa de remoção); **SCRAM sem bomba cascateia e com bomba não**; cronômetro da Cascata em SCRAM; portão e troca de era; Rede e preço da Era 2; formatação em MW; eventos e cards da Era 2; melhorias da Era 1 não vazando para a Era 2.
+- **Verificação no navegador (Playwright + Chromium, 1280×900 e 390×844):** Era 1 abre com o card de abertura; um save da Era 2 carrega com o seletor do Reator, a Rede com Cidade e Banco, as usinas da Era 1 ainda na lista e nenhum heliostato; a lista de recarga mostra a vareta a 14 % e a gasta com "ainda quente, esfria em 518,6 s"; o resumo diz "Vaso do reator · h = 4 · conv = 2 · dis = 1 · ☢ 2,7 u/s de decaimento"; o botão da era aparece com o portão satisfeito e, ao ser clicado, entra na Era 2 e abre o card "De kW para MW". Zero erros de console.
 
 ## Próxima sessão
-`docs/sessoes/sessao-5.md` (a escrever) — Era 2 (fissão: esgotamento e calor de decaimento) e transição de era (zoom cósmico e troca de paleta). MVP = Eras 1–2.
+`docs/sessoes/sessao-6.md` (a escrever) — Era 3 (Tokamak: Contenção e acoplamento com a Rede, GDD §4.3). Antes dela, escrever os números da Era 3 no GDD, como o passo 0 desta sessão fez com a Era 2.
 
-## Decisões da Sessão 4 que o GDD não fixa (conferir)
-1. **`primeiraCompra`** dispara quando a contagem daquele item passa de 0 para 1 (também se o jogador removeu tudo e comprou de novo); o card só aparece uma vez por `cardsVistos`.
-2. **Card da Cascata** usa `ultimaCascata` (persistido), então sobrevive a um recarregamento entre a Cascata e o "Entendi".
-3. **Importar JSON** fecha qualquer card aberto e não redispara a abertura (só jogo novo e "Resetar" disparam).
-4. **Remover peça** e **entulho** como nas sessões anteriores; a Grade 7×7 exige Núcleo desbloqueado.
-5. **Glow** só em três lugares: esfera do Receptor, esfera do 🔥 no HUD (a partir de 70 %) e o botão "Desbloquear o Núcleo" quando comprável.
+## Decisões da Sessão 5 que o GDD não fixava (agora estão no §8.5)
+1. **O decaimento conta também a partir do início do SCRAM**, não só da exaustão. Sem isso o jogador escaparia sempre apertando o botão e a era não ensinaria nada.
+2. **Vareta gasta não sai enquanto está quente**; o caminho normal é recarregar.
+3. **A demanda base salta 800 kW na transição**, senão `r` explode e o jogador é punido por progredir.
+4. **Estabilidade zera** na troca; o modo seguro (preferência do jogador) e o histórico de Cascatas atravessam; o Receptor cerâmico não.
+5. **Usinas da Era 1 continuam compráveis**; o custo inflacionado as aposenta sozinhas.
+6. **Offline nunca piora a grade:** o combustível não queima offline, mas o decaimento das gastas avança pelo relógio (elas esfriam).
+7. **A grade da Era 2 nasce 7×7** e nenhuma peça dela aceita o anel 3 (espaço reservado para a Era 3).
+
+## Regra da Era 1 que precisou mudar
+O cronômetro da Cascata zerava durante o SCRAM, com o comentário "Núcleo desligado não cascateia" — código da Sessão 2, **não** contrato (o GDD §5 só diz que o SCRAM tira potência e pesquisa). Na Era 1 a regra é invisível: em SCRAM a entrada é 0 e o calor só cai. Na Era 2 ela anularia o §8.5.5 inteiro. Agora o cronômetro zera em SCRAM **se nada mais estiver entrando**; a Era 1 passa 0 sempre, então o comportamento é idêntico. Nenhum teste antigo mudou de resultado.
 
 ## Pendências
-- Sessão 5+: Era 2, transição de era, Contenção, prestígio, som.
+- **Contadores por era na Rede.** `rede.cidades` e `rede.bateria.bancos` foram **acrescentados** aos da Era 1 em vez de generalizados para contadores por era. A generalização tocaria 32 referências e uma migração, para um formato que não dá para validar contra as Eras 3–6, cujos números não existem. Vale generalizar quando a Era 3 for especificada — antes de a Era 3 acrescentar mais dois campos.
+- **Zoom cósmico da transição** (GDD §6, §9.6): a troca de paleta e o card entregam o momento, mas o afastamento de câmera não foi feito.
+- **Expansão 9×9** (anel 4): `anel()` corta em 3, o que serve para 5×5 e 7×7. Uma grade maior exige mexer nisso.
+- **Melhorias da Era 2**: a era não tem nenhuma. O Reator não tem equivalente do Rastreamento solar nem do Receptor cerâmico.
+- **Saída da Era 2** (§8.5.8: 🔬 300 000 + ₵ 5 000 000) está escrita como **provisória** e vale até a Era 3 ser especificada. `ULTIMA_ERA` é 2, então o botão não aparece.
+- Painéis assinam o `state` inteiro e re-renderizam a cada tick (10 Hz); se a lista crescer, fatiar com seletores.
 - Bipe no entulho é a versão mínima em `Graphics`; a versão SVG completa vive nos cards.
 - O tremor da Cascata usa a câmera do Phaser e aparece só dentro do recorte do palco.
-- Painéis assinam o `state` inteiro e re-renderizam a cada tick (10 Hz); se a lista crescer, fatiar com seletores.
 - O roteiro de teste usa `dispatchTouchEvent` para o toque (o gesto sintetizado do Chromium não funciona no headless); vale um teste manual em Android.
+- Playwright não está no `package.json`: a verificação da sessão usou `npm install --no-save playwright` e o Chromium de `/opt/pw-browsers`. Se virar rotina, vale versionar o roteiro.

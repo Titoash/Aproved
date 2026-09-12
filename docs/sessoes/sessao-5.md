@@ -120,14 +120,14 @@ Três, no formato já existente (`content/cards-era2.ts`, tabela `cardParaEvento
 Era 3 e Contenção; expansão 9×9 (anel 4); prestígio; som; retrabalho dos painéis para seletores fatiados.
 
 ## Checklist
-- [ ] GDD §8.5 escrito com os números da Parte A
-- [ ] Save v5 com migração v4 → v5 testada
-- [ ] Registry de eras: nenhum número de era em `sim/`
-- [ ] Era 1 sem mudança de comportamento (testes antigos passam sem edição)
-- [ ] Combustível queima, esgota e recarrega
-- [ ] Calor de decaimento entra no balanço, no SCRAM, no modo seguro e no offline
-- [ ] SCRAM com varetas gastas e sem bomba **cascateia** (teste explícito)
-- [ ] Portão da era e troca de estado
-- [ ] Rede da Era 2 e formatação em MW
-- [ ] Cards e cena da Era 2
-- [ ] `typecheck`, `test` e `build` passando; `ESTADO.md` atualizado
+- [x] GDD §8.5 escrito com os números da Parte A
+- [x] Save v5 com migração v4 → v5 testada
+- [x] Registry de eras: nenhum número de era em `sim/` (o que sobrou lá é conteúdo de fato da Era 1 — melhorias, Receptor cerâmico, Vila, Bateria)
+- [x] Era 1 sem mudança de comportamento (testes antigos passam sem edição)
+- [x] Combustível queima, esgota e recarrega
+- [x] Calor de decaimento entra no balanço, no SCRAM, no modo seguro e no offline
+- [x] SCRAM com varetas gastas e sem bomba **cascateia** (teste explícito)
+- [x] Portão da era e troca de estado
+- [x] Rede da Era 2 e formatação em MW
+- [x] Cards e cena da Era 2 (sem o zoom cósmico — ver Pendências)
+- [x] `typecheck`, `test` e `build` passando; `ESTADO.md` atualizado
