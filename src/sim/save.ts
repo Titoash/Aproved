@@ -16,11 +16,14 @@ import {
   nucleoInicial,
   VERSAO_SAVE,
   type Casa,
+  type Era,
+  type EstadoCombustivel,
   type GameState,
   type MelhoriaId,
   type Melhorias,
   type NucleoState,
-  type PecaId,
+  type NucleoTipo,
+  type PecaEra1Id,
   type RedeState,
   type UsinaId,
 } from "./state";
@@ -79,8 +82,19 @@ function objeto(valor: unknown): Record<string, unknown> {
 
 const IDS_USINA: readonly UsinaId[] = ["cataVento", "painelSolar", "turbinaEolica"];
 
-function ehPecaId(valor: unknown): valor is PecaId {
+function ehPecaId(valor: unknown): valor is PecaEra1Id {
   return typeof valor === "string" && valor in PECAS;
+}
+
+/** Só as peças que queimam trazem este campo; ausente vira `undefined`, não um objeto vazio. */
+function normalizarCombustivel(bruto: unknown): EstadoCombustivel | undefined {
+  if (bruto === null || bruto === undefined || typeof bruto !== "object") return undefined;
+  const c = objeto(bruto);
+  const parada = c.paradaEmMs;
+  return {
+    restante: Math.min(1, numero(c.restante, 1)),
+    paradaEmMs: typeof parada === "number" && Number.isFinite(parada) ? parada : null,
+  };
 }
 
 function normalizarCasa(bruto: unknown, indice: number, lado: number): Casa {
@@ -89,7 +103,10 @@ function normalizarCasa(bruto: unknown, indice: number, lado: number): Casa {
   if (!ehPecaId(c.id)) return null;
   const a = anel(indice, lado);
   if (a === 0 || !PECAS[c.id].aneis.includes(a)) return null;
-  if (c.tipo === "peca") return { tipo: "peca", id: c.id };
+  if (c.tipo === "peca") {
+    const combustivel = normalizarCombustivel(c.combustivel);
+    return combustivel ? { tipo: "peca", id: c.id, combustivel } : { tipo: "peca", id: c.id };
+  }
   if (c.tipo === "entulho") return { tipo: "entulho", id: c.id, desdeMs: numero(c.desdeMs, 0) };
   return null;
 }
@@ -98,6 +115,7 @@ function normalizarNucleo(bruto: unknown): NucleoState | null {
   if (bruto === null || bruto === undefined || typeof bruto !== "object") return null;
   const n = objeto(bruto);
   const base = nucleoInicial();
+  const tipo: NucleoTipo = n.tipo === "reatorPwr" ? "reatorPwr" : "torreSolar";
   const lado = n.lado === 7 ? 7 : NUCLEO.ladoInicial;
   const gradeBruta = Array.isArray(n.grade) ? n.grade : [];
   const grade = gradeVazia(lado).map((_, i) => normalizarCasa(gradeBruta[i], i, lado));
@@ -109,6 +127,7 @@ function normalizarNucleo(bruto: unknown): NucleoState | null {
       ? { tempoMs: numero(uc.tempoMs, 0), entradaUs: numero(uc.entradaUs, 0), saidaUs: numero(uc.saidaUs, 0) }
       : null;
   return {
+    tipo,
     lado,
     grade,
     calorU: numero(n.calorU, base.calorU),
@@ -169,7 +188,7 @@ function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState 
     tempoMs: numero(bruto.tempoMs, base.tempoMs),
     creditos: numero(bruto.creditos, base.creditos),
     pesquisa: numero(bruto.pesquisa, base.pesquisa),
-    era: 1,
+    era: bruto.era === 2 ? (2 as Era) : (1 as Era),
     rede,
     nucleo: normalizarNucleo(bruto.nucleo),
     melhorias: normalizarMelhorias(bruto.melhorias),
@@ -184,6 +203,7 @@ function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState 
  * v1 → v2: entra o Núcleo (`nucleo: null` até ser desbloqueado). Rede e créditos ficam como estão.
  * v2 → v3: entram `melhorias` (vazias) e `salvoEmMs` (= agora, sem ganho offline na primeira carga).
  * v3 → v4: entram `nucleo.lado` (5), `nucleo.ultimaCascata` (null) e `cardsVistos` ([]).
+ * v4 → v5: entram `era` (1) e `nucleo.tipo` ("torreSolar"); nenhuma peça da Era 1 ganha campo.
  */
 function migrar(bruto: Record<string, unknown>, agoraMs: number): Record<string, unknown> {
   const versao = bruto.versao;
@@ -205,6 +225,14 @@ function migrar(bruto: Record<string, unknown>, agoraMs: number): Record<string,
     const nucleo = atual.nucleo && typeof atual.nucleo === "object" ? { ...(atual.nucleo as Record<string, unknown>), lado: 5, ultimaCascata: null } : atual.nucleo;
     atual = { ...atual, nucleo, cardsVistos: [], versao: 4 };
     v = 4;
+  }
+  if (v === 4) {
+    const nucleo =
+      atual.nucleo && typeof atual.nucleo === "object"
+        ? { ...(atual.nucleo as Record<string, unknown>), tipo: "torreSolar" }
+        : atual.nucleo;
+    atual = { ...atual, era: 1, nucleo, versao: 5 };
+    v = 5;
   }
   return { ...atual, versao: v };
 }

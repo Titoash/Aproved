@@ -1,5 +1,5 @@
 /** Ações do jogador sobre o Núcleo. Funções puras: devolvem `null` quando a ação não é possível. */
-import { NUCLEO, PECAS, RECEPTOR_CERAMICO } from "../content/era1-nucleo";
+import { definicaoDaPeca, NUCLEO, RECEPTOR_CERAMICO } from "../content/era1-nucleo";
 import {
   custoReconstrucao,
   emScram,
@@ -33,7 +33,7 @@ export function desbloquearNucleo(state: GameState): GameState | null {
 /* ------------------------------------------------------------------ */
 
 export function custoPeca(pecaId: PecaId): number {
-  return PECAS[pecaId].custo;
+  return definicaoDaPeca(pecaId).custo;
 }
 
 export function validarColocacao(state: GameState, indice: number, pecaId: PecaId): Validacao {

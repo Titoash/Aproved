@@ -1,5 +1,5 @@
 /** Cascata e SCRAM (GDD §5): cronômetro, efeitos, entulho e modo seguro. */
-import { CASCATA, PECAS } from "../content/era1-nucleo";
+import { CASCATA, definicaoDaPeca } from "../content/era1-nucleo";
 import { perdaCascata } from "./estabilidade";
 import { entulharAnel1 } from "./nucleo";
 import type { Casa, NucleoState, UltimaCascata } from "./state";
@@ -86,7 +86,7 @@ export function faltaParaLimpezaMs(casa: Casa, tempoMs: number): number {
 /** Reconstruir custa metade do preço da peça. */
 export function custoReconstrucao(casa: Casa): number {
   if (!ehEntulho(casa)) return 0;
-  return PECAS[casa.id].custo * CASCATA.fracaoReconstrucao;
+  return definicaoDaPeca(casa.id).custo * CASCATA.fracaoReconstrucao;
 }
 
 export function limparEntulho(grade: readonly Casa[], indice: number): Casa[] {

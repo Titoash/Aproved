@@ -3,12 +3,12 @@
  * Só dados. Regras de posicionamento entram como dado (`aneis`, `efeitoSoAdjacente`),
  * não como `if` espalhado pela UI.
  */
-import type { PecaId } from "../sim/state";
+import type { PecaEra1Id, PecaId } from "../sim/state";
 
 export type Anel = 1 | 2 | 3;
 
 export interface PecaDef {
-  id: PecaId;
+  id: PecaEra1Id;
   nome: string;
   nomePlural: string;
   descricao: string;
@@ -54,7 +54,7 @@ export const RECEPTOR_CERAMICO = {
   capacidadeExtraU: 50,
 } as const;
 
-export const PECAS: Record<PecaId, PecaDef> = {
+export const PECAS: Record<PecaEra1Id, PecaDef> = {
   heliostato: {
     id: "heliostato",
     nome: "Heliostato",
@@ -93,7 +93,18 @@ export const PECAS: Record<PecaId, PecaDef> = {
   },
 };
 
-export const ORDEM_PECAS: readonly PecaId[] = ["heliostato", "turbina", "radiador", "tanque"];
+export const ORDEM_PECAS: readonly PecaEra1Id[] = ["heliostato", "turbina", "radiador", "tanque"];
+
+/**
+ * Definição de uma peça pelo id, aceitando qualquer `PecaId`. Enquanto só a
+ * Era 1 tem catálogo, um id de outra era é erro de programação e estoura aqui
+ * em vez de virar `undefined` silencioso três chamadas adiante.
+ */
+export function definicaoDaPeca(id: PecaId): PecaDef {
+  const def = (PECAS as Partial<Record<PecaId, PecaDef>>)[id];
+  if (!def) throw new Error(`Peça sem definição na Era 1: ${id}`);
+  return def;
+}
 
 /* ------------------------------------------------------------------ */
 /* Balança do Calor (GDD §4.2) e Estabilidade (GDD §6, §7)              */

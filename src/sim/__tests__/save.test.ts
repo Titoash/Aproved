@@ -151,3 +151,112 @@ describe("migração v2 → v3", () => {
     expect(c.state.creditos).toBeCloseTo(50 + 1875, 6);
   });
 });
+
+describe("migração v4 → v5 (multi-era)", () => {
+  it("um save v4 entra na Era 1 com o Núcleo marcado como Torre Solar", () => {
+    const s0 = estadoInicial();
+    s0.creditos = 9876;
+    s0.pesquisa = 543;
+    s0.rede.usinas.turbinaEolica = { quantidade: 4, nivel: 2 };
+    s0.melhorias.grade7x7 = true;
+    s0.cardsVistos = ["abertura", "tanque"];
+    s0.nucleo = { ...nucleoInicial(), calorU: 61, estabilidade: 88, cascatas: 3 };
+    s0.nucleo.grade[6] = { tipo: "peca", id: "turbina" };
+
+    const v4: Record<string, unknown> = JSON.parse(JSON.stringify(s0));
+    delete v4.era;
+    delete (v4.nucleo as Record<string, unknown>).tipo;
+    v4.versao = 4;
+
+    const s = desserializar(JSON.stringify(v4), 7);
+    expect(s.versao).toBe(VERSAO_SAVE);
+    expect(VERSAO_SAVE).toBe(5);
+    expect(s.era).toBe(1);
+    expect(s.nucleo!.tipo).toBe("torreSolar");
+    // nada mais se mexe
+    expect(s.creditos).toBe(9876);
+    expect(s.pesquisa).toBe(543);
+    expect(s.rede.usinas.turbinaEolica).toEqual({ quantidade: 4, nivel: 2 });
+    expect(s.melhorias.grade7x7).toBe(true);
+    expect(s.cardsVistos).toEqual(["abertura", "tanque"]);
+    expect(s.nucleo!.calorU).toBe(61);
+    expect(s.nucleo!.estabilidade).toBe(88);
+    expect(s.nucleo!.cascatas).toBe(3);
+    expect(s.nucleo!.grade[6]).toEqual({ tipo: "peca", id: "turbina" });
+  });
+
+  it("save v4 sem Núcleo migra sem inventar um", () => {
+    const v4 = { ...JSON.parse(exportarJson(estadoInicial())), versao: 4, nucleo: null };
+    delete v4.era;
+    const s = desserializar(JSON.stringify(v4), 7);
+    expect(s.era).toBe(1);
+    expect(s.nucleo).toBeNull();
+  });
+
+  it("um save v3 sobe a cadeia inteira até v5", () => {
+    const s0 = estadoInicial();
+    s0.creditos = 1000;
+    s0.nucleo = { ...nucleoInicial(), calorU: 12 };
+    const v3: Record<string, unknown> = JSON.parse(JSON.stringify(s0));
+    delete v3.era;
+    delete v3.cardsVistos;
+    const nucleo = v3.nucleo as Record<string, unknown>;
+    delete nucleo.tipo;
+    delete nucleo.lado;
+    delete nucleo.ultimaCascata;
+    v3.versao = 3;
+
+    const s = desserializar(JSON.stringify(v3), 11);
+    expect(s.versao).toBe(5);
+    expect(s.era).toBe(1);
+    expect(s.nucleo!.tipo).toBe("torreSolar");
+    expect(s.nucleo!.lado).toBe(5);
+    expect(s.nucleo!.ultimaCascata).toBeNull();
+    expect(s.cardsVistos).toEqual([]);
+    expect(s.creditos).toBe(1000);
+    expect(s.nucleo!.calorU).toBe(12);
+  });
+
+  it("um save v5 na Era 2 faz a viagem de ida e volta", () => {
+    const s0 = estadoInicial();
+    s0.era = 2;
+    s0.nucleo = { ...nucleoInicial(), tipo: "reatorPwr", lado: 7 };
+    const s = importarJson(exportarJson(s0, 42), 42);
+    expect(s.era).toBe(2);
+    expect(s.nucleo!.tipo).toBe("reatorPwr");
+    expect(s.nucleo!.lado).toBe(7);
+  });
+
+  it("era desconhecida cai para 1 e tipo de Núcleo desconhecido cai para Torre Solar", () => {
+    const bruto = JSON.parse(exportarJson({ ...estadoInicial(), nucleo: nucleoInicial() }));
+    bruto.era = 99;
+    bruto.nucleo.tipo = "reatorDeAntimateria";
+    const s = desserializar(JSON.stringify(bruto), 1);
+    expect(s.era).toBe(1);
+    expect(s.nucleo!.tipo).toBe("torreSolar");
+  });
+
+  it("peça da Era 1 não ganha campo de combustível; um combustível inválido é descartado", () => {
+    const s0 = { ...estadoInicial(), nucleo: nucleoInicial() };
+    s0.nucleo.grade[6] = { tipo: "peca", id: "turbina" };
+    const bruto = JSON.parse(exportarJson(s0));
+    expect(bruto.nucleo.grade[6]).toEqual({ tipo: "peca", id: "turbina" });
+
+    bruto.nucleo.grade[7] = { tipo: "peca", id: "radiador", combustivel: "meio tanque" };
+    const s = desserializar(JSON.stringify(bruto), 1);
+    expect(s.nucleo!.grade[7]).toEqual({ tipo: "peca", id: "radiador" });
+  });
+
+  it("combustível válido sobrevive ao save, com restante limitado a 1 e parada saneada", () => {
+    const s0 = { ...estadoInicial(), nucleo: nucleoInicial() };
+    s0.nucleo.grade[6] = { tipo: "peca", id: "turbina", combustivel: { restante: 0.4, paradaEmMs: 1234 } };
+    s0.nucleo.grade[7] = { tipo: "peca", id: "radiador", combustivel: { restante: 5, paradaEmMs: null } };
+    const s = importarJson(exportarJson(s0, 3), 3);
+    expect(s.nucleo!.grade[6]).toEqual({ tipo: "peca", id: "turbina", combustivel: { restante: 0.4, paradaEmMs: 1234 } });
+    expect(s.nucleo!.grade[7]).toEqual({ tipo: "peca", id: "radiador", combustivel: { restante: 1, paradaEmMs: null } });
+  });
+
+  it("save da versão 6 é recusado", () => {
+    expect(() => desserializar(JSON.stringify({ ...JSON.parse(exportarJson(estadoInicial())), versao: 6 }))).toThrow(ErroSave);
+  });
+});

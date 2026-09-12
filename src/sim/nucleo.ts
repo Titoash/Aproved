@@ -2,7 +2,7 @@
  * Núcleo da Era 1 — Torre Solar (GDD §8.3): geometria da grade, espelhos efetivos,
  * capacidade, balanço de calor, equilíbrio e potência. Funções puras.
  */
-import { NUCLEO, PECAS, RECEPTOR_CERAMICO } from "../content/era1-nucleo";
+import { definicaoDaPeca, NUCLEO, RECEPTOR_CERAMICO } from "../content/era1-nucleo";
 import { indiceReceptor, ladoDaGrade, type Casa, type PecaId } from "./state";
 
 export type AnelIndice = 0 | 1 | 2 | 3;
@@ -160,7 +160,7 @@ export function podeColocar(grade: readonly Casa[], indice: number, pecaId: Peca
   const casa = grade[indice];
   if (casa?.tipo === "entulho") return { ok: false, motivo: "Limpe o entulho primeiro." };
   if (casa) return { ok: false, motivo: "Casa ocupada." };
-  const def = PECAS[pecaId];
+  const def = definicaoDaPeca(pecaId);
   const a = anel(indice, lado);
   if (a === 0 || !def.aneis.includes(a)) {
     return { ok: false, motivo: `${def.nome} só no anel ${def.aneis.join(" ou ")}.` };
