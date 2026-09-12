@@ -110,7 +110,8 @@ export type EventoJogo =
   | { tipo: "primeiroCarregamento" }
   | { tipo: "primeiraCompra"; item: PecaId | "bateria" }
   | { tipo: "melhoriaComprada"; id: MelhoriaId }
-  | { tipo: "cascata"; entradaUs: number; saidaUs: number };
+  | { tipo: "cascata"; entradaUs: number; saidaUs: number }
+  | { tipo: "eraAvancada"; era: Era };
 
 export interface GameState {
   versao: number;

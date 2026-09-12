@@ -8,6 +8,7 @@ import { create } from "zustand";
 import { cardParaEvento, CARDS_ERA1 } from "../content/cards-era1";
 import { OFFLINE } from "../content/regras";
 import { defDoNucleo } from "../content/eras";
+import { avancarEra } from "../sim/era";
 import * as acoes from "../sim/acoes";
 import * as nucleo from "../sim/acoesNucleo";
 import { cardVisto, marcarCardVisto } from "../sim/cards";
@@ -63,6 +64,8 @@ export interface GameStore {
 
   // Núcleo
   desbloquearNucleo: () => boolean;
+  /** Entra na era seguinte, quando o portão do GDD §8.4 está satisfeito. */
+  avancarEra: () => boolean;
   selecionarFerramenta: (ferramenta: Ferramenta) => void;
   /** Aplica a ferramenta selecionada na casa. Devolve `false` e registra um aviso se recusado. */
   agirNaCasa: (indice: number) => boolean;
@@ -214,6 +217,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
     removerPeca: (indice) => aplicar(nucleo.removerPeca(get().state, indice)),
     limparEntulho: (indice) => aplicar(nucleo.limparEntulho(get().state, indice)),
     reconstruir: (indice) => aplicar(nucleo.reconstruir(get().state, indice)),
+    avancarEra: () => aplicar(avancarEra(get().state)),
     alternarModoSeguro: () => aplicar(nucleo.alternarModoSeguro(get().state)),
     scramManual: () => aplicar(nucleo.scramManual(get().state)),
     comprarReceptorCeramico: () => aplicar(nucleo.comprarReceptorCeramico(get().state)),

@@ -109,5 +109,8 @@ export function cardParaEvento(evento: EventoJogo): string | null {
       return evento.id === "rastreamentoSolar" ? "rastreamento" : null;
     case "cascata":
       return "cascata";
+    case "eraAvancada":
+      // Os cards da Era 2 entram em `cards-era2.ts`.
+      return null;
   }
 }

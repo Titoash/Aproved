@@ -953,3 +953,18 @@ h2 {
     justify-self: center;
   }
 }
+
+/* Portão da era seguinte (GDD §8.4). Sem glow: a decisão 5 da Sessão 4 reserva
+   o brilho para a esfera do Receptor, o 🔥 do HUD e o desbloqueio do Núcleo. */
+.proxima-era {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.proxima-era-falta {
+  font-size: var(--t-12);
+  color: var(--muted);
+}

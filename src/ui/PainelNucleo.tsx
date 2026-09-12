@@ -4,6 +4,7 @@ import { CASCATA, FAIXAS_CALOR, MODO_SEGURO, NUCLEO, ORDEM_PECAS, PECAS, RECEPTO
 import { podeComprarReceptorCeramico, podeDesbloquearNucleo } from "../sim/acoesNucleo";
 import { dicaDeEquilibrio, faixaDeCalor, pesquisaPorSegundo, temperatura, temperaturaNucleo } from "../sim/calor";
 import { custoReconstrucao, faltaParaLimpezaMs, podeLimparEntulho } from "../sim/cascata";
+import { faltaParaAvancar } from "../sim/era";
 import { formatarCalor, formatarCreditos, formatarNumero, formatarPorcentagem, formatarPotencia, formatarSegundos } from "../sim/formatar";
 import { calorPorEspelho, podeComprarMelhoria } from "../sim/melhorias";
 import { capacidadeU, contar, equilibrioU, aquecedoresEfetivos } from "../sim/nucleo";
@@ -149,6 +150,33 @@ function BarraEstabilidade({ nucleo }: { nucleo: NucleoState }) {
   );
 }
 
+/**
+ * Portão da era nova (GDD §8.4). Só aparece quando há era seguinte; enquanto o
+ * portão não abre, diz o que falta em vez de só ficar desabilitado.
+ */
+function BotaoProximaEra() {
+  const state = useGameStore((s) => s.state);
+  const avancar = useGameStore((s) => s.avancarEra);
+  const falta = faltaParaAvancar(state);
+  if (!falta) return null;
+
+  const pronto = falta.estabilidade === 0 && falta.pesquisa === 0 && falta.creditos === 0;
+  const pendencias = [
+    falta.estabilidade > 0 ? `🛡 ${formatarNumero(falta.estabilidade, 1)}` : null,
+    falta.pesquisa > 0 ? `🔬 ${formatarNumero(falta.pesquisa, 0)}` : null,
+    falta.creditos > 0 ? `₵ ${formatarNumero(falta.creditos, 0)}` : null,
+  ].filter(Boolean);
+
+  return (
+    <div className="proxima-era">
+      <button type="button" className={`pilula ${pronto ? "pilula--primaria" : ""}`} disabled={!pronto} onClick={avancar}>
+        Avançar para a Era {state.era + 1}
+      </button>
+      {pronto ? null : <span className="proxima-era-falta">Falta {pendencias.join(" · ")}</span>}
+    </div>
+  );
+}
+
 function SeletorPecas() {
   const state = useGameStore((s) => s.state);
   const ferramenta = useGameStore((s) => s.ferramenta);
@@ -216,6 +244,7 @@ function Operacao({ nucleo }: { nucleo: NucleoState }) {
       <SeletorPecas />
       {aviso && state.tempoMs - aviso.emTempoMs < DURACAO_AVISO_MS ? <p className="aviso aviso--erro nucleo-aviso">{aviso.texto}</p> : null}
       <BarraEstabilidade nucleo={nucleo} />
+      <BotaoProximaEra />
       <div className="nucleo-controles">
         <button type="button" className="pilula pilula--perigo" disabled={emScram} onClick={scramManual} title={`Desliga o Núcleo por ${formatarSegundos(CASCATA.scramMs)}`}>
           SCRAM manual
