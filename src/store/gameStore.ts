@@ -5,7 +5,7 @@
  * (peça selecionada, último aviso da grade).
  */
 import { create } from "zustand";
-import { cardParaEvento, CARDS_ERA1 } from "../content/cards-era1";
+import { cardParaEvento, CARDS } from "../content/cards";
 import { OFFLINE } from "../content/regras";
 import { defDoNucleo } from "../content/eras";
 import { avancarEra } from "../sim/era";
@@ -78,6 +78,8 @@ export interface GameStore {
   alternarModoSeguro: () => boolean;
   scramManual: () => boolean;
   comprarReceptorCeramico: () => boolean;
+  /** Repõe o combustível de uma peça que queima (GDD §8.5.4). */
+  recarregarPeca: (indice: number) => boolean;
   setCasaSobPonteiro: (indice: number | null) => void;
   fecharRelatorioOffline: () => void;
   /** "Próximo" no card aberto; na última tela fecha e marca como visto. */
@@ -107,7 +109,7 @@ function cardsDosEventos(state: GameState, jaEnfileirados: readonly string[]): s
   const novos: string[] = [];
   for (const evento of state.eventos) {
     const id = cardParaEvento(evento);
-    if (id && CARDS_ERA1[id] && !cardVisto(state, id) && !jaEnfileirados.includes(id) && !novos.includes(id)) novos.push(id);
+    if (id && CARDS[id] && !cardVisto(state, id) && !jaEnfileirados.includes(id) && !novos.includes(id)) novos.push(id);
   }
   return novos;
 }
@@ -134,7 +136,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
       return;
     }
     const [primeiro, ...resto] = fila;
-    set({ cardAberto: { id: primeiro, tela: 0 }, filaCards: resto, pausado: !!CARDS_ERA1[primeiro].pausa });
+    set({ cardAberto: { id: primeiro, tela: 0 }, filaCards: resto, pausado: !!CARDS[primeiro].pausa });
   };
 
   const aplicar = (proximo: GameState | null): boolean => {
@@ -164,7 +166,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
     relatorioOffline: relatorioInicial,
     cardAberto: cardsIniciais.length > 0 ? { id: cardsIniciais[0], tela: 0 } : null,
     filaCards: cardsIniciais.slice(1),
-    pausado: cardsIniciais.length > 0 ? !!CARDS_ERA1[cardsIniciais[0]].pausa : false,
+    pausado: cardsIniciais.length > 0 ? !!CARDS[cardsIniciais[0]].pausa : false,
 
     avancarTicks(n) {
       const { state, salvoEmTempoMs, pausado } = get();
@@ -221,6 +223,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
     removerPeca: (indice) => aplicar(nucleo.removerPeca(get().state, indice)),
     limparEntulho: (indice) => aplicar(nucleo.limparEntulho(get().state, indice)),
     reconstruir: (indice) => aplicar(nucleo.reconstruir(get().state, indice)),
+    recarregarPeca: (indice) => aplicar(nucleo.recarregarPeca(get().state, indice)),
     avancarEra: () => aplicar(avancarEra(get().state)),
     alternarModoSeguro: () => aplicar(nucleo.alternarModoSeguro(get().state)),
     scramManual: () => aplicar(nucleo.scramManual(get().state)),
@@ -233,7 +236,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
     avancarCard() {
       const { cardAberto, filaCards, state } = get();
       if (!cardAberto) return;
-      const def = CARDS_ERA1[cardAberto.id];
+      const def = CARDS[cardAberto.id];
       if (def && cardAberto.tela < def.telas.length - 1) {
         set({ cardAberto: { id: cardAberto.id, tela: cardAberto.tela + 1 } });
         return;
@@ -244,7 +247,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
         state: visto,
         cardAberto: proximo ? { id: proximo, tela: 0 } : null,
         filaCards: resto,
-        pausado: proximo ? !!CARDS_ERA1[proximo]?.pausa : false,
+        pausado: proximo ? !!CARDS[proximo]?.pausa : false,
       });
       salvarEstado(visto);
     },

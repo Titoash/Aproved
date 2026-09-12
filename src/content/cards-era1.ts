@@ -110,7 +110,10 @@ export function cardParaEvento(evento: EventoJogo): string | null {
     case "cascata":
       return "cascata";
     case "eraAvancada":
-      // Os cards da Era 2 entram em `cards-era2.ts`.
-      return null;
+      return evento.era === 2 ? "transicaoEra2" : null;
+    case "combustivelBaixo":
+      return "combustivelBaixo";
+    case "varetaGasta":
+      return "calorDeDecaimento";
   }
 }

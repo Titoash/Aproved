@@ -49,6 +49,13 @@
   --tanque: #c9cfff;
   --entulho: #3a3f5e;
 
+  /* Era 2 — Reator PWR (GDD §8.5.3): concreto do vaso, vareta, verde-cerenkov, rio. */
+  --vaso: #33406b;
+  --vareta: #d8e2ff;
+  --vareta-gasta: #6b7a9c;
+  --cerenkov: #4cc9f0;
+  --rio: #2a5d8f;
+
   /* Brilho só no que está quente ou energizado: Receptor, 🔥 do HUD e o botão primário na primeira compra. */
   --glow-sun: 0 0 24px rgba(255, 210, 63, 0.45);
   --glow-coral: 0 0 24px rgba(255, 107, 107, 0.45);

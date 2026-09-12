@@ -968,3 +968,8 @@ h2 {
   font-size: var(--t-12);
   color: var(--muted);
 }
+
+/* Varetas acabando: lista curta, só aparece quando há o que recarregar. */
+.lista--combustivel {
+  margin-top: 8px;
+}

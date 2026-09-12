@@ -34,6 +34,8 @@ export const COMBUSTIVEL = {
   taxaPorSegundo: 0.0025,
   /** Recarregar custa 60 % do preço da peça. */
   fracaoRecarga: 0.6,
+  /** Abaixo disto o jogo avisa que a vareta está acabando. */
+  limiarAviso: 0.2,
   decaimento: {
     /** Os ~7 % reais de potência de decaimento logo após o desligamento. */
     fracao: 0.07,

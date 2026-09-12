@@ -117,7 +117,11 @@ export type EventoJogo =
   | { tipo: "primeiraCompra"; item: PecaId | "bateria" }
   | { tipo: "melhoriaComprada"; id: MelhoriaId }
   | { tipo: "cascata"; entradaUs: number; saidaUs: number }
-  | { tipo: "eraAvancada"; era: Era };
+  | { tipo: "eraAvancada"; era: Era }
+  /** Uma peça que queima cruzou o limiar de aviso pela primeira vez. */
+  | { tipo: "combustivelBaixo"; indice: number }
+  /** Uma peça que queima esgotou o combustível. */
+  | { tipo: "varetaGasta"; indice: number };
 
 export interface GameState {
   versao: number;

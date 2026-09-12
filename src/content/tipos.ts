@@ -42,6 +42,8 @@ export interface DefinicaoCombustivel {
   taxaPorSegundo: number;
   /** Recarregar custa esta fração do preço da peça. */
   fracaoRecarga: number;
+  /** Fração abaixo da qual o jogo avisa que o combustível está acabando. */
+  limiarAviso: number;
   decaimento: {
     /** Fração da entrada nominal emitida no instante em que a peça para de fissionar. */
     fracao: number;

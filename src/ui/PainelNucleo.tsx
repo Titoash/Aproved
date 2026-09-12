@@ -1,14 +1,17 @@
 import { useEffect, useRef } from "react";
+import { BotaoCompra } from "./BotaoCompra";
 import { MELHORIAS, ORDEM_MELHORIAS } from "../content/era1";
-import { CASCATA, FAIXAS_CALOR, MODO_SEGURO, NUCLEO, ORDEM_PECAS, PECAS, RECEPTOR_CERAMICO } from "../content/era1-nucleo";
-import { podeComprarReceptorCeramico, podeDesbloquearNucleo } from "../sim/acoesNucleo";
+import { CASCATA, FAIXAS_CALOR, MODO_SEGURO, NUCLEO, RECEPTOR_CERAMICO } from "../content/era1-nucleo";
+import { custoProximaRecarga, podeComprarReceptorCeramico, podeDesbloquearNucleo, podeRecarregar } from "../sim/acoesNucleo";
+import { defDoNucleo, NUCLEO_PADRAO } from "../content/eras";
+import { tempoAteEsfriarMs } from "../sim/decaimento";
 import { dicaDeEquilibrio, faixaDeCalor, pesquisaPorSegundo, temperatura, temperaturaNucleo } from "../sim/calor";
 import { custoReconstrucao, faltaParaLimpezaMs, podeLimparEntulho } from "../sim/cascata";
 import { faltaParaAvancar } from "../sim/era";
 import { formatarCalor, formatarCreditos, formatarNumero, formatarPorcentagem, formatarPotencia, formatarSegundos } from "../sim/formatar";
 import { calorPorEspelho, podeComprarMelhoria } from "../sim/melhorias";
 import { capacidadeU, contar, equilibrioU, aquecedoresEfetivos } from "../sim/nucleo";
-import type { NucleoState } from "../sim/state";
+import type { GameState, NucleoState } from "../sim/state";
 import { potenciaNucleoEfetivaKw } from "../sim/tick";
 import { indiceDaCasa, setGradeElement, setPalcoElement } from "../scene/layout";
 import { corDaRampaCss } from "../scene/rampa";
@@ -177,12 +180,54 @@ function BotaoProximaEra() {
   );
 }
 
+/** Varetas acabando ou gastas, com o botão de recarga (GDD §8.5.4). */
+function Combustivel({ nucleo, state }: { nucleo: NucleoState; state: GameState }) {
+  const recarregar = useGameStore((s) => s.recarregarPeca);
+  const def = defDoNucleo(nucleo);
+  if (!def.combustivel) return null;
+
+  const limiar = def.combustivel.limiarAviso;
+  const atencao = nucleo.grade
+    .map((casa, i) => ({ casa, i }))
+    .filter((e) => e.casa?.tipo === "peca" && e.casa.combustivel && e.casa.combustivel.restante <= limiar);
+  if (atencao.length === 0) return null;
+
+  return (
+    <ul className="lista lista--combustivel">
+      {atencao.map(({ casa, i }) => {
+        if (casa?.tipo !== "peca" || !casa.combustivel) return null;
+        const gasta = casa.combustivel.restante <= 0;
+        const esfriarMs = tempoAteEsfriarMs(casa, i, nucleo.lado, state.tempoMs, def);
+        const custo = custoProximaRecarga(state, i);
+        return (
+          <li key={i} className="linha">
+            <div className="linha-texto">
+              <span className="linha-nome">{def.pecas[casa.id]?.nome ?? casa.id}</span>
+              <span className="linha-meta">
+                {gasta ? "Gasta" : formatarPorcentagem(casa.combustivel.restante, 0)}
+                {esfriarMs > 0 ? ` · ainda quente, esfria em ${formatarSegundos(esfriarMs)}` : ""}
+              </span>
+            </div>
+            <div className="linha-acoes">
+              <BotaoCompra titulo="Recarregar" custo={custo} creditos={state.creditos} habilitado={podeRecarregar(state, i)} variante="primario" onClick={() => recarregar(i)} />
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 function SeletorPecas() {
   const state = useGameStore((s) => s.state);
   const ferramenta = useGameStore((s) => s.ferramenta);
   const selecionar = useGameStore((s) => s.selecionarFerramenta);
+  const def = state.nucleo ? defDoNucleo(state.nucleo) : NUCLEO_PADRAO;
   const opcoes: { id: Ferramenta; nome: string; custo: number | null; descricao: string }[] = [
-    ...ORDEM_PECAS.map((id) => ({ id, nome: PECAS[id].nome, custo: PECAS[id].custo, descricao: PECAS[id].descricao })),
+    ...def.ordemPecas.map((id) => {
+      const peca = def.pecas[id]!;
+      return { id, nome: peca.nome, custo: peca.custo, descricao: peca.descricao };
+    }),
     { id: "remover", nome: "Remover", custo: null, descricao: "Tira a peça da casa (sem reembolso)." },
   ];
   return (
@@ -241,6 +286,7 @@ function Operacao({ nucleo }: { nucleo: NucleoState }) {
         {nucleo.cascatas > 0 ? <span>💥 {nucleo.cascatas} cascata{nucleo.cascatas > 1 ? "s" : ""}</span> : null}
       </p>
       <Entulhos nucleo={nucleo} tempoMs={state.tempoMs} />
+      <Combustivel nucleo={nucleo} state={state} />
       <SeletorPecas />
       {aviso && state.tempoMs - aviso.emTempoMs < DURACAO_AVISO_MS ? <p className="aviso aviso--erro nucleo-aviso">{aviso.texto}</p> : null}
       <BarraEstabilidade nucleo={nucleo} />

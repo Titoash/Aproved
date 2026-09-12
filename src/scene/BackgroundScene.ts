@@ -1,24 +1,53 @@
-/** Cena vazia com o fundo da Era 1: navy com gradiente radial e estrelas. Sem grade (Sessão 2). */
+/**
+ * Fundo do jogo: gradiente radial e estrelas. A paleta troca com a era
+ * (GDD §6): navy da colina na Era 1, azul do rio e da cidade na Era 2.
+ */
 import Phaser from "phaser";
+import type { Era } from "../sim/state";
+import { useGameStore } from "../store/gameStore";
 import { GridScene } from "./GridScene";
 
-const CHAVE_FUNDO = "fundo-era1";
+const CHAVE_FUNDO = "fundo-era";
+
+/** Centro e borda do gradiente radial por era (GDD §6, §10). */
+const PALETA: Record<Era, { centro: string; borda: string }> = {
+  1: { centro: "#241b55", borda: "#0d1230" },
+  2: { centro: "#1b3a55", borda: "#0b1526" },
+};
 
 export class BackgroundScene extends Phaser.Scene {
   private fundo: Phaser.GameObjects.Image | null = null;
   private estrelas: Phaser.GameObjects.Arc[] = [];
+  private era: Era = 1;
+  private desinscrever: (() => void) | null = null;
 
   constructor() {
     super("fundo");
   }
 
   create() {
+    this.era = useGameStore.getState().state.era;
     this.desenhar(this.scale.width, this.scale.height);
     // A grade do Núcleo roda em paralelo, por cima do fundo.
     if (!this.scene.isActive(GridScene.KEY)) this.scene.launch(GridScene.KEY);
     this.scale.on(Phaser.Scale.Events.RESIZE, (tamanho: Phaser.Structs.Size) => {
       this.desenhar(tamanho.width, tamanho.height);
     });
+    // Trocar de era repinta o fundo; é a "troca de paleta" do GDD §6.
+    this.desinscrever = useGameStore.subscribe((s) => {
+      if (s.state.era === this.era) return;
+      this.era = s.state.era;
+      this.desenhar(this.scale.width, this.scale.height);
+      this.cameras.main.fadeIn(this.reduzido() ? 0 : 600, 0, 0, 0);
+    });
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.desinscrever?.();
+      this.desinscrever = null;
+    });
+  }
+
+  private reduzido(): boolean {
+    return typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
   }
 
   private desenhar(largura: number, altura: number) {
@@ -49,9 +78,9 @@ export class BackgroundScene extends Phaser.Scene {
     const cy = h * 0.38;
     const raio = Math.max(w, h) * 0.8;
     const gradiente = ctx.createRadialGradient(cx, cy, 0, cx, cy, raio);
-    // GDD §10: navy profundo #0D1230 com gradiente radial para #241B55.
-    gradiente.addColorStop(0, "#241b55");
-    gradiente.addColorStop(1, "#0d1230");
+    const paleta = PALETA[this.era] ?? PALETA[1];
+    gradiente.addColorStop(0, paleta.centro);
+    gradiente.addColorStop(1, paleta.borda);
     ctx.fillStyle = gradiente;
     ctx.fillRect(0, 0, w, h);
     textura.refresh();
@@ -59,7 +88,7 @@ export class BackgroundScene extends Phaser.Scene {
   }
 
   private desenharEstrelas(w: number, h: number) {
-    const rng = new Phaser.Math.RandomDataGenerator(["aproved-era1"]);
+    const rng = new Phaser.Math.RandomDataGenerator([`aproved-era${this.era}`]);
     const quantidade = Math.min(400, Math.round((w * h) / 9000));
     for (let i = 0; i < quantidade; i++) {
       // Estrelas de 1–2 px com opacidade variada (GDD §10).

@@ -1,4 +1,4 @@
-import { CARDS_ERA1 } from "../content/cards-era1";
+import { CARDS } from "../content/cards";
 import { formatarNumero } from "../sim/formatar";
 import { useGameStore } from "../store/gameStore";
 import { Bipe } from "./bipe/Bipe";
@@ -15,7 +15,7 @@ export function CardExplicativo() {
   const ultimaCascata = useGameStore((s) => s.state.nucleo?.ultimaCascata ?? null);
   const avancarCard = useGameStore((s) => s.avancarCard);
   if (!aberto) return null;
-  const def = CARDS_ERA1[aberto.id];
+  const def = CARDS[aberto.id];
   if (!def) return null;
   const tela = def.telas[Math.min(aberto.tela, def.telas.length - 1)];
   const ultima = aberto.tela >= def.telas.length - 1;

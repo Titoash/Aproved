@@ -12,7 +12,7 @@
 import type { DefinicaoNucleo } from "../content/tipos";
 import { pecaDe } from "../content/eras";
 import { anel } from "./nucleo";
-import { ladoDaGrade, type Casa, type EstadoCombustivel } from "./state";
+import { ladoDaGrade, type Casa, type EstadoCombustivel, type EventoJogo } from "./state";
 
 /**
  * Abaixo disto o combustível conta como zero. Somar 4 000 passos de 2,5e-4 deixa
@@ -128,4 +128,25 @@ export function recarregar(grade: readonly Casa[], indice: number, def: Definica
   const nova = grade.slice();
   nova[indice] = { ...casa, combustivel: combustivelCheio() };
   return nova;
+}
+
+/**
+ * Eventos que a queima de um tick produz, comparando a grade antes e depois.
+ * Separado de `queimarGrade` para ela seguir sendo uma função de grade em
+ * grade: quem quer os eventos pede, quem não quer não paga.
+ */
+export function eventosDaQueima(antes: readonly Casa[], depois: readonly Casa[], def: DefinicaoNucleo): EventoJogo[] {
+  if (antes === depois || !def.combustivel) return [];
+  const limiar = def.combustivel.limiarAviso;
+  const eventos: EventoJogo[] = [];
+  antes.forEach((casaAntes, i) => {
+    if (casaAntes?.tipo !== "peca" || !casaAntes.combustivel) return;
+    const casaDepois = depois[i];
+    if (casaDepois?.tipo !== "peca" || !casaDepois.combustivel) return;
+    const a = casaAntes.combustivel.restante;
+    const d = casaDepois.combustivel.restante;
+    if (a > 0 && d <= 0) eventos.push({ tipo: "varetaGasta", indice: i });
+    else if (a > limiar && d <= limiar) eventos.push({ tipo: "combustivelBaixo", indice: i });
+  });
+  return eventos;
 }

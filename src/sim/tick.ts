@@ -13,7 +13,7 @@ import { faixaDeCalor, pesquisaPorSegundo, temperatura } from "./calor";
 import { aplicarCascata, atualizarCronometro, deveCascatear, emScram, scram } from "./cascata";
 import { passoEstabilidade } from "./estabilidade";
 import { aquecedoresEfetivosDe, calorBasePorAquecedor, capacidadeU, contar, passoCalor, potenciaNucleoKw } from "./nucleo";
-import { pararFissao, queimarGrade, retomarFissao } from "./combustivel";
+import { eventosDaQueima, pararFissao, queimarGrade, retomarFissao } from "./combustivel";
 import { decaimentoDaGrade } from "./decaimento";
 import { calorPorEspelho } from "./melhorias";
 import { balancoRede, passoRede, type BalancoRede } from "./rede";
@@ -43,6 +43,8 @@ export interface PassoNucleo {
   nucleo: NucleoState;
   pesquisaGanha: number;
   cascatou: boolean;
+  /** Eventos da queima deste tick (combustível baixo, vareta gasta). */
+  eventos: EventoJogo[];
   /** Fluxos de calor no início do tick (u/s), para o card da Cascata. */
   entradaUs: number;
   saidaUs: number;
@@ -116,7 +118,7 @@ export function passoNucleo(
     cascatou = true;
   }
 
-  return { nucleo: proximo, pesquisaGanha, cascatou, entradaUs, saidaUs, t, faixa };
+  return { nucleo: proximo, pesquisaGanha, cascatou, eventos: eventosDaQueima(nucleo.grade, grade, def), entradaUs, saidaUs, t, faixa };
 }
 
 /** Avança o estado em um tick de `dtMs` (normalmente `TICK_MS`). Função pura. */
@@ -139,6 +141,7 @@ export function tick(state: GameState, dtMs: number = TICK_MS): GameState {
     const pn = passoNucleo(nucleo, potenciaNucleo, dtMs, tempoMs, calorPorEspelho(state.melhorias));
     nucleo = pn.nucleo;
     pesquisa += pn.pesquisaGanha;
+    eventos.push(...pn.eventos);
     if (pn.cascatou) {
       rede = { ...rede, bateria: { ...rede.bateria, kwh: rede.bateria.kwh * (1 - CASCATA.perdaBateria) } };
       eventos.push({ tipo: "cascata", entradaUs: pn.entradaUs, saidaUs: pn.saidaUs });

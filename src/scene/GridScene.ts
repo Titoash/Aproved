@@ -9,6 +9,9 @@
  */
 import Phaser from "phaser";
 import { CASCATA, NUCLEO } from "../content/era1-nucleo";
+import { defDoNucleo, pecaDe } from "../content/eras";
+import type { DefinicaoNucleo } from "../content/tipos";
+import { decaimentoDaCasa } from "../sim/decaimento";
 import { podeLimparEntulho } from "../sim/cascata";
 import { temperaturaNucleo } from "../sim/calor";
 import { anel, contar, podeColocar } from "../sim/nucleo";
@@ -20,6 +23,12 @@ import { corDaRampa } from "./rampa";
 /** Tokens do GDD §10 (tokens.css) em número, para o canvas. */
 const COR = {
   casa: 0x1c2250,
+  // Era 2 (GDD §8.5.3): concreto do vaso, água do rio, verde-cerenkov.
+  vaso: 0x33406b,
+  vareta: 0xd8e2ff,
+  varetaGasta: 0x6b7a9c,
+  cerenkov: 0x4cc9f0,
+  rio: 0x2a5d8f,
   casaAnel1: 0x232a5e,
   torre: 0x2b3270,
   turbinaCarcaca: 0xe9edff,
@@ -284,26 +293,30 @@ export class GridScene extends Phaser.Scene {
 
     const ge = this.gEstatico;
     ge.clear();
+    const def = defDoNucleo(nucleo);
     const receptor = this.centroDaCasa(indiceReceptor(this.lado));
     nucleo.grade.forEach((casa, i) => {
       if (!casa || casa.tipo !== "peca") return;
       const { x, y } = this.centroDaCasa(i);
       const a = anel(i, this.lado);
-      switch (casa.id) {
-        case "heliostato":
-          this.desenharHeliostato(ge, x, y, a, receptor, rastreamento);
+      // Despacho por papel: as peças da Era 2 reaproveitam o desenho das da
+      // Era 1 no mesmo papel; só quem aquece muda de forma entre as eras.
+      switch (pecaDe(def, casa.id)?.papel) {
+        case "aquece":
+          if (def.combustivel) this.desenharVaretaCorpo(ge, x, y, casa.combustivel?.restante ?? 1);
+          else this.desenharHeliostato(ge, x, y, a, receptor, rastreamento);
           break;
-        case "radiador":
+        case "dissipa":
           this.desenharRadiadorCorpo(ge, x, y);
           break;
-        case "tanque":
+        case "armazena":
           this.desenharTanqueCorpo(ge, x, y);
           break;
-        case "turbina":
+        case "converte":
           break; // toda dinâmica
       }
     });
-    this.desenharTorre(ge, receptor.x, receptor.y);
+    this.desenharCentro(ge, receptor.x, receptor.y, def);
 
     // Realce da casa sob o ponteiro: verde se a ferramenta cabe, coral se não.
     if (hover !== null && hover !== indiceReceptor(this.lado) && hover >= 0 && hover < nucleo.grade.length) {
@@ -384,6 +397,28 @@ export class GridScene extends Phaser.Scene {
   }
 
   /** Torre: trapézio estreito; a esfera fica na camada dinâmica. */
+  /** A peça central muda de forma com a era: torre afunilada na 1, vaso cilíndrico na 2. */
+  private desenharCentro(g: Phaser.GameObjects.Graphics, x: number, y: number, def: DefinicaoNucleo) {
+    if (def.tipo === "reatorPwr") this.desenharVaso(g, x, y);
+    else this.desenharTorre(g, x, y);
+  }
+
+  /** Vaso de pressão: cilindro de concreto com calota, mais largo e mais baixo que a torre. */
+  private desenharVaso(g: Phaser.GameObjects.Graphics, x: number, y: number) {
+    const c = this.celula;
+    const largura = c * 0.42;
+    const altura = c * 0.4;
+    const d = this.deslocamentoSombra();
+    const topo = y + c * 0.02;
+    g.fillStyle(COR.sombra, 0.55);
+    g.fillRoundedRect(x - largura / 2 + d, topo + d, largura, altura, largura * 0.3);
+    g.fillStyle(COR.vaso, 1);
+    g.fillRoundedRect(x - largura / 2, topo, largura, altura, largura * 0.3);
+    // Cinta do vaso, para não ficar um retângulo liso.
+    g.lineStyle(1, escurecer(COR.vaso, 18), 0.9);
+    g.lineBetween(x - largura / 2, topo + altura * 0.45, x + largura / 2, topo + altura * 0.45);
+  }
+
   private desenharTorre(g: Phaser.GameObjects.Graphics, x: number, y: number) {
     const c = this.celula;
     const d = this.deslocamentoSombra();
@@ -405,6 +440,7 @@ export class GridScene extends Phaser.Scene {
     const g = this.gDinamico;
     g.clear();
     if (!this.visivel) return;
+    const def = defDoNucleo(nucleo);
     const c = this.celula;
     const d = this.deslocamentoSombra();
     const receptor = this.centroDaCasa(indiceReceptor(this.lado));
@@ -419,23 +455,68 @@ export class GridScene extends Phaser.Scene {
         return;
       }
       const a = anel(i, this.lado);
-      switch (casa.id) {
-        case "turbina":
+      switch (pecaDe(def, casa.id)?.papel) {
+        case "converte":
           this.desenharTurbina(g, x, y, consumoPorTurbina, emScram, agora);
           break;
-        case "radiador":
+        case "dissipa":
           this.desenharAletas(g, x, y, a === 1 && !emScram && nucleo.calorU > 0.5, a === 1 && nucleo.calorU > 0.5);
           break;
-        case "tanque":
+        case "armazena":
           this.desenharNivelTanque(g, x, y, a === 1 ? t : 0);
           break;
-        case "heliostato":
-          if (rastreamento && !this.reduzido) this.desenharVarredura(g, x, y, a, receptor, agora);
+        case "aquece":
+          if (def.combustivel) {
+            const decaimento = decaimentoDaCasa(casa, i, this.lado, tempoMs, def);
+            this.desenharVareta(g, x, y, casa.combustivel?.restante ?? 1, decaimento, agora);
+          } else if (rastreamento && !this.reduzido) {
+            this.desenharVarredura(g, x, y, a, receptor, agora);
+          }
           break;
       }
     });
 
     this.desenharEsfera(g, receptor.x, receptor.y - c * 0.14, t, emScram, agora, d);
+  }
+
+  /**
+   * Corpo da vareta: cápsula vertical com uma barra de combustível na própria
+   * peça — o jogador precisa ver quanto falta sem abrir painel nenhum.
+   */
+  private desenharVaretaCorpo(g: Phaser.GameObjects.Graphics, x: number, y: number, restante: number) {
+    const c = this.celula;
+    const largura = c * 0.26;
+    const altura = c * 0.58;
+    const d = this.deslocamentoSombra();
+    const gasta = restante <= 0;
+
+    g.fillStyle(COR.sombra, 0.55);
+    g.fillRoundedRect(x - largura / 2 + d, y - altura / 2 + d, largura, altura, largura / 2);
+    g.fillStyle(gasta ? COR.varetaGasta : COR.vareta, 1);
+    g.fillRoundedRect(x - largura / 2, y - altura / 2, largura, altura, largura / 2);
+
+    // Barra de combustível: enche de baixo para cima, na cor do cerenkov.
+    if (!gasta) {
+      const margem = largura * 0.28;
+      const alturaUtil = (altura - margem * 2) * Math.min(1, Math.max(0, restante));
+      g.fillStyle(COR.cerenkov, 0.9);
+      g.fillRoundedRect(x - largura / 2 + margem, y + altura / 2 - margem - alturaUtil, largura - margem * 2, alturaUtil, margem);
+    }
+  }
+
+  /** Halo de decaimento: pulsa na meia-vida e encolhe junto com o calor residual. */
+  private desenharVareta(g: Phaser.GameObjects.Graphics, x: number, y: number, restante: number, decaimentoUs: number, agora: number) {
+    if (decaimentoUs <= 0) return;
+    const c = this.celula;
+    // A escala segue o decaimento, saturando em ~3 u/s (o pico de uma vareta do anel 1).
+    const intensidade = Math.min(1, decaimentoUs / 3);
+    const pulso = this.reduzido ? 1 : 1 + 0.12 * Math.sin((agora / 90_000) * Math.PI * 2);
+    g.fillStyle(COR.brasa, 0.1 + 0.18 * intensidade);
+    g.fillCircle(x, y, c * 0.34 * pulso * (0.6 + 0.4 * intensidade));
+    if (restante <= 0) {
+      g.lineStyle(1, COR.brasa, 0.35 + 0.3 * intensidade);
+      g.strokeCircle(x, y, c * 0.38 * pulso);
+    }
   }
 
   private desenharTurbina(g: Phaser.GameObjects.Graphics, x: number, y: number, consumo: number, emScram: boolean, agora: number) {
