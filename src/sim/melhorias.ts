@@ -27,9 +27,18 @@ export function calorPorEspelho(melhorias: Melhorias | undefined): number {
   return valor;
 }
 
+/**
+ * As melhorias de Núcleo da Era 1 modificam a Torre Solar: não valem para o
+ * Reator (GDD §8.5.1). As de Rede seguem valendo, porque as usinas da Era 1
+ * continuam na lista.
+ *
+ * A recusa vale só quando **existe** um Núcleo que não é a Torre Solar. Com o
+ * Núcleo ainda travado a compra continua permitida, como sempre foi na Era 1.
+ */
 export function podeComprarMelhoria(state: GameState, id: MelhoriaId): boolean {
   const def = MELHORIAS[id];
   if (temMelhoria(state.melhorias, id)) return false;
+  if (def.camada === "nucleo" && state.nucleo && state.nucleo.tipo !== "torreSolar") return false;
   if (state.creditos < def.custo) return false;
   if (def.pesquisa !== undefined && state.pesquisa < def.pesquisa) return false;
   if (def.efeito.tipo === "gradeLado" && (!state.nucleo || state.nucleo.lado >= def.efeito.lado)) return false;

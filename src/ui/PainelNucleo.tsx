@@ -4,14 +4,14 @@ import { MELHORIAS, ORDEM_MELHORIAS } from "../content/era1";
 import { CASCATA, FAIXAS_CALOR, MODO_SEGURO, NUCLEO, RECEPTOR_CERAMICO } from "../content/era1-nucleo";
 import { custoProximaRecarga, podeComprarReceptorCeramico, podeDesbloquearNucleo, podeRecarregar } from "../sim/acoesNucleo";
 import { defDoNucleo, NUCLEO_PADRAO } from "../content/eras";
-import { tempoAteEsfriarMs } from "../sim/decaimento";
+import { decaimentoDaGrade, tempoAteEsfriarMs } from "../sim/decaimento";
 import { dicaDeEquilibrio, faixaDeCalor, pesquisaPorSegundo, temperatura, temperaturaNucleo } from "../sim/calor";
 import { custoReconstrucao, faltaParaLimpezaMs, podeLimparEntulho } from "../sim/cascata";
 import { faltaParaAvancar } from "../sim/era";
 import { formatarCalor, formatarCreditos, formatarNumero, formatarPorcentagem, formatarPotencia, formatarSegundos } from "../sim/formatar";
 import { calorPorEspelho, podeComprarMelhoria } from "../sim/melhorias";
 import { capacidadeU, contar, equilibrioU, aquecedoresEfetivos } from "../sim/nucleo";
-import type { GameState, NucleoState } from "../sim/state";
+import type { GameState, NucleoState, NucleoTipo } from "../sim/state";
 import { potenciaNucleoEfetivaKw } from "../sim/tick";
 import { indiceDaCasa, setGradeElement, setPalcoElement } from "../scene/layout";
 import { corDaRampaCss } from "../scene/rampa";
@@ -90,18 +90,29 @@ function GradeArea() {
   );
 }
 
-const TEXTO_DICA = {
-  adicionarEspelhos: "Adicione espelhos: a marca sobe.",
-  tirarEspelho: "Tire um espelho ou ponha um radiador.",
-} as const;
+/** A dica nomeia as peças da era: o jogador da Era 2 não tem espelho nenhum. */
+const TEXTO_DICA: Record<NucleoTipo, Record<"adicionarEspelhos" | "tirarEspelho", string>> = {
+  torreSolar: {
+    adicionarEspelhos: "Adicione espelhos: a marca sobe.",
+    tirarEspelho: "Tire um espelho ou ponha um radiador.",
+  },
+  reatorPwr: {
+    adicionarEspelhos: "Adicione varetas: a marca sobe.",
+    tirarEspelho: "Tire uma vareta ou ponha uma bomba.",
+  },
+};
 
-function BarraCalor({ nucleo, calorEspelho }: { nucleo: NucleoState; calorEspelho: number }) {
+function BarraCalor({ nucleo, calorEspelho, tempoMs }: { nucleo: NucleoState; calorEspelho: number; tempoMs: number }) {
   const t = temperaturaNucleo(nucleo);
   const faixa = faixaDeCalor(t);
-  const capacidade = capacidadeU(nucleo.grade, nucleo.receptorCeramico);
-  const qEq = equilibrioU(nucleo.grade, calorEspelho);
+  const def = defDoNucleo(nucleo);
+  const capacidade = capacidadeU(nucleo.grade, nucleo.receptorCeramico, def);
+  // O Rastreamento solar é melhoria da Era 1; nas outras, o calor por aquecedor
+  // é o da própria peça. `Q*` é avaliado agora, porque o decaimento o move.
+  const qEq = equilibrioU(nucleo.grade, def.tipo === "torreSolar" ? calorEspelho : undefined, tempoMs, def);
   const tEq = temperatura(qEq, capacidade);
   const dica = dicaDeEquilibrio(tEq);
+  const textoDica = dica ? TEXTO_DICA[def.tipo][dica] : null;
   const escalaMax = 1.2;
   const pos = (v: number) => `${Math.min(100, Math.max(0, (v / escalaMax) * 100))}%`;
   const critico = faixa.id === "critico";
@@ -133,7 +144,7 @@ function BarraCalor({ nucleo, calorEspelho }: { nucleo: NucleoState; calorEspelh
               ? `equilíbrio Q* = ${formatarCalor(qEq)} (${formatarPorcentagem(tEq)})`
               : "sem turbinas: o calor só sobe"}
         </span>
-        {dica ? <span className="barra-dica">{TEXTO_DICA[dica]}</span> : null}
+        {textoDica ? <span className="barra-dica">{textoDica}</span> : null}
       </div>
     </div>
   );
@@ -267,21 +278,30 @@ function Operacao({ nucleo }: { nucleo: NucleoState }) {
   const potencia = potenciaNucleoEfetivaKw(nucleo);
   const t = temperaturaNucleo(nucleo);
   const emScram = nucleo.scramRestanteMs > 0;
-  const c = contar(nucleo.grade);
+  const def = defDoNucleo(nucleo);
+  const c = contar(nucleo.grade, def);
   const calorEspelho = calorPorEspelho(state.melhorias);
+  const decaimentoUs = decaimentoDaGrade(nucleo.grade, state.tempoMs, def);
 
   return (
     <>
       <GradeArea />
       {emScram ? (
-        <p className="nucleo-scram">SCRAM · Núcleo desligado por {formatarSegundos(nucleo.scramRestanteMs)}. Espelhos e turbinas parados; radiadores esfriando.</p>
+        <p className="nucleo-scram">
+          SCRAM · fissão parada por {formatarSegundos(nucleo.scramRestanteMs)}.{" "}
+          {def.combustivel
+            ? "O calor de decaimento continua entrando: mantenha as bombas."
+            : "Espelhos e turbinas parados; radiadores esfriando."}
+        </p>
       ) : null}
-      <BarraCalor nucleo={nucleo} calorEspelho={calorEspelho} />
+      <BarraCalor nucleo={nucleo} calorEspelho={calorEspelho} tempoMs={state.tempoMs} />
       <p className="nucleo-status">
         <span>⚡ Núcleo {formatarPotencia(potencia)}</span>
         <span>🔬 +{formatarNumero(emScram ? 0 : pesquisaPorSegundo(potencia, t), 2)}/s</span>
         <span>
-          h = {formatarNumero(aquecedoresEfetivos(nucleo.grade), 2)} · t = {c.conversores} · rad = {c.dissipadoresAdjacentes} · {formatarNumero(calorEspelho, 0)} u/s por espelho
+          {def.nomeCentro} · h = {formatarNumero(aquecedoresEfetivos(nucleo.grade, def), 2)} · conv = {c.conversores} · dis ={" "}
+          {c.dissipadoresAdjacentes}
+          {decaimentoUs > 0 ? ` · ☢ ${formatarNumero(decaimentoUs, 1)} u/s de decaimento` : ""}
         </span>
         {nucleo.cascatas > 0 ? <span>💥 {nucleo.cascatas} cascata{nucleo.cascatas > 1 ? "s" : ""}</span> : null}
       </p>
@@ -298,7 +318,7 @@ function Operacao({ nucleo }: { nucleo: NucleoState }) {
         <button type="button" className={`pilula ${nucleo.modoSeguro ? "pilula--ativa" : ""}`} role="switch" aria-checked={nucleo.modoSeguro} onClick={alternarModoSeguro} title={`SCRAM automático a ${formatarPorcentagem(MODO_SEGURO.limiarT)}, potência ×${formatarNumero(MODO_SEGURO.fatorPotencia, 1)}`}>
           Modo seguro {nucleo.modoSeguro ? "ligado" : "desligado"}
         </button>
-        {ORDEM_MELHORIAS.filter((id) => MELHORIAS[id].camada === "nucleo").map((id) => {
+        {(nucleo.tipo === "torreSolar" ? ORDEM_MELHORIAS.filter((id) => MELHORIAS[id].camada === "nucleo") : []).map((id) => {
           const def = MELHORIAS[id];
           if (state.melhorias[id]) {
             return (
@@ -318,7 +338,7 @@ function Operacao({ nucleo }: { nucleo: NucleoState }) {
             </button>
           );
         })}
-        {nucleo.receptorCeramico ? (
+        {nucleo.tipo !== "torreSolar" ? null : nucleo.receptorCeramico ? (
           <span className="marca-comprado">✔ {RECEPTOR_CERAMICO.nome}</span>
         ) : (
           <button type="button" className="pilula" disabled={!podeComprarReceptorCeramico(state)} onClick={comprarReceptorCeramico} title={RECEPTOR_CERAMICO.descricao}>

@@ -19,7 +19,9 @@ export class BackgroundScene extends Phaser.Scene {
   private fundo: Phaser.GameObjects.Image | null = null;
   private estrelas: Phaser.GameObjects.Arc[] = [];
   private era: Era = 1;
-  private desinscrever: (() => void) | null = null;
+  private unsubscribe: (() => void) | null = null;
+  /** Marcado pelo assinante do store; o redesenho acontece no `update`. */
+  private trocouDeEra = false;
 
   constructor() {
     super("fundo");
@@ -33,17 +35,31 @@ export class BackgroundScene extends Phaser.Scene {
     this.scale.on(Phaser.Scale.Events.RESIZE, (tamanho: Phaser.Structs.Size) => {
       this.desenhar(tamanho.width, tamanho.height);
     });
-    // Trocar de era repinta o fundo; é a "troca de paleta" do GDD §6.
-    this.desinscrever = useGameStore.subscribe((s) => {
-      if (s.state.era === this.era) return;
-      this.era = s.state.era;
-      this.desenhar(this.scale.width, this.scale.height);
-      this.cameras.main.fadeIn(this.reduzido() ? 0 : 600, 0, 0, 0);
+    // Trocar de era repinta o fundo: é a "troca de paleta" do GDD §6.
+    //
+    // O assinante **só marca um flag**. Assinantes do Zustand rodam dentro do
+    // `set()`, então desenhar aqui significa tocar em objetos do Phaser no meio
+    // de uma atualização de estado — e uma cena de um jogo já destruído (o
+    // double-mount do StrictMode) derruba o `set()` inteiro junto. O desenho
+    // acontece no `update`, que só roda enquanto esta cena está viva.
+    this.unsubscribe = useGameStore.subscribe((s) => {
+      if (s.state.era !== this.era) this.trocouDeEra = true;
     });
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.desinscrever?.();
-      this.desinscrever = null;
-    });
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.encerrar, this);
+    this.events.once(Phaser.Scenes.Events.DESTROY, this.encerrar, this);
+  }
+
+  private encerrar() {
+    this.unsubscribe?.();
+    this.unsubscribe = null;
+  }
+
+  update() {
+    if (!this.trocouDeEra) return;
+    this.trocouDeEra = false;
+    this.era = useGameStore.getState().state.era;
+    this.desenhar(this.scale.width, this.scale.height);
+    this.cameras.main.fadeIn(this.reduzido() ? 0 : 600, 0, 0, 0);
   }
 
   private reduzido(): boolean {

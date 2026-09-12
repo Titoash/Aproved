@@ -120,9 +120,11 @@ export function scramManual(state: GameState): GameState | null {
 /* Melhoria                                                           */
 /* ------------------------------------------------------------------ */
 
+/** O Receptor cerâmico é peça da Torre Solar: não existe para outro Núcleo (GDD §8.5.1). */
 export function podeComprarReceptorCeramico(state: GameState): boolean {
   return (
     !!state.nucleo &&
+    state.nucleo.tipo === "torreSolar" &&
     !state.nucleo.receptorCeramico &&
     state.creditos >= RECEPTOR_CERAMICO.custo &&
     state.pesquisa >= RECEPTOR_CERAMICO.pesquisa

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { TRANSICAO_ERA2 } from "../../content/era2";
 import { REATOR } from "../../content/era2-nucleo";
+import { comprarReceptorCeramico, podeComprarReceptorCeramico } from "../acoesNucleo";
 import { avancarEra, faltaParaAvancar, podeAvancarEra, requisitosParaAvancar } from "../era";
+import { podeComprarMelhoria } from "../melhorias";
 import { exportarJson, importarJson } from "../save";
 import { estadoInicial, indiceReceptor, nucleoInicial, type GameState } from "../state";
 
@@ -128,5 +130,27 @@ describe("o que atravessa e o que zera (GDD §8.5.1)", () => {
     expect(s.nucleo!.lado).toBe(7);
     expect(s.nucleo!.grade[16]).toEqual({ tipo: "peca", id: "vareta", combustivel: { restante: 0.7, paradaEmMs: null } });
     expect(s.nucleo!.grade[17]).toEqual({ tipo: "peca", id: "geradorDeVapor" });
+  });
+});
+
+describe("melhorias da Era 1 não vazam para a Era 2 (GDD §8.5.1)", () => {
+  function naEra2(): GameState {
+    const s = avancarEra({ ...pronto(), creditos: 100_000, pesquisa: 10_000 })!;
+    return { ...s, creditos: 100_000 };
+  }
+
+  it("o Receptor cerâmico era peça da Torre Solar e não é comprável no Reator", () => {
+    expect(podeComprarReceptorCeramico({ ...pronto(), creditos: 100_000, pesquisa: 10_000 })).toBe(true);
+    expect(podeComprarReceptorCeramico(naEra2())).toBe(false);
+    expect(comprarReceptorCeramico(naEra2())).toBeNull();
+  });
+
+  it("as melhorias de Núcleo da Era 1 não são compráveis no Reator", () => {
+    expect(podeComprarMelhoria(naEra2(), "rastreamentoSolar")).toBe(false);
+    expect(podeComprarMelhoria(naEra2(), "grade7x7")).toBe(false);
+  });
+
+  it("as melhorias de Rede continuam valendo: as usinas da Era 1 seguem na lista", () => {
+    expect(podeComprarMelhoria(naEra2(), "laminasDeFibra")).toBe(true);
   });
 });
