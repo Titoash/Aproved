@@ -1,5 +1,6 @@
 /** Ações do jogador sobre o estado. Funções puras: devolvem `null` quando a ação não é possível. */
 import { BATERIA, VILA } from "../content/era1";
+import { BANCO_DE_BATERIAS, CIDADE } from "../content/era2";
 import { USINAS_TODAS } from "../content/eras";
 import type { Desbloqueio } from "../content/tipos";
 import { custoMelhoria, custoUnidade } from "./custos";
@@ -14,6 +15,7 @@ export function desbloqueado(state: GameState, desbloqueio?: Desbloqueio): boole
     if (state.rede.usinas[id].quantidade < quantidade) return false;
   }
   if (desbloqueio.pesquisa !== undefined && state.pesquisa < desbloqueio.pesquisa) return false;
+  if (desbloqueio.era !== undefined && state.era < desbloqueio.era) return false;
   return true;
 }
 
@@ -96,9 +98,51 @@ export function comprarBateria(state: GameState): GameState | null {
     creditos: state.creditos - custo,
     rede: {
       ...state.rede,
-      bateria: { ...state.rede.bateria, unidades, capacidadeKwh: capacidadeBateriaKwh(unidades) },
+      bateria: { ...state.rede.bateria, unidades, capacidadeKwh: capacidadeBateriaKwh(unidades, state.rede.bateria.bancos) },
     },
     // A primeira unidade dispara o card da bateria.
     eventos: unidades === 1 ? [...state.eventos, { tipo: "primeiraCompra", item: "bateria" }] : state.eventos,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Itens da Era 2 (GDD §8.5.2)                                         */
+/* ------------------------------------------------------------------ */
+
+export function custoProximaCidade(state: GameState): number {
+  return custoUnidade(CIDADE, state.rede.cidades);
+}
+
+export function podeComprarCidade(state: GameState): boolean {
+  return state.era >= 2 && state.creditos >= custoProximaCidade(state);
+}
+
+export function comprarCidade(state: GameState): GameState | null {
+  if (!podeComprarCidade(state)) return null;
+  return {
+    ...state,
+    creditos: state.creditos - custoProximaCidade(state),
+    rede: { ...state.rede, cidades: state.rede.cidades + 1 },
+  };
+}
+
+export function custoProximoBanco(state: GameState): number {
+  return custoUnidade(BANCO_DE_BATERIAS, state.rede.bateria.bancos);
+}
+
+export function podeComprarBanco(state: GameState): boolean {
+  return state.era >= 2 && state.creditos >= custoProximoBanco(state);
+}
+
+export function comprarBanco(state: GameState): GameState | null {
+  if (!podeComprarBanco(state)) return null;
+  const bancos = state.rede.bateria.bancos + 1;
+  return {
+    ...state,
+    creditos: state.creditos - custoProximoBanco(state),
+    rede: {
+      ...state.rede,
+      bateria: { ...state.rede.bateria, bancos, capacidadeKwh: capacidadeBateriaKwh(state.rede.bateria.unidades, bancos) },
+    },
   };
 }

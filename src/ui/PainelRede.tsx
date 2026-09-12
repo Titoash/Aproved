@@ -1,12 +1,17 @@
-import { BATERIA, MELHORIAS, ORDEM_MELHORIAS, ORDEM_USINAS, VILA, type Desbloqueio } from "../content/era1";
-import { USINAS_TODAS } from "../content/eras";
+import { BATERIA, MELHORIAS, ORDEM_MELHORIAS, VILA, type Desbloqueio } from "../content/era1";
+import { BANCO_DE_BATERIAS, CIDADE } from "../content/era2";
+import { usinasAte, USINAS_TODAS } from "../content/eras";
 import {
   custoProximaBateria,
+  custoProximaCidade,
+  custoProximoBanco,
   custoProximaMelhoria,
   custoProximaUsina,
   custoProximaVila,
   desbloqueado,
+  podeComprarBanco,
   podeComprarBateria,
+  podeComprarCidade,
   podeComprarUsina,
   podeComprarVila,
   podeMelhorarUsina,
@@ -139,16 +144,57 @@ function LinhaMelhoria({ id }: { id: (typeof ORDEM_MELHORIAS)[number] }) {
   );
 }
 
+function LinhaCidade() {
+  const state = useGameStore((s) => s.state);
+  const comprarCidade = useGameStore((s) => s.comprarCidade);
+  return (
+    <li className="linha">
+      <div className="linha-texto">
+        <span className="linha-nome">{CIDADE.nome}</span>
+        <span className="linha-meta">
+          <NumeroPop valor={state.rede.cidades}>×{state.rede.cidades}</NumeroPop> · +{formatarPotencia(CIDADE.demandaKw)} de demanda cada
+        </span>
+      </div>
+      <div className="linha-acoes">
+        <BotaoCompra titulo="Comprar" custo={custoProximaCidade(state)} creditos={state.creditos} habilitado={podeComprarCidade(state)} variante="primario" onClick={comprarCidade} />
+      </div>
+    </li>
+  );
+}
+
+function LinhaBanco() {
+  const state = useGameStore((s) => s.state);
+  const comprarBanco = useGameStore((s) => s.comprarBanco);
+  const { bateria } = state.rede;
+  return (
+    <li className="linha">
+      <div className="linha-texto">
+        <span className="linha-nome">{BANCO_DE_BATERIAS.nome}</span>
+        <span className="linha-meta">
+          <NumeroPop valor={bateria.bancos}>×{bateria.bancos}</NumeroPop> · +{formatarEnergia(BANCO_DE_BATERIAS.capacidadeKwh)} e ±
+          {formatarPotencia(BANCO_DE_BATERIAS.potenciaKw)} cada
+        </span>
+      </div>
+      <div className="linha-acoes">
+        <BotaoCompra titulo="Comprar" custo={custoProximoBanco(state)} creditos={state.creditos} habilitado={podeComprarBanco(state)} variante="primario" onClick={comprarBanco} />
+      </div>
+    </li>
+  );
+}
+
 export function PainelRede() {
+  const era = useGameStore((s) => s.state.era);
   return (
     <section className="rede" aria-label="Rede">
       <h2>Rede</h2>
       <ul className="lista">
-        {ORDEM_USINAS.map((id) => (
+        {usinasAte(era).map((id) => (
           <LinhaUsina key={id} id={id} />
         ))}
         <LinhaVila />
+        {era >= 2 ? <LinhaCidade /> : null}
         <LinhaBateria />
+        {era >= 2 ? <LinhaBanco /> : null}
       </ul>
       <h2 className="rede-subtitulo">Melhorias</h2>
       <ul className="lista">

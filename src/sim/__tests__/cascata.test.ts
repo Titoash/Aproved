@@ -54,7 +54,7 @@ describe("Cascata", () => {
     const grade = configuracao(6.5);
     const s0 = comNucleo(grade, 100, { pesquisa: 123.4 });
     // Bateria cheia: o excedente do Núcleo não pode carregá-la antes da Cascata.
-    s0.rede.bateria = { kwh: 10, capacidadeKwh: 10, unidades: 1 };
+    s0.rede.bateria = { kwh: 10, capacidadeKwh: 10, unidades: 1, bancos: 0 };
     const { s, ticks } = ateQue(s0, (x) => x.nucleo!.cascatas === 1, 200);
     expect(ticks).not.toBe(Infinity);
     const n = s.nucleo!;

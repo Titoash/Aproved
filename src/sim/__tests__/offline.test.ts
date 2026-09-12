@@ -20,7 +20,7 @@ function estadoRede() {
 describe("offline (GDD §7 v0.4)", () => {
   it("10 min rendem receita/s × 0,5 × 600 na Rede, sem bateria", () => {
     const s = estadoRede();
-    s.rede.bateria = { unidades: 1, capacidadeKwh: 20, kwh: 5 };
+    s.rede.bateria = { unidades: 1, capacidadeKwh: 20, kwh: 5, bancos: 0 };
     const { state, relatorio } = calcularOffline(s, s.salvoEmMs + 10 * 60 * 1000);
     const receitaS = balancoRede(s.rede, { semBateria: true }).receitaPorSegundo;
     expect(receitaS).toBeCloseTo(6.25, 6);

@@ -82,7 +82,7 @@ describe("migração de save", () => {
         usinas: { cataVento: { quantidade: 7, nivel: 1 }, painelSolar: { quantidade: 2, nivel: 0 }, turbinaEolica: { quantidade: 0, nivel: 0 } },
         vilas: 3,
         demandaBaseKw: 5,
-        bateria: { kwh: 4, capacidadeKwh: 20, unidades: 1 },
+        bateria: { kwh: 4, capacidadeKwh: 20, unidades: 1, bancos: 0 },
       },
       nucleo: null,
     };

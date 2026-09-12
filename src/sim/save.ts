@@ -174,13 +174,16 @@ function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState 
 
   const era: Era = bruto.era === 2 ? 2 : 1;
   const unidades = inteiro(bateriaBruta.unidades, base.rede.bateria.unidades);
-  const capacidadeKwh = capacidadeBateriaKwh(unidades);
+  const bancos = inteiro(bateriaBruta.bancos, base.rede.bateria.bancos);
+  const capacidadeKwh = capacidadeBateriaKwh(unidades, bancos);
   const rede: RedeState = {
     usinas,
     vilas: inteiro(redeBruta.vilas, base.rede.vilas),
+    cidades: inteiro(redeBruta.cidades, base.rede.cidades),
     demandaBaseKw: numero(redeBruta.demandaBaseKw, defDaEra(era).demandaInicialKw),
     bateria: {
       unidades,
+      bancos,
       capacidadeKwh,
       kwh: Math.min(numero(bateriaBruta.kwh, 0), capacidadeKwh),
     },
@@ -206,7 +209,8 @@ function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState 
  * v1 → v2: entra o Núcleo (`nucleo: null` até ser desbloqueado). Rede e créditos ficam como estão.
  * v2 → v3: entram `melhorias` (vazias) e `salvoEmMs` (= agora, sem ganho offline na primeira carga).
  * v3 → v4: entram `nucleo.lado` (5), `nucleo.ultimaCascata` (null) e `cardsVistos` ([]).
- * v4 → v5: entram `era` (1) e `nucleo.tipo` ("torreSolar"); nenhuma peça da Era 1 ganha campo.
+ * v4 → v5: entram `era` (1), `nucleo.tipo` ("torreSolar") e os contadores da
+ *           Era 2 (`rede.cidades`, `rede.bateria.bancos`), todos em zero.
  */
 function migrar(bruto: Record<string, unknown>, agoraMs: number): Record<string, unknown> {
   const versao = bruto.versao;

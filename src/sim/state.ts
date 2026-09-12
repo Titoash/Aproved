@@ -25,12 +25,18 @@ export interface BateriaEstado {
   /** Carga atual, em kWh. */
   kwh: number;
   capacidadeKwh: number;
+  /** Baterias da Era 1 (20 kWh, ±10 kW cada). */
   unidades: number;
+  /** Bancos de baterias da Era 2 (2 000 kWh, ±1 000 kW cada). */
+  bancos: number;
 }
 
 export interface RedeState {
   usinas: Record<UsinaId, UsinaEstado>;
+  /** Vilas da Era 1 (+8 kW cada). */
   vilas: number;
+  /** Cidades da Era 2 (+800 kW cada). */
+  cidades: number;
   demandaBaseKw: number;
   bateria: BateriaEstado;
 }
@@ -190,8 +196,9 @@ export function estadoInicial(): GameState {
         usinaNuclear: { quantidade: 0, nivel: 0 },
       },
       vilas: 0,
+      cidades: 0,
       demandaBaseKw: defDaEra(1).demandaInicialKw,
-      bateria: { kwh: 0, capacidadeKwh: 0, unidades: 0 },
+      bateria: { kwh: 0, capacidadeKwh: 0, unidades: 0, bancos: 0 },
     },
     nucleo: null,
     melhorias: melhoriasIniciais(),

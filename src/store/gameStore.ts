@@ -60,6 +60,8 @@ export interface GameStore {
   melhorarUsina: (id: UsinaId) => boolean;
   comprarVila: () => boolean;
   comprarBateria: () => boolean;
+  comprarCidade: () => boolean;
+  comprarBanco: () => boolean;
   comprarMelhoria: (id: MelhoriaId) => boolean;
 
   // Núcleo
@@ -177,6 +179,8 @@ export const useGameStore = create<GameStore>()((set, get) => {
     melhorarUsina: (id) => aplicar(acoes.melhorarUsina(get().state, id)),
     comprarVila: () => aplicar(acoes.comprarVila(get().state)),
     comprarBateria: () => aplicar(acoes.comprarBateria(get().state)),
+    comprarCidade: () => aplicar(acoes.comprarCidade(get().state)),
+    comprarBanco: () => aplicar(acoes.comprarBanco(get().state)),
     comprarMelhoria: (id) => aplicar(comprarMelhoria(get().state, id)),
 
     desbloquearNucleo: () => aplicar(nucleo.desbloquearNucleo(get().state)),

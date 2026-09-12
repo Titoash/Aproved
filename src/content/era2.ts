@@ -28,6 +28,7 @@ export const USINAS_ERA2: Record<"hidreletrica" | "termeletricaGas" | "usinaNucl
     custoBase: 1500,
     crescimento: 1.15,
     potenciaKw: 100,
+    desbloqueio: { era: 2 },
     era: 2,
   },
   termeletricaGas: {
@@ -38,7 +39,7 @@ export const USINAS_ERA2: Record<"hidreletrica" | "termeletricaGas" | "usinaNucl
     custoBase: 6000,
     crescimento: 1.15,
     potenciaKw: 300,
-    desbloqueio: { pesquisa: 3500 },
+    desbloqueio: { pesquisa: 3500, era: 2 },
     era: 2,
   },
   usinaNuclear: {
@@ -49,7 +50,7 @@ export const USINAS_ERA2: Record<"hidreletrica" | "termeletricaGas" | "usinaNucl
     custoBase: 20_000,
     crescimento: 1.15,
     potenciaKw: 900,
-    desbloqueio: { pesquisa: 6000 },
+    desbloqueio: { pesquisa: 6000, era: 2 },
     era: 2,
   },
 };

@@ -44,7 +44,7 @@ describe("tick", () => {
     const s0 = estadoInicial();
     s0.creditos = 0;
     s0.rede.usinas.cataVento = { quantidade: 6, nivel: 0 }; // 1 kW de excedente
-    s0.rede.bateria = { kwh: 0, capacidadeKwh: 10, unidades: 1 };
+    s0.rede.bateria = { kwh: 0, capacidadeKwh: 10, unidades: 1, bancos: 0 };
     const s1 = avancarTicks(s0, 10); // 1 s → 1 kWh carregado
     expect(s1.rede.bateria.kwh).toBeCloseTo(1, 6);
     expect(s1.creditos).toBeCloseTo(5, 6);

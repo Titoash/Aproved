@@ -63,7 +63,7 @@ describe("o que atravessa e o que zera (GDD §8.5.1)", () => {
         ...s.rede,
         usinas: { ...s.rede.usinas, cataVento: { quantidade: 12, nivel: 3 } },
         vilas: 4,
-        bateria: { unidades: 2, capacidadeKwh: 40, kwh: 15 },
+        bateria: { unidades: 2, capacidadeKwh: 40, kwh: 15, bancos: 0 },
       },
       melhorias: { laminasDeFibra: true, rastreamentoSolar: true, grade7x7: true },
       cardsVistos: ["abertura", "tanque"],

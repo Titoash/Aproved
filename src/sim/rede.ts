@@ -3,6 +3,7 @@
  * multiplicador de preço por faixa, bateria e receita.
  */
 import { BATERIA, ECONOMIA, VILA } from "../content/era1";
+import { BANCO_DE_BATERIAS, CIDADE } from "../content/era2";
 import { FAIXAS_R, type FaixaR } from "../content/regras";
 import { defDaEra, USINAS_TODAS } from "../content/eras";
 import { fatorMelhoria } from "./custos";
@@ -44,7 +45,7 @@ export function potenciaOfertadaKw(rede: RedeState, melhorias?: Melhorias): numb
 }
 
 export function demandaKw(rede: RedeState): number {
-  return rede.demandaBaseKw + rede.vilas * VILA.demandaKw;
+  return rede.demandaBaseKw + rede.vilas * VILA.demandaKw + rede.cidades * CIDADE.demandaKw;
 }
 
 export function razaoOfertaDemanda(ofertaKw: number, demanda: number): number {
@@ -52,13 +53,14 @@ export function razaoOfertaDemanda(ofertaKw: number, demanda: number): number {
   return ofertaKw / demanda;
 }
 
-export function capacidadeBateriaKwh(unidades: number): number {
-  return unidades * BATERIA.capacidadeKwh;
+/** Capacidade total: baterias da Era 1 mais bancos da Era 2. */
+export function capacidadeBateriaKwh(unidades: number, bancos = 0): number {
+  return unidades * BATERIA.capacidadeKwh + bancos * BANCO_DE_BATERIAS.capacidadeKwh;
 }
 
 /** Potência máxima de carga ou descarga, em kW: ±10 kW por unidade (GDD §4.1). */
 export function potenciaBateriaKw(bateria: BateriaEstado): number {
-  return bateria.unidades * BATERIA.potenciaKw;
+  return bateria.unidades * BATERIA.potenciaKw + bateria.bancos * BANCO_DE_BATERIAS.potenciaKw;
 }
 
 /* ------------------------------------------------------------------ */

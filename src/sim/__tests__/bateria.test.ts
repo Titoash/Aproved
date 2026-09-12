@@ -8,7 +8,7 @@ function rede(cataVentos: number, vilas: number, bateria: Partial<BateriaEstado>
   s.rede.usinas.cataVento = { quantidade: cataVentos, nivel: 0 };
   s.rede.vilas = vilas;
   const capacidadeKwh = bateria.capacidadeKwh ?? bateria.unidades * BATERIA.capacidadeKwh;
-  s.rede.bateria = { unidades: bateria.unidades, capacidadeKwh, kwh: bateria.kwh ?? 0 };
+  s.rede.bateria = { unidades: bateria.unidades, capacidadeKwh, kwh: bateria.kwh ?? 0, bancos: 0 };
   return s.rede;
 }
 
@@ -77,7 +77,7 @@ describe("bateria como amortecedor (GDD §4.1 v0.4)", () => {
   });
 
   it("a energia guardada também limita o que cobre num tick", () => {
-    const bateria: BateriaEstado = { unidades: 1, capacidadeKwh: 20, kwh: 0.5 };
+    const bateria: BateriaEstado = { unidades: 1, capacidadeKwh: 20, kwh: 0.5, bancos: 0 };
     // 0,5 kWh em 0,1 s sustentam 5 kW.
     expect(cobrivelKw(bateria, 8, 0.1)).toBeCloseTo(5, 6);
     expect(absorvivelKw({ ...bateria, kwh: 19.5 }, 8, 0.1)).toBeCloseTo(5, 6);
@@ -85,7 +85,7 @@ describe("bateria como amortecedor (GDD §4.1 v0.4)", () => {
   });
 
   it("carga e descarga respeitam a potência da unidade", () => {
-    const bateria: BateriaEstado = { unidades: 1, capacidadeKwh: 20, kwh: 10 };
+    const bateria: BateriaEstado = { unidades: 1, capacidadeKwh: 20, kwh: 10, bancos: 0 };
     const carga = atualizarBateria(bateria, 25, 0, 1);
     expect(carga.carregadoKwh).toBeCloseTo(10, 6); // 10 kW × 1 s, não 25
     const descarga = atualizarBateria(bateria, 0, 25, 1);

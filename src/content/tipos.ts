@@ -80,6 +80,8 @@ export interface Desbloqueio {
   usina?: [UsinaId, number];
   /** Pesquisa (🔬) acumulada necessária. */
   pesquisa?: number;
+  /** Só aparece a partir desta era. */
+  era?: Era;
 }
 
 export interface UsinaDef {
