@@ -35,8 +35,14 @@ export function adjacenteAoReceptor(indice: number, lado: number = PADRAO.ladoIn
  * baixo serve para as duas eras sem um único `if` de era.
  */
 export interface Contagem {
-  /** Peças que aquecem, por anel: índices 0, 1 e 2 para os anéis 1, 2 e 3. */
+  /**
+   * Peças que aquecem **e ainda têm combustível**, por anel: índices 0, 1 e 2
+   * para os anéis 1, 2 e 3. Uma peça gasta não entra aqui — ela parou de
+   * fissionar (GDD §8.5.4).
+   */
   aquecedoresPorAnel: [number, number, number];
+  /** Peças que aquecem e já esgotaram o combustível, por anel. Só emitem decaimento. */
+  gastosPorAnel: [number, number, number];
   /** Peças que convertem calor em potência, adjacentes ao centro. */
   conversores: number;
   /** Peças que dissipam, adjacentes ao centro. */
@@ -55,6 +61,7 @@ export interface Contagem {
 export function contar(grade: readonly Casa[], def: DefinicaoNucleo = PADRAO): Contagem {
   const c: Contagem = {
     aquecedoresPorAnel: [0, 0, 0],
+    gastosPorAnel: [0, 0, 0],
     conversores: 0,
     dissipadoresAdjacentes: 0,
     dissipacaoUs: 0,
@@ -77,7 +84,9 @@ export function contar(grade: readonly Casa[], def: DefinicaoNucleo = PADRAO): C
     const adjacente = a === 1;
     switch (peca.papel) {
       case "aquece":
-        c.aquecedoresPorAnel[a - 1]++;
+        // Sem `combustivel` a peça nunca esgota (é o caso da Era 1 inteira).
+        if (casa.combustivel && casa.combustivel.restante <= 0) c.gastosPorAnel[a - 1]++;
+        else c.aquecedoresPorAnel[a - 1]++;
         break;
       case "converte":
         // A regra de posicionamento já garante o anel 1; a contagem respeita o dado mesmo assim.
@@ -198,9 +207,12 @@ export function podeColocar(grade: readonly Casa[], indice: number, pecaId: Peca
   return { ok: true };
 }
 
-export function colocar(grade: readonly Casa[], indice: number, pecaId: PecaId): Casa[] {
+export function colocar(grade: readonly Casa[], indice: number, pecaId: PecaId, def: DefinicaoNucleo = PADRAO): Casa[] {
   const nova = grade.slice();
-  nova[indice] = { tipo: "peca", id: pecaId };
+  // Peça que queima nasce com o tanque cheio (GDD §8.5.4).
+  nova[indice] = pecaDe(def, pecaId)?.queima
+    ? { tipo: "peca", id: pecaId, combustivel: { restante: 1, paradaEmMs: null } }
+    : { tipo: "peca", id: pecaId };
   return nova;
 }
 

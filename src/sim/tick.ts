@@ -13,6 +13,7 @@ import { faixaDeCalor, pesquisaPorSegundo, temperatura } from "./calor";
 import { aplicarCascata, atualizarCronometro, deveCascatear, emScram, scram } from "./cascata";
 import { passoEstabilidade } from "./estabilidade";
 import { aquecedoresEfetivosDe, calorBasePorAquecedor, capacidadeU, contar, passoCalor, potenciaNucleoKw } from "./nucleo";
+import { queimarGrade } from "./combustivel";
 import { calorPorEspelho } from "./melhorias";
 import { balancoRede, passoRede, type BalancoRede } from "./rede";
 import type { EventoJogo, GameState, NucleoState } from "./state";
@@ -50,7 +51,7 @@ export interface PassoNucleo {
 }
 
 /**
- * Passos 4 a 6 do tick. `potenciaKw` é a potência efetiva calculada no passo 1;
+ * Passos 4a a 6 do tick. `potenciaKw` é a potência efetiva calculada no passo 1;
  * `calorEspelho` é o calor por espelho já com as melhorias (Rastreamento solar).
  */
 export function passoNucleo(
@@ -65,15 +66,19 @@ export function passoNucleo(
   const def = defDoNucleo(nucleo);
   const calorPorAquecedor = calorAquecedor ?? calorBasePorAquecedor(def);
 
+  // 4a. combustível (GDD §8.5.4): queima antes do balanço, então a vareta que
+  // esgota neste tick já não injeta calor neste tick. Em SCRAM não queima.
+  const grade = queimarGrade(nucleo.grade, dtS, tempoMs, def, scramAtivo);
+
   // Fluxos do início do tick (o card da Cascata mostra estes números, não os do SCRAM que vem depois).
-  const c = contar(nucleo.grade, def);
+  const c = contar(grade, def);
   const entradaUs = scramAtivo ? 0 : calorPorAquecedor * aquecedoresEfetivosDe(c, def);
   const saidaUs = c.dissipacaoUs + (scramAtivo ? 0 : def.consumoConversor * c.conversores * nucleo.calorU);
 
   // 4. calor
-  const capacidade = capacidadeU(nucleo.grade, nucleo.receptorCeramico, def);
+  const capacidade = capacidadeU(grade, nucleo.receptorCeramico, def);
   const tAntes = temperatura(nucleo.calorU, capacidade);
-  const calorU = passoCalor(nucleo.grade, nucleo.calorU, dtS, scramAtivo, calorPorAquecedor, def);
+  const calorU = passoCalor(grade, nucleo.calorU, dtS, scramAtivo, calorPorAquecedor, def);
   const t = temperatura(calorU, capacidade);
   const faixa = faixaDeCalor(t);
 
@@ -84,6 +89,7 @@ export function passoNucleo(
 
   let proximo: NucleoState = {
     ...nucleo,
+    grade: grade === nucleo.grade ? nucleo.grade : [...grade],
     calorU,
     estabilidade,
     scramRestanteMs: Math.max(0, nucleo.scramRestanteMs - dtMs),

@@ -1,6 +1,6 @@
 /** Ações do jogador sobre o Núcleo. Funções puras: devolvem `null` quando a ação não é possível. */
 import { NUCLEO, RECEPTOR_CERAMICO } from "../content/era1-nucleo";
-import { definicaoDaPeca } from "../content/eras";
+import { defDoNucleo, definicaoDaPeca } from "../content/eras";
 import {
   custoReconstrucao,
   emScram,
@@ -9,6 +9,7 @@ import {
   reconstruir as reconstruirGrade,
   scram,
 } from "./cascata";
+import { custoRecarga, recarregar } from "./combustivel";
 import { colocar, podeColocar, podeRemover, remover, type Validacao } from "./nucleo";
 import { nucleoInicial, type GameState, type NucleoState, type PecaId } from "./state";
 
@@ -39,7 +40,7 @@ export function custoPeca(pecaId: PecaId): number {
 
 export function validarColocacao(state: GameState, indice: number, pecaId: PecaId): Validacao {
   if (!state.nucleo) return { ok: false, motivo: "Núcleo bloqueado." };
-  const v = podeColocar(state.nucleo.grade, indice, pecaId);
+  const v = podeColocar(state.nucleo.grade, indice, pecaId, defDoNucleo(state.nucleo));
   if (!v.ok) return v;
   if (state.creditos < custoPeca(pecaId)) return { ok: false, motivo: "Créditos insuficientes." };
   return { ok: true };
@@ -55,7 +56,7 @@ export function colocarPeca(state: GameState, indice: number, pecaId: PecaId): G
   const primeira = quantasPecas(state, pecaId) === 0;
   const proximo = comNucleo(
     state,
-    { ...state.nucleo, grade: colocar(state.nucleo.grade, indice, pecaId) },
+    { ...state.nucleo, grade: colocar(state.nucleo.grade, indice, pecaId, defDoNucleo(state.nucleo)) },
     state.creditos - custoPeca(pecaId),
   );
   // A primeira unidade de um tipo dispara o card correspondente (só o tanque tem card hoje).
@@ -119,4 +120,29 @@ export function podeComprarReceptorCeramico(state: GameState): boolean {
 export function comprarReceptorCeramico(state: GameState): GameState | null {
   if (!state.nucleo || !podeComprarReceptorCeramico(state)) return null;
   return comNucleo(state, { ...state.nucleo, receptorCeramico: true }, state.creditos - RECEPTOR_CERAMICO.custo);
+}
+
+/* ------------------------------------------------------------------ */
+/* Combustível (GDD §8.5.4)                                            */
+/* ------------------------------------------------------------------ */
+
+export function custoProximaRecarga(state: GameState, indice: number): number {
+  if (!state.nucleo) return 0;
+  return custoRecarga(state.nucleo.grade[indice], defDoNucleo(state.nucleo));
+}
+
+export function podeRecarregar(state: GameState, indice: number): boolean {
+  if (!state.nucleo) return false;
+  const def = defDoNucleo(state.nucleo);
+  if (!recarregar(state.nucleo.grade, indice, def)) return false;
+  return state.creditos >= custoRecarga(state.nucleo.grade[indice], def);
+}
+
+/** Repõe o combustível de uma peça gasta (ou parcialmente usada) por ₵. */
+export function recarregarPeca(state: GameState, indice: number): GameState | null {
+  if (!state.nucleo || !podeRecarregar(state, indice)) return null;
+  const def = defDoNucleo(state.nucleo);
+  const grade = recarregar(state.nucleo.grade, indice, def);
+  if (!grade) return null;
+  return comNucleo(state, { ...state.nucleo, grade }, state.creditos - custoRecarga(state.nucleo.grade[indice], def));
 }
