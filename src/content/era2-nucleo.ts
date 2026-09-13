@@ -42,8 +42,13 @@ export const VARETA = {
   meiaVidaS: 60,
   /** ₵ da troca de uma vareta gasta (é o combustível novo). */
   custoTroca: 8_000,
-  /** Só se troca quando o decaimento cai abaixo desta fração do nominal (≈ 3 meias-vidas, 180 s). */
+  /**
+   * Só se troca quando o decaimento cai abaixo desta fração do nominal. O cruzamento exato de 1 %
+   * acontece em log₂(7) = 2,81 meias-vidas; a regra do jogo usa **3 meias-vidas cheias** (180 s), que é
+   * o número redondo escrito em §5.3 e já está abaixo do limiar (0,875 %).
+   */
   limiarTroca: 0.01,
+  meiasVidasParaTroca: 3,
   /** A barra de controle vizinha corta o calor da vareta e dobra a vida dela. */
   fatorBarraCalor: 0.5,
   fatorBarraVida: 2,

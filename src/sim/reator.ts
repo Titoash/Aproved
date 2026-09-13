@@ -284,9 +284,14 @@ export interface RecusaTroca {
   faltaMs: number;
 }
 
+/** Quanto uma vareta gasta espera para poder sair: 3 meias-vidas (180 s), GDD Parte 2 §5.2 e §5.3. */
+export function esperaParaTrocaMs(): number {
+  return VARETA.meiaVidaS * 1000 * VARETA.meiasVidasParaTroca;
+}
+
 /**
  * Trocar uma vareta gasta custa ₵ 8 000 e só é permitido quando o decaimento dela caiu abaixo de 1 %
- * do nominal (≈ 3 meias-vidas, 180 s) — **ou na hora**, se houver Piscina nas 8 vizinhas.
+ * do nominal (3 meias-vidas, 180 s) — **ou na hora**, se houver Piscina nas 8 vizinhas.
  */
 export function avaliarTroca(nucleo: NucleoState | null, indice: number, creditos: number, tempoMs: number): RecusaTroca {
   const recusa = (motivo: string, faltaMs = 0): RecusaTroca => ({ ok: false, motivo, faltaMs });
@@ -298,7 +303,7 @@ export function avaliarTroca(nucleo: NucleoState | null, indice: number, credito
   if (creditos < VARETA.custoTroca) return recusa("₵ insuficientes");
   if (temPiscinaVizinha(nucleo.grade, indice, nucleo.lado)) return { ok: true, motivo: null, faltaMs: 0 };
   const decorridoMs = tempoMs - v.gastaDesdeMs;
-  const alvoMs = VARETA.meiaVidaS * 1000 * Math.log2(VARETA.fracaoDecaimento / VARETA.limiarTroca);
+  const alvoMs = esperaParaTrocaMs();
   if (decorridoMs < alvoMs) {
     const falta = alvoMs - decorridoMs;
     return recusa("Quente demais: espere o decaimento cair (ou ponha uma Piscina ao lado).", falta);
