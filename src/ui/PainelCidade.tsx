@@ -3,6 +3,7 @@
  * evoluir (₵ + 🔬). Tocar num bairro no tabuleiro seleciona a linha correspondente.
  */
 import { DENSIDADES, UNIVERSIDADE } from "../content/cidade-era1";
+import { ARQUIPELAGO } from "../content/era1-arquipelago";
 import { avaliarEvolucao, custoEvolucao, densidadeDe, limiteUniversidades } from "../sim/cidade";
 import { formatarNumero, formatarPotencia } from "../sim/formatar";
 import { analisar } from "../sim/producao";
@@ -40,7 +41,7 @@ export function PainelCidade() {
             <li key={i} className={`linha ${selecionada === i ? "linha--selecionada" : ""}`}>
               <div className="linha-texto">
                 <button type="button" className="linha-nome linha-nome--botao" onClick={() => selecionar(i)} title="Mostrar no tabuleiro">
-                  {def.nome} <span className="linha-meta">· casa {i % 64}, {Math.floor(i / 64)}</span>
+                  {def.nome} <span className="linha-meta">· casa {i % ARQUIPELAGO.n}, {Math.floor(i / ARQUIPELAGO.n)}</span>
                 </button>
                 <span className="linha-meta">
                   {formatarPotencia(def.demandaKw)} de demanda · {formatarNumero(def.populacao, 0)} hab · tarifa ×{formatarNumero(def.tarifa, 2)}

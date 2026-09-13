@@ -223,7 +223,9 @@ Registrei os dois caminhos no GDD §8.4; a escolha é da gestão.
 - `scripts/e2e/sessao-7.cjs`: **74 verificações** verdes nos dois tamanhos (1280×800 e 390×844), com
   capturas em `docs/capturas/sessao-7/`.
 - `scripts/e2e/sessao-6.cjs` continua verde (**52 verificações**) — só precisou de uma linha nova, porque
-  `mundo.cabos` deixou de ser lista.
+  `mundo.cabos` deixou de ser lista. Rodá-lo regravou as capturas de `docs/capturas/sessao-6/`: elas agora
+  mostram a interface da Sessão 7 (HUD com 🔬 e 👥, paleta com bairro/laboratório/universidade). Se a
+  gestão quiser o registro visual da Sessão 6 intacto, é só recuperar os arquivos de `faab8c3`.
 
 Testes novos: `cidade.test.ts` (11), `arvore.test.ts` (18), `capitulos.test.ts` (7), `save-v7.test.ts` (8)
 e o teto do cabo em `producao.test.ts`/`mundo.test.ts`.

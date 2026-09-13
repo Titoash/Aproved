@@ -75,6 +75,7 @@ async function plantar(page, tipo, quantos) {
       const arq = window.__tabuleiro.arquipelago();
       const n = arq.n;
       const postas = [];
+      void loja;
       for (const i of arq.ilhas[0].casas) {
         if (postas.length >= q) break;
         const st = window.__jogo.store.getState().state;
@@ -92,7 +93,6 @@ async function plantar(page, tipo, quantos) {
         if (!perto) continue;
         if (window.__jogo.store.getState().colocar(i, t)) postas.push(i);
       }
-      void loja;
       return postas;
     },
     [tipo, quantos],
@@ -217,7 +217,7 @@ async function rodar(tamanho) {
   await page.waitForTimeout(350);
   const sDepois = await estado(page);
   ok(sDepois.pesquisados.includes("laminasDeFibra"), "o botão da árvore compra o nó", sDepois.pesquisados.length);
-  void sAntes;
+  ok(sDepois.pesquisados.length > sAntes.pesquisados.length, "a lista de nós comprados cresce", [sAntes.pesquisados.length, sDepois.pesquisados.length]);
   // O débito se mede num passo só: com laboratórios e universidades ligados o saldo sobe entre duas
   // leituras, e a diferença de fora do tick não diz nada.
   const debito = await page.evaluate(() => {
