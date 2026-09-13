@@ -187,7 +187,7 @@ export const NOS_ERA2: readonly NoDef[] = [
     nome: "Pás de 100 m",
     efeitoTexto: "Eólica offshore +40 %.",
     fisica:
-      "A potência do vento é ½ρAv³: cresce com a **área varrida**, e a área vai com o quadrado do raio. Passar de 70 m para 100 m de pá varre o dobro de ar — e no mar não há colina nem prédio para frear v.",
+      "A potência do vento é ½ρAv³: cresce com a área varrida, e a área vai com o quadrado do raio. Passar de 70 m para 100 m de pá varre o dobro de ar — e no mar não há colina nem prédio para frear v.",
     pesquisa: 10_000,
     pre: ["fundacaoFlutuante"],
     efeitos: [{ tipo: "potenciaUsinas", usinas: ["eolicaOffshore"], fator: 1.4 }],
@@ -222,7 +222,7 @@ export const NOS_ERA2: readonly NoDef[] = [
     ramo: "rede2",
     era: 2,
     nome: "Cabo HVDC",
-    efeitoTexto: "O teto de **todos** os cabos submarinos ×10 (o nível continua dobrando por cima).",
+    efeitoTexto: "O teto de todos os cabos submarinos ×10 (o nível continua dobrando por cima).",
     fisica:
       "Cabo submarino em corrente alternada vira um capacitor gigante: a corrente de carga da própria isolação come a capacidade em algumas dezenas de quilômetros. Em corrente contínua isso simplesmente não existe, e o cabo leva o que couber no condutor.",
     pesquisa: 4_000,
