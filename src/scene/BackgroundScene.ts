@@ -1,6 +1,6 @@
-/** Cena vazia com o fundo da Era 1: navy com gradiente radial e estrelas. Sem grade (Sessão 2). */
+/** Fundo da janela fora do palco: navy com gradiente radial e estrelas. O palco em si é desenhado pela TabuleiroScene. */
 import Phaser from "phaser";
-import { GridScene } from "./GridScene";
+import { TabuleiroScene } from "./TabuleiroScene";
 
 const CHAVE_FUNDO = "fundo-era1";
 
@@ -14,8 +14,8 @@ export class BackgroundScene extends Phaser.Scene {
 
   create() {
     this.desenhar(this.scale.width, this.scale.height);
-    // A grade do Núcleo roda em paralelo, por cima do fundo.
-    if (!this.scene.isActive(GridScene.KEY)) this.scene.launch(GridScene.KEY);
+    // O tabuleiro roda em paralelo, por cima do fundo.
+    if (!this.scene.isActive(TabuleiroScene.KEY)) this.scene.launch(TabuleiroScene.KEY);
     this.scale.on(Phaser.Scale.Events.RESIZE, (tamanho: Phaser.Structs.Size) => {
       this.desenhar(tamanho.width, tamanho.height);
     });

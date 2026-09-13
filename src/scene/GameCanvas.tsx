@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { useEffect, useRef } from "react";
 import { BackgroundScene } from "./BackgroundScene";
-import { GridScene } from "./GridScene";
+import { TabuleiroScene } from "./TabuleiroScene";
 
 /**
  * Monta o Phaser em um contêiner fixo atrás da UI.
@@ -23,7 +23,8 @@ export function GameCanvas() {
     };
     const inicial = medir();
     const jogo = new Phaser.Game({
-      type: Phaser.AUTO,
+      // Canvas 2D: o tabuleiro é desenhado com a API 2D (gradientes, Path2D, texto) dentro do loop do Phaser.
+      type: Phaser.CANVAS,
       parent,
       backgroundColor: "#0d1230",
       scale: {
@@ -32,7 +33,7 @@ export function GameCanvas() {
         height: inicial.altura,
         zoom: 1 / inicial.dpr,
       },
-      scene: [BackgroundScene, GridScene],
+      scene: [BackgroundScene, TabuleiroScene],
       audio: { noAudio: true },
       banner: false,
     });

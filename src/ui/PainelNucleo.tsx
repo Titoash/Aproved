@@ -9,21 +9,21 @@ import { calorPorEspelho, podeComprarMelhoria } from "../sim/melhorias";
 import { capacidadeU, contar, equilibrioU, espelhosEfetivos } from "../sim/nucleo";
 import type { NucleoState } from "../sim/state";
 import { potenciaNucleoEfetivaKw } from "../sim/tick";
-import { indiceDaCasa, setGradeElement, setPalcoElement } from "../scene/layout";
+import { setPalcoElement } from "../scene/layout";
+import { anexarPalco } from "../scene/tabuleiro/controle";
+import { Escada } from "./Escada";
 import { corDaRampaCss } from "../scene/rampa";
 import { useGameStore, type Ferramenta } from "../store/gameStore";
 
 /** O aviso de casa recusada some sozinho; o painel re-renderiza a cada tick. */
 const DURACAO_AVISO_MS = 4000;
-/** Um toque que andou mais do que isto entre pointerdown e pointerup é rolagem, não clique. */
-const LIMIAR_ARRASTO_PX = 8;
 
 function Bloqueado() {
   const state = useGameStore((s) => s.state);
   const desbloquear = useGameStore((s) => s.desbloquearNucleo);
   const pode = podeDesbloquearNucleo(state);
   return (
-    <section className="palco palco--bloqueado" aria-label="Núcleo">
+    <div className="palco palco--bloqueado">
       <h2>Núcleo · Torre Solar</h2>
       <p className="palco-texto">
         Uma torre com um Receptor no centro e espelhos em volta. Turbinas transformam o calor em potência e em 🔬 Pesquisa,
@@ -33,56 +33,53 @@ function Bloqueado() {
         <span>Desbloquear o Núcleo</span>
         <span className={`pilula-custo ${pode ? "" : "pilula-custo--caro"}`}>{formatarCreditos(NUCLEO.custoDesbloqueio)}</span>
       </button>
-    </section>
+    </div>
   );
 }
 
 /**
- * Área da grade. O Phaser só desenha nela; o input é do DOM: `pointerup` decide a
- * casa pelo `getBoundingClientRect()` e despacha `agirNaCasa`. `touch-action: pan-y`
- * deixa o dedo rolar a página por cima da grade.
+ * Superfície do tabuleiro. O Phaser desenha atrás, recortado a este retângulo; o input é do DOM:
+ * o controle de câmera trata pan, zoom, pinch e toque, e despacha para o store.
  */
-function GradeArea() {
+function TabuleiroArea() {
   const ref = useRef<HTMLDivElement>(null);
-  const inicio = useRef<{ x: number; y: number; id: number } | null>(null);
-  const agirNaCasa = useGameStore((s) => s.agirNaCasa);
-  const setCasaSobPonteiro = useGameStore((s) => s.setCasaSobPonteiro);
-  const lado = useGameStore((s) => s.state.nucleo?.lado ?? NUCLEO.ladoInicial);
-
   useEffect(() => {
-    setGradeElement(ref.current);
-    return () => setGradeElement(null);
-  }, []);
-
-  const casaDoEvento = (e: React.PointerEvent<HTMLDivElement>): number | null => {
     const el = ref.current;
-    if (!el) return null;
-    return indiceDaCasa(e.clientX, e.clientY, el.getBoundingClientRect(), lado);
-  };
+    if (!el) return;
+    setPalcoElement(el);
+    const soltar = anexarPalco(el);
+    return () => {
+      soltar();
+      setPalcoElement(null);
+    };
+  }, []);
+  return <div ref={ref} className="tabuleiro-area" role="application" aria-label="Ilha-tabuleiro: arraste para mover, role ou pince para aproximar" />;
+}
 
+function ControlesTabuleiro() {
+  const nivel = useGameStore((s) => s.nivel);
+  const pedirPreset = useGameStore((s) => s.pedirPreset);
+  const temNucleo = useGameStore((s) => s.state.nucleo !== null);
   return (
-    <div
-      ref={ref}
-      className={`grade-area grade-area--${lado}`}
-      role="grid"
-      aria-label="Grade do Núcleo"
-      onPointerDown={(e) => {
-        inicio.current = { x: e.clientX, y: e.clientY, id: e.pointerId };
-      }}
-      onPointerUp={(e) => {
-        const i0 = inicio.current;
-        inicio.current = null;
-        if (!i0 || i0.id !== e.pointerId) return;
-        if (Math.hypot(e.clientX - i0.x, e.clientY - i0.y) > LIMIAR_ARRASTO_PX) return;
-        const indice = casaDoEvento(e);
-        if (indice !== null) agirNaCasa(indice);
-      }}
-      onPointerCancel={() => {
-        inicio.current = null;
-      }}
-      onPointerMove={(e) => setCasaSobPonteiro(casaDoEvento(e))}
-      onPointerLeave={() => setCasaSobPonteiro(null)}
-    />
+    <div className="tabuleiro-controles" role="group" aria-label="Enquadramento">
+      <button type="button" className={`pilula pilula--mini ${nivel === "ilha" ? "pilula--ativa" : ""}`} onClick={() => pedirPreset("ilha")}>
+        Ilha
+      </button>
+      <button type="button" className="pilula pilula--mini" disabled={!temNucleo} onClick={() => pedirPreset("nucleo")}>
+        Núcleo
+      </button>
+    </div>
+  );
+}
+
+/** O palco da ilha: escada de escalas à esquerda, superfície do tabuleiro, controles no canto. */
+function Tabuleiro() {
+  return (
+    <div className="tabuleiro">
+      <Escada />
+      <TabuleiroArea />
+      <ControlesTabuleiro />
+    </div>
   );
 }
 
@@ -198,8 +195,7 @@ function Operacao({ nucleo }: { nucleo: NucleoState }) {
   const calorEspelho = calorPorEspelho(state.melhorias);
 
   return (
-    <>
-      <GradeArea />
+    <div className="palco">
       {emScram ? (
         <p className="nucleo-scram">SCRAM · Núcleo desligado por {formatarSegundos(nucleo.scramRestanteMs)}. Espelhos e turbinas parados; radiadores esfriando.</p>
       ) : null}
@@ -254,25 +250,16 @@ function Operacao({ nucleo }: { nucleo: NucleoState }) {
           </button>
         )}
       </div>
-    </>
-  );
-}
-
-function Palco({ nucleo }: { nucleo: NucleoState }) {
-  const ref = useRef<HTMLElement>(null);
-  useEffect(() => {
-    setPalcoElement(ref.current);
-    return () => setPalcoElement(null);
-  }, []);
-  return (
-    <section ref={ref} className="palco" aria-label="Núcleo">
-      <Operacao nucleo={nucleo} />
-    </section>
+    </div>
   );
 }
 
 export function PainelNucleo() {
   const nucleo = useGameStore((s) => s.state.nucleo);
-  if (!nucleo) return <Bloqueado />;
-  return <Palco nucleo={nucleo} />;
+  return (
+    <section className="coluna-nucleo" aria-label="Núcleo">
+      <Tabuleiro />
+      {nucleo ? <Operacao nucleo={nucleo} /> : <Bloqueado />}
+    </section>
+  );
 }

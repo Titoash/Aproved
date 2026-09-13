@@ -79,8 +79,8 @@ h2 {
 
 .principal {
   display: grid;
-  grid-template-columns: minmax(380px, 0.95fr) minmax(0, 1.05fr);
-  gap: 28px;
+  grid-template-columns: minmax(420px, 1.15fr) minmax(340px, 0.85fr);
+  gap: 24px;
   min-height: 0;
 }
 
@@ -199,8 +199,8 @@ h2 {
   position: relative;
   display: flex;
   flex-direction: column;
-  flex: 1 1 56%;
-  min-height: 320px;
+  flex: 1 1 60%;
+  min-height: 380px;
   border-radius: 16px;
   border: 1px solid var(--card-borda);
   overflow: hidden;

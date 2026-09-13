@@ -18,7 +18,7 @@ export const MARCOS_KARDASHEV: readonly MarcoKardashev[] = [
   { id: "humanidade", nome: "Humanidade (2026)", nomeCurto: "Hoje", watts: 2e13, texto: "Tudo o que a civilização usa hoje, ~20 TW." },
   { id: "tipoI", nome: "Tipo I", nomeCurto: "I", watts: 1e16, texto: "Toda a energia que chega do Sol ao planeta." },
   { id: "tipoII", nome: "Tipo II", nomeCurto: "II", watts: 1e26, texto: "Toda a energia de uma estrela." },
-  { id: "sol", nome: "Sol", nomeCurto: "Sol", watts: 3.8e26, texto: "A luminosidade real do Sol." },
+  { id: "sol", nome: "Sol", nomeCurto: "Sol", watts: 3.8e26, texto: "A luminosidade real do Sol.", auxiliar: true },
   { id: "tipoIII", nome: "Tipo III", nomeCurto: "III", watts: 1e36, texto: "Toda a energia de uma galáxia." },
   { id: "tipoIV", nome: "Tipo IV", nomeCurto: "IV", watts: 1e46, texto: "Especulativo: a energia de um universo observável.", especulativo: true },
   { id: "tipoV", nome: "Tipo V", nomeCurto: "V", watts: 1e50, texto: "Especulativo: além de um universo.", especulativo: true },

@@ -145,7 +145,8 @@ export class ControleCamera {
     const x1 = b.x1;
     const y0 = b.y0 - 110;
     const y1 = b.y1 + 96;
-    if (w < 600) {
+    // Celular (sem escada ao lado): enquadra pela largura, com a ilha a 45 % da altura.
+    if (this.reservaEsquerda === 0 && w < 600) {
       const m = 10;
       const zoom = clamp((w - 2 * m) / (x1 - x0), ZOOM_MIN, ZOOM_MAX);
       return { zoom, tx: w / 2 - ((x0 + x1) / 2) * zoom, ty: h * 0.45 - ((b.y0 + b.y1) / 2) * zoom, w, h };
