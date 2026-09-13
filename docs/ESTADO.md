@@ -45,7 +45,7 @@ Atualizado ao fim da **Sessão 7** (cidade com densidade, laboratórios e univer
 - **Testes (`npm test`, 299)** e roteiros Playwright: `scripts/e2e/sessao-6.cjs` (52 verificações) e `scripts/e2e/sessao-7.cjs` (76 verificações), nos dois tamanhos, com capturas em `docs/capturas/sessao-7/`.
 
 ## Próxima sessão
-`docs/sessoes/sessao-8.md` (a escrever) — Era 2 (fissão: esgotamento e calor de decaimento) e transição de era, com o nó "Fissão básica" já no lugar.
+`docs/sessoes/sessao-8.md` — Era 2 (reator PWR com esgotamento e calor de decaimento, Rede em MW, cidade 5–6, árvore e capítulos da Era 2) e transição de era, conforme `docs/GDD-parte2.md`.
 
 ## Decisões da Sessão 7 que a gestão precisa confirmar
 1. **O branch saiu de `faab8c3`, não de `claude/era1-scaffold-rede-pqkglz`:** essa ref é ancestral da Sessão 6 e sair dela jogaria fora nove commits.

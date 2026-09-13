@@ -3,7 +3,7 @@
 ## O que é
 Jogo idle web de gerenciamento de energia em duas camadas: **Rede** (lista de usinas, números) e **Núcleo** (grade de peças, geometria). Do cata-vento à esfera de Dyson. Estética flat-vector de infográfico científico.
 
-O design completo está em `docs/GDD-parte1.md`. **É o contrato.** Se código e GDD divergirem, o GDD vence. Se o design precisar mudar, edite o GDD primeiro e explique o porquê no commit.
+O design completo está em `docs/GDD-parte1.md` (bases e Era 1) e `docs/GDD-parte2.md` (Era 2 em diante). **É o contrato.** Se código e GDD divergirem, o GDD vence. Se o design precisar mudar, edite o GDD primeiro e explique o porquê no commit.
 
 ## Stack
 Vite + React + TypeScript (strict) + Phaser 3 + Zustand + Vitest. CSS com variáveis (tokens do GDD §10), sem Tailwind. Interface em PT-BR, vírgula decimal. Mobile-first.
@@ -25,7 +25,8 @@ src/
   content/  # dados das eras: peças, usinas, preços, textos dos cards
   store/    # Zustand: snapshot do estado do sim + ações
 docs/
-  GDD-parte1.md      # contrato de design
+  GDD-parte1.md      # contrato de design: bases e Era 1
+  GDD-parte2.md      # contrato de design: Era 2 em diante
   ESTADO.md          # o que existe e o que falta (atualizar ao fim de cada sessão)
   sessoes/sessao-N.md
 ```

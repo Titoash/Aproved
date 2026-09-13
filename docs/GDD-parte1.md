@@ -1,7 +1,7 @@
 # KARDASHEV (codinome) — Documento de Design v0.6 · Parte 1 de 2
 
 > Parte 1: conceito, os três sistemas, Cascata, economia, Era 1 completa, direção de arte, arquitetura e roteiro de sessões.
-> Parte 2 (próximo passo): Eras 2–6 detalhadas, prestígio, roteiro dos cards explicativos.
+> Parte 2 (`docs/GDD-parte2.md`): Era 2 completa (v0.7); Eras 3–6, prestígio e o roteiro dos cards entram lá nas versões seguintes.
 
 ---
 
@@ -126,7 +126,7 @@ Bobinas geram campo e consomem potência da Rede; células de plasma geram press
 | Era | Cenário | Núcleo | O que muda na balança |
 |---|---|---|---|
 | 1 Vento e Sol | colina | Torre Solar (CSP) | só Calor; aprende o básico |
-| 2 Fissão | cidade e rio | Reator PWR | combustível esgota; peças gastas **continuam quentes** (calor de decaimento) |
+| 2 Fissão | o mesmo arquipélago, ao entardecer | Reator PWR | combustível esgota; peças gastas **continuam quentes** (calor de decaimento); produzir passa a custar. Completa em `docs/GDD-parte2.md` |
 | 3 Fusão | plataforma no oceano | Tokamak | entra a **Contenção**, que consome potência da Rede |
 | 4 Antimatéria | órbita / Lua | Anel acelerador | no vácuo só se dissipa por radiação: radiadores rendem menos; armadilhas precisam de energia constante |
 | 5 Buraco negro | espaço profundo | Reator Hawking | balança **invertida**: massa baixa demais explode, alta demais rende pouco |
@@ -201,7 +201,7 @@ Melhorias do Núcleo: **Rastreamento solar** (₵ 150 + 🔬 30): cada espelho i
 **Consequência de balanço do 7×7:** com 2 turbinas e todas as casas de espelho, `h` chega a 6 + 8 + 24 × 0,25 = 20 → `Q* = 333 u`, que só cabe na zona de ouro com tanques (3 tanques → capacidade 550 → `T* ≈ 61 %`; 2 tanques + Receptor cerâmico → 450 → `T* ≈ 74 %`). A grade grande existe para ser usada **junto** com os tanques; a dica da barra de calor continua valendo.
 
 ### 8.4 Saída da Era 1
-Estabilidade 100 % + pesquisa "Fissão básica" (🔬 3 000) + ₵ 50 000 → Era 2. Com 🔬 virando moeda (v0.6), "Fissão básica" é um **nó da árvore** que custa 🔬 3 000 + ₵ 50 000 (§8.6). A conta antiga ("com o Núcleo em ~16 kW, 🔬 3 000 leva 20–30 min") valia quando o Núcleo era a única fonte: com laboratórios e universidades a simulação da Sessão 7 chega aos 🔬 3 000 em **11 minutos**, e o que segura a era passa a ser a árvore inteira (≈ 🔬 22 mil) e a Estabilidade. Card explicativo de transição: de kW para MW.
+Estabilidade 100 % + pesquisa "Fissão básica" (🔬 3 000) + ₵ 50 000 → Era 2. Com 🔬 virando moeda (v0.6), "Fissão básica" é um **nó da árvore** que custa 🔬 3 000 + ₵ 50 000 (§8.6). A conta antiga ("com o Núcleo em ~16 kW, 🔬 3 000 leva 20–30 min") valia quando o Núcleo era a única fonte: com laboratórios e universidades a simulação da Sessão 7 chega aos 🔬 3 000 em **11 minutos**, e o que segura a era passa a ser a árvore inteira (≈ 🔬 22 mil) e a Estabilidade. Card explicativo de transição: de kW para MW. O que acontece na transição e a Era 2 inteira estão na Parte 2 (`docs/GDD-parte2.md`, §2).
 
 **Ritmo medido (Sessão 7, parte F).** Um bot jogando bem fecha a Era 1 em **≈ 41 min**, e quem manda é a Estabilidade: +2,5 pontos/min na zona de ouro dá 40 minutos de piso para qualquer jogador que acerte a grade logo. Os 50–70 minutos de §7 valem para jogo humano (com paradas, erros de proporção e Cascatas), não para jogo perfeito. Se a gestão quiser o piso em 50–70 também no jogo perfeito, o ajuste é na taxa de Estabilidade (ouro 2,5 → ~1,8/min), que esta sessão não podia tocar.
 
@@ -344,3 +344,4 @@ Cada sessão nasce de um `CLAUDE.md` do projeto (escrito no próximo passo) que 
 *v0.4 — bateria com ±10 kW por unidade e regra da faixa efetiva (§4.1); offline com regras exatas (§7); medidor Kardashev definido (§6); Lâminas de fibra e Rastreamento solar com efeito (§8.2, §8.3); roteiro reordenado (§12). Ver `docs/correcoes-gdd-v0.4.md`.*
 *v0.5 — tabuleiro vira ilha isométrica de 2048 casas com regiões, vagas e locais compráveis (§2.4, §8.5); escada de escalas ilha → multiverso alinhada aos tipos Kardashev, com marcos até 10⁵⁰ W (§2.4, §6); direção de arte do terreno e dos níveis (§10); roteiro reordenado (§12). Ver `docs/correcoes-gdd-v0.5.md`.*
 *v0.6 — a Rede passa a ser colocada; o tabuleiro vira um arquipélago no mar com obstáculos, expedições, cabos e subestações (§2.1, §2.4, §8.5); cidade em bairros com densidade, evolução quase exponencial, laboratórios e universidades (§2.5, §8.6); 🔬 passa a ser gasto numa árvore com cards de física (§3, §8.6); roteiro reordenado (§12). Ver `docs/correcoes-gdd-v0.6.md` e `docs/analises/reactor-e-volume1.md`.*
+*v0.7 — Parte 2 criada com a Era 2 completa; §6 e §8.4 apontam para ela. Ajustes da Sessão 7 registrados em `docs/sessoes/sessao-7-ajustes.md`.*
