@@ -12,15 +12,15 @@ A Era 1 inteira se joga numa ilha isométrica de 2048 casas: a plataforma do Nú
 - **D · Verificação.** Testes do sim (ilha, vagas, alocação, migração, ações, Kardashev, store); roteiro Playwright nos dois tamanhos; `docs/ESTADO.md`.
 
 ## Checklist
-- [ ] GDD v0.5 aplicado em commit separado
-- [ ] `gerarIlha`: 2048 casas exatas, determinística, conexa, plataforma na região do Núcleo
-- [ ] vagas por categoria e alocação estável (prefixo preservado ao comprar e ao desbloquear)
-- [ ] compra sem vaga recusada com motivo; desbloquear local cobra ₵ e emite evento
-- [ ] save v5 com migração v4 → v5; saves antigos com excesso de usinas carregam
-- [ ] cena isométrica com terreno, sprites, Núcleo na plataforma (anel 3 bloqueado até a Grade 7×7), Rede nas vagas, placas de local
-- [ ] câmera: pan, zoom, pinch, presets, limites, hi-DPI; toque na casa coloca peça; toque na placa compra o local
-- [ ] Cascata e SCRAM visíveis na ilha; entulho na plataforma
-- [ ] escada de escalas com transição e bloqueio por potência; fundo por nível
-- [ ] Kardashev I–V até 10⁵⁰ W; notação científica acima de 10²⁴ W
-- [ ] mobile 390×844 sem rolagem horizontal; escada compacta
-- [ ] `test`, `typecheck`, `lint`, `build` verdes; capturas nos dois tamanhos; `ESTADO.md`
+- [x] GDD v0.5 aplicado em commit separado
+- [x] `gerarIlha`: 2048 casas exatas, determinística, conexa, plataforma na região do Núcleo
+- [x] vagas por categoria e alocação estável (prefixo preservado ao comprar e ao desbloquear)
+- [x] compra sem vaga recusada com motivo; desbloquear local cobra ₵ e emite evento
+- [x] save v5 com migração v4 → v5; saves antigos com excesso de usinas carregam
+- [x] cena isométrica com terreno, sprites, Núcleo na plataforma (anel 3 bloqueado até a Grade 7×7), Rede nas vagas, placas de local
+- [x] câmera: pan, zoom, pinch, presets, limites, hi-DPI; toque na casa coloca peça; toque na placa compra o local
+- [x] Cascata e SCRAM visíveis na ilha; entulho na plataforma
+- [x] escada de escalas com transição e bloqueio por potência; fundo por nível
+- [x] Kardashev I–V até 10⁵⁰ W; notação científica acima de 10²⁴ W
+- [x] mobile 390×844 sem rolagem horizontal; escada compacta
+- [x] `test`, `typecheck`, `lint`, `build` verdes; capturas nos dois tamanhos; `ESTADO.md`

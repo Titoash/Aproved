@@ -1,6 +1,6 @@
 # Estado do projeto
 
-Atualizado ao fim da **Sessão 4** (Era 1 bonita: arte, cards, Bipes, Grade 7×7).
+Atualizado ao fim da **Sessão 5** (ilha-tabuleiro de 2048 casas, regiões com vagas, locais compráveis, escada de escalas).
 
 ## Implementado
 
@@ -27,19 +27,31 @@ Atualizado ao fim da **Sessão 4** (Era 1 bonita: arte, cards, Bipes, Grade 7×7
 - **Testes (`npm test`, 235):** anel para lado 7; `expandirGrade`; `h` com anel 3 e recusas no anel 3; compra da Grade 7×7 (₵, 🔬, única, índice 48); migração v3 → v4; eventos (`primeiraCompra` só na primeira, `cascata` com os fluxos do tick, `marcarCardVisto` persistido); dica da barra; store (abertura pausa, cards uma vez, fila).
 - **Verificação no navegador (Playwright + Chromium, 1280×800 e 390×844):** abertura em 3 telas pausando o jogo; fontes de `/fonts/` e nenhuma ao Google; favicon; sem caixa alta; Receptor laranja na zona de ouro e cinza no SCRAM; cards de tanque, Rastreamento, Cascata (25 u/s entrando, 24,7 u/s saindo, do tick) e bateria, uma vez cada e ausentes após recarregar; dica aparece com o tanque e some ao tirá-lo; Grade 7×7 expande preservando as peças, recusa turbina e aceita espelho no anel 3 (`h = 5,25`); ordem mobile confirmada por posição; reduced-motion desliga o piscar do Bipe.
 
-## Próxima sessão
-`docs/sessoes/sessao-5.md` (a escrever) — Era 2 (fissão: esgotamento e calor de decaimento) e transição de era (zoom cósmico e troca de paleta). MVP = Eras 1–2.
+### Sessão 5 — Ilha-tabuleiro e escada de escalas (GDD v0.5)
+- **GDD v0.5** (`docs/correcoes-gdd-v0.5.md`): §2.4 (ilha, regiões, vagas, escalas), §6 (Kardashev até 10⁵⁰ W, tipos III–V, IV e V especulativos), §8.5 (regiões e preços), §10 (terreno e fundo por nível), §12 (roteiro reordenado: Era 2 na Sessão 6).
+- **Sim e conteúdo:** `content/era1-tabuleiro.ts` (ilha 52×52 com 2048 casas, semente 7, plataforma 7×7; 8 regiões com sementes do Voronoi, vagas e preços; níveis da escada); `sim/ilha.ts` (tipos), `sim/aleatorio.ts` (LCG e ruído), `sim/gerarIlha.ts` (geração determinística, memoizada em `ilhaDaEra1()`), `sim/tabuleiro.ts` (vagas por região e categoria — vento 48+12+14, sol 36+9+11, vila 32+6+8, bateria 8 —, alocação das usinas nas vagas só pelas contagens: cata-ventos do início e turbinas eólicas do fim de cada região, estável ao comprar e ao abrir locais; `semVaga`, `desbloquearRegiao`, `proximaRegiaoComVaga`, `excedentes` para saves antigos). `podeComprarUsina/Vila/Bateria` exigem vaga. `GameState.tabuleiro.regioesDesbloqueadas`; save **v5** com migração v4 → v5; evento `regiaoDesbloqueada` → card `local`. Kardashev: marcos Tipo III/IV/V, `maxW` 10⁵⁰, prefixos SI até YW e só notação científica acima de 10²⁴ W.
+- **Cena (Phaser em modo Canvas):** `TabuleiroScene` desenha o palco num `OffscreenCanvas` (os módulos usam transformações absolutas) e cola no canvas do Phaser, recortado ao retângulo de `.tabuleiro-area`. Módulos Canvas 2D portados da amostra em `scene/tabuleiro/`: `base` (paleta, projeção 2:1, utilidades), `fundo` (espaço por nível, Sol, planeta, grão), `terreno` (contornos suavizados por Chaikin, penhasco, lago, caminhos, plataforma com anel 3 bloqueado até a Grade 7×7, regiões bloqueadas com véu/hachura/tracejado, LOD e modo mapa, cache offscreen do chão, minimapa, `casaEm`), `sprites` (catálogo completo com estados e LOD), `escalas` (planeta, sistema, galáxia, universo, multiverso, com marcador "você está aqui" e placas), `cena` (povoamento a partir de `alocacao` e da grade do sim, cenário fora das vagas, Bipes, callouts em tela, placas com hit-test, Cascata com flash/brasas/tremor/onda), `camera` (pan, roda, pinch, inércia, presets ilha/Núcleo, limites na superelipse, transição de 900 ms entre níveis), `controle` (singleton da câmera; toque na plataforma → `agirNaCasa`, na placa → `desbloquearRegiao`, no minimapa → recentrar; hover → realce; gancho `window.__tabuleiro` em dev). `GridScene` removida; `BackgroundScene` só o fundo da janela.
+- **UI:** `PainelNucleo` = `Tabuleiro` (escada à esquerda no desktop, em linha no celular; superfície do DOM; botões Ilha/Núcleo) + painel de operação rolável (ou o desbloqueio do Núcleo). `Escada.tsx`; `icones.tsx` (usinas, vila, bateria, melhorias, níveis, cadeado); Rede com ícones, "sem vaga · desbloqueie …", seção "Locais da ilha" com vagas livres e botões Desbloquear; régua Kardashev com os tipos I–V e marcos especulativos em itálico. Store: `nivel`, `irParaNivel`, `pedirPreset`, `desbloquearRegiao`, `regiaoSobPonteiro`.
+- **Testes (`npm test`, 263):** `gerarIlha` (2048 exatas, determinismo, conexidade, plataforma na região 0, água/caminhos válidos, regiões na ordem), `tabuleiro` (vagas por região em casas válidas e únicas, vilas encostadas nos caminhos, somas iniciais, alocação estável ao comprar e ao abrir locais, cata-ventos do início e eólicas do fim, excedentes de saves antigos, compra recusada sem vaga, desbloqueio com ₵/evento/idempotência), save v5 (ida e volta, migração v4, ids desconhecidos), Kardashev v5 (régua, marcos, SI até o yotta).
+- **Verificação no navegador (Playwright, 1280×800 e 390×844):** ilha visível no jogo novo e compra colocando cata-ventos; save v4 migrado; toque na casa da plataforma coloca/remove peça e o anel 3 não responde antes da Grade 7×7; arrastar move a câmera e a roda aproxima; Campo dos Ventos cheio → "sem vaga" → Desbloquear Planície → card "Um local novo" → compra volta; escada até Sistema e Galáxia e volta; régua com Tipo III e V; Cascata com h = 6,5 abre o card e deixa entulho; celular sem rolagem horizontal, escada em linha e toque colocando peça.
 
-## Decisões da Sessão 4 que o GDD não fixa (conferir)
-1. **`primeiraCompra`** dispara quando a contagem daquele item passa de 0 para 1 (também se o jogador removeu tudo e comprou de novo); o card só aparece uma vez por `cardsVistos`.
-2. **Card da Cascata** usa `ultimaCascata` (persistido), então sobrevive a um recarregamento entre a Cascata e o "Entendi".
-3. **Importar JSON** fecha qualquer card aberto e não redispara a abertura (só jogo novo e "Resetar" disparam).
-4. **Remover peça** e **entulho** como nas sessões anteriores; a Grade 7×7 exige Núcleo desbloqueado.
-5. **Glow** só em três lugares: esfera do Receptor, esfera do 🔥 no HUD (a partir de 70 %) e o botão "Desbloquear o Núcleo" quando comprável.
+## Próxima sessão
+`docs/sessoes/sessao-6.md` (a escrever) — Era 2 (fissão: esgotamento e calor de decaimento) e transição de era como mudança de nível (GDD §2.4, §6). MVP = Eras 1–2.
+
+## Decisões da Sessão 5 que o GDD fixa por mim (conferir)
+1. Vagas são o único limite novo; saves antigos com excesso de unidades continuam produzindo (só as compras novas exigem vaga). Preços dos locais: Planície ₵ 2,4 mil, Colinas ₵ 6,8 mil.
+2. Alocação estateless: cata-ventos enchem as vagas de vento do início de cada região e turbinas eólicas do fim; vilas e baterias encostam nos caminhos.
+3. `nivel` da escada é estado de interface (não vai para o save); todos os níveis são navegáveis, os bloqueados mostram a potência que os abre.
+4. Eras 1–2 na ilha; Era 3 abre o planeta; Eras 4–6 no sistema; galáxia em diante é prestígio (Parte 2). Tipos IV e V são ficção declarada.
+5. Cascata acima da ilha perde a vaga, nunca o nível (Parte 2).
+6. Operador Bipe fica fora da plataforma (a casa (−1, +2) da amostra é jogável no sim).
 
 ## Pendências
-- Sessão 5+: Era 2, transição de era, Contenção, prestígio, som.
-- Bipe no entulho é a versão mínima em `Graphics`; a versão SVG completa vive nos cards.
-- O tremor da Cascata usa a câmera do Phaser e aparece só dentro do recorte do palco.
-- Painéis assinam o `state` inteiro e re-renderizam a cada tick (10 Hz); se a lista crescer, fatiar com seletores.
-- O roteiro de teste usa `dispatchTouchEvent` para o toque (o gesto sintetizado do Chromium não funciona no headless); vale um teste manual em Android.
+- Sessão 6+: Era 2, transição de era pela escada, Contenção, prestígio (galáxia em diante), som.
+- `OffscreenCanvas` é requisito (Safari ≥ 16.4); avaliar fallback para `document.createElement("canvas")` em `fundo.ts` e na cena.
+- O Sol do fundo fica parcialmente atrás da escada no desktop; mover o Sol para a direita da reserva ou reduzir a escada.
+- Na régua Kardashev os rótulos "Tipo II" e "Sol" se sobrepõem (marcos a 0,4 década de distância numa escala de 47 décadas).
+- Partículas, feixes e glow são redesenhados por frame; o chão tem cache, a cena não (≈ 3 ms/quadro em GPU, ~18 ms em software).
+- `scene/layout.ts` ainda exporta `indiceDaCasa`/`setGradeElement` (só os testes antigos usam); remover na próxima sessão.
+- Teste manual em Android real: pinch e inércia foram verificados só com eventos sintéticos no Chromium headless.
+- Vagas nas escalas superiores (enxame de Dyson etc.) existem só como desenho; a ação de compra vem com a Parte 2.
