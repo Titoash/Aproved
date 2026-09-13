@@ -13,6 +13,7 @@ import { aplicarCascata, atualizarCronometro, deveCascatear, emScram, scram } fr
 import { passoEstabilidade } from "./estabilidade";
 import { capacidadeU, contar, espelhosEfetivosDe, passoCalor, potenciaNucleoKw } from "./nucleo";
 import { efeitosDe, efeitosNeutros, type EfeitosArvore } from "./efeitos";
+import { passoCapitulos } from "./capitulos";
 import { passoRemocoes } from "./mundo";
 import { analisar, derivarRede } from "./producao";
 import { balancoRede, passoRede, type BalancoRede } from "./rede";
@@ -150,7 +151,7 @@ export function tick(state: GameState, dtMs: number = TICK_MS): GameState {
     }
   }
 
-  return {
+  const proximo: GameState = {
     ...comMundo,
     creditos: comMundo.creditos + passo.receita,
     pesquisa,
@@ -158,6 +159,9 @@ export function tick(state: GameState, dtMs: number = TICK_MS): GameState {
     nucleo,
     eventos,
   };
+
+  // 7. capítulos: o objetivo ativo fecha e paga sozinho (GDD §12, v0.6).
+  return passoCapitulos(proximo);
 }
 
 /** Aplica `n` ticks de `TICK_MS`. */

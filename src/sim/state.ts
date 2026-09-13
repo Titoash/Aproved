@@ -136,6 +136,8 @@ export interface GameState {
   pesquisa: number;
   /** Nós da árvore já comprados (GDD §8.6). Substituiu as melhorias nomeadas. */
   pesquisados: string[];
+  /** Capítulos já concluídos, em ordem (GDD §12, v0.6). */
+  capitulos: string[];
   era: 1;
   rede: RedeState;
   mundo: MundoState;
@@ -200,6 +202,7 @@ export function estadoInicial(): GameState {
     creditos: ECONOMIA.creditosIniciais,
     pesquisa: 0,
     pesquisados: [...NOS_INICIAIS],
+    capitulos: [],
     era: 1,
     rede: {
       usinas: { cataVento: { nivel: 0 }, painelSolar: { nivel: 0 }, turbinaEolica: { nivel: 0 } },

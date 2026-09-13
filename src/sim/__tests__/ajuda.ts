@@ -4,6 +4,7 @@
  * e garante subestação no alcance, para que a potência de uma usina seja exatamente a base × nível.
  */
 import { BATERIA, USINAS } from "../../content/era1";
+import { CAPITULOS } from "../../content/capitulos-era1";
 import { SUBESTACAO, TERRENOS, type TipoTerreno } from "../../content/era1-arquipelago";
 import { ORDEM_TERRENOS, indiceCasa, naPlataforma } from "../arquipelago";
 import { arquipelagoDaEra1 } from "../gerarArquipelago";
@@ -114,10 +115,20 @@ export function plantar(state: GameState, tipo: TipoConstrucao, quantos: number)
   return { ...state, mundo: { ...state.mundo, construcoes } };
 }
 
-/** Estado com créditos e pesquisa à vontade, sem bairros nem subestações de nascença. */
+/**
+ * Estado com créditos à vontade, sem bairros nem subestações de nascença — e com **todos os capítulos
+ * já concluídos**, para que as recompensas deles não entrem nas contas de economia dos testes.
+ * Quem testa capítulo usa `estadoDoZero`.
+ */
 export function estadoLimpo(creditos = 1e9): GameState {
+  const s = estadoDoZero();
+  return { ...s, creditos, capitulos: CAPITULOS.map((c) => c.id) };
+}
+
+/** Estado inicial sem construções de nascença e com os capítulos por fazer. */
+export function estadoDoZero(): GameState {
   const s = estadoInicial();
-  return { ...s, creditos, mundo: { ...s.mundo, construcoes: {} } };
+  return { ...s, mundo: { ...s.mundo, construcoes: {} } };
 }
 
 /** Estado limpo com `n` bairros atendidos (demanda previsível). */

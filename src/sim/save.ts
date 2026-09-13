@@ -4,6 +4,7 @@
  * migra saves de versões anteriores.
  */
 import { NOS_INICIAIS, NO_POR_ID } from "../content/arvore-era1";
+import { CAPITULO_POR_ID } from "../content/capitulos-era1";
 import { ILHAS, ORDEM_OBSTACULOS, type IlhaId, type TipoObstaculo } from "../content/era1-arquipelago";
 import { NUCLEO, PECAS } from "../content/era1-nucleo";
 import { arquipelagoDaEra1 } from "./gerarArquipelago";
@@ -197,6 +198,12 @@ function normalizarMundo(bruto: unknown): MundoState {
   return { construcoes, removidos, remocoes, cristais, ilhasAbertas, cabos };
 }
 
+/** Capítulos concluídos: só ids conhecidos, sem repetição. */
+function normalizarCapitulos(bruto: unknown): string[] {
+  const lista = Array.isArray(bruto) ? bruto.filter((x): x is string => typeof x === "string" && x in CAPITULO_POR_ID) : [];
+  return Array.from(new Set(lista));
+}
+
 /** Nós pesquisados: só ids conhecidos, sem repetição, e os que nascem prontos sempre presentes. */
 function normalizarPesquisados(bruto: unknown): string[] {
   const lista = Array.isArray(bruto) ? bruto.filter((x): x is string => typeof x === "string" && x in NO_POR_ID) : [];
@@ -228,6 +235,7 @@ function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState 
     rede,
     nucleo: normalizarNucleo(bruto.nucleo),
     pesquisados: normalizarPesquisados(bruto.pesquisados),
+    capitulos: normalizarCapitulos(bruto.capitulos),
     salvoEmMs: typeof bruto.salvoEmMs === "number" && bruto.salvoEmMs > 0 ? bruto.salvoEmMs : agoraMs,
     cardsVistos: normalizarCardsVistos(bruto.cardsVistos),
     mundo: normalizarMundo(bruto.mundo),
@@ -317,7 +325,7 @@ function migrar(bruto: Record<string, unknown>, agoraMs: number): Record<string,
     if (acumulado >= 40) marcar("turbinaEolica");
     if (acumulado >= 20) marcar("bateria");
     const { melhorias: _melhorias, ...resto } = atual;
-    atual = { ...resto, mundo: { ...mundoBruto, construcoes, cabos, cristais: [] }, pesquisados, versao: 7 };
+    atual = { ...resto, mundo: { ...mundoBruto, construcoes, cabos, cristais: [] }, pesquisados, capitulos: [], versao: 7 };
     v = 7;
   }
   return { ...atual, versao: v };
