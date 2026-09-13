@@ -68,14 +68,14 @@ describe("Grade 7×7 (Parte D)", () => {
     expect(equilibrioU(cheia)).toBeCloseTo(333.3, 1);
   });
 
-  it("a Grade 7×7 exige ₵ 800 e 🔬 150, é única, exige Núcleo, e depois dela podeColocar aceita o índice 48", () => {
-    expect(NO_POR_ID.grade7x7.creditos!).toBe(800);
-    expect(NO_POR_ID.grade7x7.pesquisa).toBe(150);
-    const semNucleo = { ...estadoInicial(), creditos: 1000, pesquisa: 200 };
+  it("a Grade 7×7 exige ₵ 2 000 e 🔬 1 500, é única, exige Núcleo, e depois dela podeColocar aceita o índice 48", () => {
+    expect(NO_POR_ID.grade7x7.creditos!).toBe(2_000);
+    expect(NO_POR_ID.grade7x7.pesquisa).toBe(1_500);
+    const semNucleo = { ...estadoInicial(), creditos: 2_200, pesquisa: 1_550 };
     expect(podePesquisar(semNucleo, "grade7x7")).toBe(false);
     const s = { ...semNucleo, nucleo: { ...nucleoInicial(), grade: configuracao(5) } };
     expect(podePesquisar({ ...s, pesquisa: 100 }, "grade7x7")).toBe(false);
-    expect(podePesquisar({ ...s, creditos: 700 }, "grade7x7")).toBe(false);
+    expect(podePesquisar({ ...s, creditos: 1_900 }, "grade7x7")).toBe(false);
     expect(podeColocar(s.nucleo.grade, 48, "heliostato").ok).toBe(false); // fora do 5×5
     const s1 = pesquisar(s, "grade7x7")!;
     expect(s1).not.toBeNull();

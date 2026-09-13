@@ -16,8 +16,10 @@ describe("árvore de pesquisa: conteúdo (GDD §8.6)", () => {
   it("todo nó tem uma frase de física e um efeito", () => {
     for (const no of NOS) {
       expect(no.fisica.length, no.id).toBeGreaterThan(30);
+      expect(no.nome.length, no.id).toBeGreaterThan(2);
       expect(no.efeitoTexto.length, no.id).toBeGreaterThan(5);
-      expect(no.efeitos.length, no.id).toBeGreaterThan(0);
+      // "Fissão básica" é a porta da Era 2: cobra 🔬 e ₵ e não muda nada por si (GDD §8.4)
+      if (no.id !== "fissaoBasica") expect(no.efeitos.length, no.id).toBeGreaterThan(0);
       expect(no.pesquisa, no.id).toBeGreaterThanOrEqual(0);
     }
   });
@@ -31,20 +33,20 @@ describe("árvore de pesquisa: conteúdo (GDD §8.6)", () => {
     }
   });
 
-  it("os custos de §8.6 estão na tabela", () => {
+  it("os custos são os de §8.6 recalibrados pela simulação de 60 min (parte F)", () => {
     expect(NO_POR_ID.laminasDeFibra.pesquisa).toBe(25);
-    expect(NO_POR_ID.torreMaisAlta.pesquisa).toBe(80);
-    expect(NO_POR_ID.controleDePasso.pesquisa).toBe(200);
-    expect(NO_POR_ID.rotorTresPas.pesquisa).toBe(400);
+    expect(NO_POR_ID.torreMaisAlta.pesquisa).toBe(150);
+    expect(NO_POR_ID.controleDePasso.pesquisa).toBe(1_000);
+    expect(NO_POR_ID.rotorTresPas.pesquisa).toBe(2_000);
     expect(NO_POR_ID.painelBifacial.pesquisa).toBe(60);
-    expect(NO_POR_ID.subestacaoAltaTensao.pesquisa).toBe(150);
-    expect(NO_POR_ID.bateriaDeFluxo.pesquisa).toBe(300);
-    expect(NO_POR_ID.heliostatoDoisEixos.pesquisa).toBe(120);
-    expect(NO_POR_ID.turbinaAltaPressao.pesquisa).toBe(200);
-    expect(NO_POR_ID.radiadorAtivo.pesquisa).toBe(180);
-    expect(NO_POR_ID.tanqueDoisSais.pesquisa).toBe(220);
-    expect(NO_POR_ID.iluminacaoEficiente.pesquisa).toBe(100);
-    expect(NO_POR_ID.bombasDeCalor.pesquisa).toBe(350);
+    expect(NO_POR_ID.subestacaoAltaTensao.pesquisa).toBe(800);
+    expect(NO_POR_ID.bateriaDeFluxo.pesquisa).toBe(1_600);
+    expect(NO_POR_ID.heliostatoDoisEixos.pesquisa).toBe(700);
+    expect(NO_POR_ID.turbinaAltaPressao.pesquisa).toBe(1_200);
+    expect(NO_POR_ID.radiadorAtivo.pesquisa).toBe(900);
+    expect(NO_POR_ID.tanqueDoisSais.pesquisa).toBe(1_100);
+    expect(NO_POR_ID.iluminacaoEficiente.pesquisa).toBe(250);
+    expect(NO_POR_ID.bombasDeCalor.pesquisa).toBe(1_800);
     expect(NO_POR_ID.turbinaEolica.pesquisa).toBe(40);
     expect(NO_POR_ID.bateria.pesquisa).toBe(20);
   });
@@ -77,7 +79,7 @@ describe("árvore de pesquisa: compra", () => {
   });
 
   it("a escolha exclusiva é definitiva", () => {
-    let s = comCiencia(5000);
+    let s = comCiencia(20_000);
     for (const id of ["laminasDeFibra", "torreMaisAlta", "controleDePasso", "rotorTresPas"]) s = pesquisar(s, id)!;
     expect(podePesquisar(s, "eixoVertical")).toBe(true);
     expect(podePesquisar(s, "eixoHorizontal")).toBe(true);

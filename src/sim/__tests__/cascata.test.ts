@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CAPITULOS } from "../../content/capitulos-era1";
 import { estadoLimpo, plantar } from "./ajuda";
 import { CASCATA, MODO_SEGURO } from "../../content/era1-nucleo";
 import { temperaturaNucleo } from "../calor";
@@ -8,10 +9,12 @@ import { estadoInicial, nucleoInicial, type Casa, type GameState } from "../stat
 import { avancarTicks, balancoDoEstado, potenciaNucleoEfetivaKw, tick, TICK_MS } from "../tick";
 import { ANEL1, ANEL2, configuracao, montar } from "./nucleo.test";
 
+/** Estado com o Núcleo montado. Os capítulos entram concluídos: as recompensas deles falseariam ₵ e 🔬. */
 function comNucleo(grade: Casa[], calorU: number, extra: Partial<GameState> = {}): GameState {
   const s = estadoInicial();
   return {
     ...s,
+    capitulos: CAPITULOS.map((c) => c.id),
     ...extra,
     nucleo: { ...nucleoInicial(), grade, calorU, estabilidade: 50 },
   };

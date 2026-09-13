@@ -82,13 +82,20 @@ export function progressoDoAtivo(state: GameState): ProgressoCapitulo | null {
 }
 
 /**
- * Passo do tick: conclui o capítulo ativo quando a condição fecha e paga a recompensa.
- * Um por tick — se dois fecharem juntos, o segundo sai no tick seguinte (100 ms depois).
+ * Passo do tick: conclui **qualquer** capítulo pendente cuja condição já fechou e paga a recompensa.
+ *
+ * A interface mostra um objetivo por vez, mas a fila não pode travar: na simulação de 60 minutos o bot
+ * nunca pôs cinco cata-ventos numa colina e ficou preso no segundo capítulo pelo resto da partida, com
+ * os quinze seguintes já cumpridos e sem pagar nada. Um capítulo por tick — se dois fecham juntos, o
+ * segundo sai 100 ms depois.
  */
 export function passoCapitulos(state: GameState): GameState {
-  const progresso = progressoDoAtivo(state);
-  if (!progresso || !progresso.concluido) return state;
-  const { capitulo } = progresso;
+  const capitulo = CAPITULOS.find((c) => {
+    if (state.capitulos.includes(c.id)) return false;
+    const { atual, alvo } = medir(state, c.condicao);
+    return atual >= alvo;
+  });
+  if (!capitulo) return state;
   return {
     ...state,
     creditos: state.creditos + (capitulo.recompensa.creditos ?? 0),

@@ -22,5 +22,6 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  // `scripts/simular.ts` importa o sim com a mesma resolução do app (imports sem extensão).
+  "include": ["src", "scripts/simular.ts"]
 }

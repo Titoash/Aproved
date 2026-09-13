@@ -180,8 +180,8 @@ describe("obstáculos (GDD §8.5)", () => {
 
 describe("expedição e cabo (GDD §8.5)", () => {
   it("a expedição abre a ilha e cobra o preço de §8.5", () => {
-    const s0 = estadoLimpo(1000);
-    expect(ilhaDef("ventania").expedicao).toBe(600);
+    const s0 = estadoLimpo(2_200);
+    expect(ilhaDef("ventania").expedicao).toBe(1_800);
     const s1 = comprarIlha(s0, "ventania")!;
     expect(s1.creditos).toBe(400);
     expect(s1.mundo.ilhasAbertas).toContain("ventania");

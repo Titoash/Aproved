@@ -201,7 +201,9 @@ Melhorias do Núcleo: **Rastreamento solar** (₵ 150 + 🔬 30): cada espelho i
 **Consequência de balanço do 7×7:** com 2 turbinas e todas as casas de espelho, `h` chega a 6 + 8 + 24 × 0,25 = 20 → `Q* = 333 u`, que só cabe na zona de ouro com tanques (3 tanques → capacidade 550 → `T* ≈ 61 %`; 2 tanques + Receptor cerâmico → 450 → `T* ≈ 74 %`). A grade grande existe para ser usada **junto** com os tanques; a dica da barra de calor continua valendo.
 
 ### 8.4 Saída da Era 1
-Estabilidade 100 % + pesquisa "Fissão básica" (🔬 3 000) + ₵ 50 000 → Era 2. (Com o Núcleo em ~16 kW na zona de ouro, 🔬 3 000 leva 20–30 min de operação.) Card explicativo de transição: de kW para MW.
+Estabilidade 100 % + pesquisa "Fissão básica" (🔬 3 000) + ₵ 50 000 → Era 2. Com 🔬 virando moeda (v0.6), "Fissão básica" é um **nó da árvore** que custa 🔬 3 000 + ₵ 50 000 (§8.6). A conta antiga ("com o Núcleo em ~16 kW, 🔬 3 000 leva 20–30 min") valia quando o Núcleo era a única fonte: com laboratórios e universidades a simulação da Sessão 7 chega aos 🔬 3 000 em **11 minutos**, e o que segura a era passa a ser a árvore inteira (≈ 🔬 22 mil) e a Estabilidade. Card explicativo de transição: de kW para MW.
+
+**Ritmo medido (Sessão 7, parte F).** Um bot jogando bem fecha a Era 1 em **≈ 41 min**, e quem manda é a Estabilidade: +2,5 pontos/min na zona de ouro dá 40 minutos de piso para qualquer jogador que acerte a grade logo. Os 50–70 minutos de §7 valem para jogo humano (com paradas, erros de proporção e Cascatas), não para jogo perfeito. Se a gestão quiser o piso em 50–70 também no jogo perfeito, o ajuste é na taxa de Estabilidade (ouro 2,5 → ~1,8/min), que esta sessão não podia tocar.
 
 ---
 
@@ -210,16 +212,16 @@ Estabilidade 100 % + pesquisa "Fissão básica" (🔬 3 000) + ₵ 50 000 → Er
 | Ilha | Casas | Terreno dominante | Expedição | Nasce com |
 |---|---|---|---|---|
 | Principal | 640 | planície, colinas ao norte | aberta | Núcleo, aldeia (1 bairro d1), 1 subestação, ~45 % de obstáculos |
-| Ventania | 320 | colinas e picos | ₵ 600 | pinheiros esparsos, 3 picos |
-| Solar | 300 | planície | ₵ 1,8 mil | arbustos, pedras |
-| Costa | 260 | litoral largo | ₵ 4,5 mil | pântano, árvores |
-| Bosque | 220 | floresta densa | ₵ 9 mil | 90 % de árvores |
-| Pedreira | 160 | montanhas, cristais | ₵ 20 mil | 4 montanhas 2×2, cristais |
-| Recife | 96 | litoral | ₵ 45 mil | pedras |
-| Farol | 52 | rocha | ₵ 100 mil | pico, vazio |
+| Ventania | 320 | colinas e picos | ₵ 1,8 mil | pinheiros esparsos, 3 picos |
+| Solar | 300 | planície | ₵ 5,4 mil | arbustos, pedras |
+| Costa | 260 | litoral largo | ₵ 13,5 mil | pântano, árvores |
+| Bosque | 220 | floresta densa | ₵ 27 mil | 90 % de árvores |
+| Pedreira | 160 | montanhas, cristais | ₵ 60 mil | 4 montanhas 2×2, cristais |
+| Recife | 96 | litoral | ₵ 135 mil | pedras |
+| Farol | 52 | rocha | ₵ 300 mil | pico, vazio |
 
 Cabo submarino: ₵ 150 + **₵ 120** por casa de mar, entre os dois litorais mais próximos; sem cabo, a ilha só alimenta bairros e subestações dela mesma (a energia que sobra vira "sem escoamento"). O cabo tem **teto próprio de 30 kW**, nos dois sentidos, e **nível** (custo da rota ×3ⁿ, teto ×2ⁿ), como a subestação: ligar a ilha não basta, é preciso dimensionar o cabo. Foi assim que o cabo deixou de ser uma trava (₵ 230–270 contra ₵ 600 a ₵ 100 mil das expedições) e virou decisão contínua (v0.6, Sessão 7).
-Obstáculos: arbusto ₵ 3 (1 s), árvore ₵ 8 (3 s), pedra ₵ 25 (8 s), pântano ₵ 60 (10 s), montanha 2×2 ₵ 400 + 🔬 20 (30 s) — **dinamitar devolve 🔬 40 e deixa quatro casas de rocha com cristal** (laboratório ou universidade sobre cristal rende +50 %, §8.6) —, pico permanente (vento +30 % nos vizinhos). Subestação ₵ 120 × 1,25ⁿ, alcance 3, teto 40 kW; nível: custo ×3ⁿ, teto ×2. Todos os números são valores iniciais a recalibrar com a simulação de 60 minutos.
+Obstáculos: arbusto ₵ 3 (1 s), árvore ₵ 8 (3 s), pedra ₵ 25 (8 s), pântano ₵ 60 (10 s), montanha 2×2 ₵ 400 + 🔬 20 (30 s) — **dinamitar devolve 🔬 40 e deixa quatro casas de rocha com cristal** (laboratório ou universidade sobre cristal rende +50 %, §8.6) —, pico permanente (vento +30 % nos vizinhos). Subestação ₵ 120 × 1,25ⁿ, alcance 3, teto 40 kW; nível: custo ×3ⁿ, teto ×2. Os preços das expedições foram **multiplicados por 3** na Sessão 7 depois da simulação de 60 minutos: com os valores antigos o bot abria o arquipélago inteiro em 30 minutos e ainda sobrava caixa. Com estes, a última ilha cai por volta dos 40 minutos.
 
 ### 8.6 Cidade, laboratório, universidade e árvore da Era 1 (v0.6)
 
@@ -232,12 +234,13 @@ Obstáculos: arbusto ₵ 3 (1 s), árvore ₵ 8 (3 s), pedra ₵ 25 (8 s), pânt
 
 Bairro novo: ₵ 40 × 1,25ⁿ, 1 casa, precisa de subestação no alcance. Laboratório: ₵ 60 × 1,25ⁿ, 🔬 0,2/s, consome 2 kW. Universidade: liberada com 1 000 habitantes, ₵ 400 × 1,5ⁿ, no máximo 1 por 2 000 habitantes, 🔬 0,5/s × √(população ÷ 1 000), consome 5 kW. Núcleo: 🔬 = kW ÷ 10 × faixa, como antes.
 
-**Árvore da Era 1** (🔬 gasto; cada nó vem com um card de uma frase de física):
-- Vento: Lâminas de fibra (+25 %, 🔬 25) → Torre mais alta (+40 %, 🔬 80: "a 80 m o vento é 30 % mais forte, e potência cresce com o cubo da velocidade") → Controle de passo (esteira −50 %, 🔬 200) → Rotor de três pás (+15 %, 🔬 400). Escolha exclusiva no fim: Eixo vertical (sem esteira, −20 % de potência) ou Eixo horizontal (mantém).
-- Sol: Painel bifacial (+15 %, 🔬 60: "capta a luz que o chão reflete") → Antirreflexo (+8 %, 🔬 120) → Limpeza automática (+10 %, 🔬 250) → Rastreamento solar (Núcleo: 5 u/s por espelho, 🔬 30 + ₵ 150, como antes).
-- Rede: Subestação de alta tensão (alcance 5, 🔬 150) → Bateria de fluxo (+50 % de kWh por unidade, 🔬 300).
-- Núcleo: Tanque de sal fundido (peça), Receptor cerâmico (🔬 80 + ₵ 300), Grade 7×7 (🔬 150 + ₵ 800), como antes, mas com o 🔬 gasto; e três níveis por peça: Heliostato de dois eixos (+25 % de calor, 🔬 120), Turbina de alta pressão (+30 % de kW por u, 🔬 200), Radiador ativo (dissipa 9 u/s, consome 1 kW, 🔬 180), Tanque de dois sais (+50 % de capacidade, 🔬 220). Nível comprado vale para todas as peças do tipo.
-- Cidade: Iluminação eficiente (bairros pedem 10 % menos e pagam o mesmo, 🔬 100) → Bombas de calor (tarifa +10 %, 🔬 350).
+**Árvore da Era 1** (🔬 gasto; cada nó vem com um card de uma frase de física). Os custos abaixo já são os **recalibrados pela simulação de 60 minutos** da Sessão 7: os originais somavam 🔬 2,9 mil contra 🔬 38 mil ganhos numa era, e a árvore inteira acabava aos 15 minutos. A curva é progressiva — os primeiros nós continuam baratos (o começo não mudou), e os últimos custam de 8 a 10 vezes o que custavam.
+- Vento: Lâminas de fibra (+25 %, 🔬 25) → Torre mais alta (+40 %, 🔬 150: "a potência do vento vai com o cubo da velocidade, e a 80 m ele é uns 30 % mais rápido que a 30 m — no papel seria mais que o dobro; a torre mais alta e mais pesada come o resto") → Controle de passo (esteira −50 %, 🔬 1 000) → Rotor de três pás (+15 %, 🔬 2 000). Escolha exclusiva no fim (🔬 4 000 cada): Eixo vertical (sem esteira, −20 % de potência) ou Eixo horizontal (+20 % e a esteira fica).
+- Sol: Painel bifacial (+15 %, 🔬 60: "capta a luz que o chão reflete") → Antirreflexo (+8 %, 🔬 200) → Limpeza automática (+10 %, 🔬 1 300) → Rastreamento solar (Núcleo: 5 u/s por espelho, 🔬 30 + ₵ 150, como antes).
+- Rede: Bateria (🔬 20) e Laboratório (nasce pesquisado: a primeira ciência não pode custar 🔬) → Subestação de alta tensão (alcance 5, 🔬 800) → Bateria de fluxo (+50 % de kWh por unidade, 🔬 1 600); Universidade (🔬 250).
+- Núcleo: Tanque de sal fundido (peça), Receptor cerâmico (🔬 80 + ₵ 300), Grade 7×7 (🔬 1 500 + ₵ 2 000); e três níveis por peça: Heliostato de dois eixos (+25 % de calor, 🔬 700), Turbina de alta pressão (+30 % de kW por u, 🔬 1 200), Radiador ativo (dissipa 9 u/s, consome 1 kW do Núcleo, 🔬 900), Tanque de dois sais (+50 % de capacidade, 🔬 1 100). Nível comprado vale para todas as peças do tipo.
+- Cidade: Iluminação eficiente (bairros pedem 10 % menos e pagam o mesmo, 🔬 250) → Bombas de calor (tarifa +10 %, 🔬 1 800).
+- Saída da era: **Fissão básica** (🔬 3 000 + ₵ 50 000, exige Receptor cerâmico e Turbina de alta pressão) é o nó de §8.4 — com 🔬 virando moeda, a "pesquisa específica" da transição de era é um nó como os outros. A Era 2 em si é a Sessão 8.
 Desbloqueios de usina passam a gastar 🔬: turbina eólica 🔬 40, bateria 🔬 20. O Núcleo continua a ₵ 100.
 
 ---
