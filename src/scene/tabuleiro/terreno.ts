@@ -1116,8 +1116,19 @@ function garantirMini(c: CacheTerreno, w: number, h: number, livres: ReadonlySet
   return c.mini;
 }
 
-/** Sem `desbloqueadas`, todas as regiões são desenhadas livres. */
-export function desenharMinimapa(ctx: CanvasRenderingContext2D, arq: Arquipelago, cam: Camera, w: number, h: number, desbloqueadas?: ReadonlySet<IlhaId>): void {
+/**
+ * Sem `desbloqueadas`, todas as regiões são desenhadas livres. `comCabo` desenha um traço fino entre as
+ * ilhas já ligadas e a principal — de longe é o único jeito de lembrar qual falta ligar (ajuste 4).
+ */
+export function desenharMinimapa(
+  ctx: CanvasRenderingContext2D,
+  arq: Arquipelago,
+  cam: Camera,
+  w: number,
+  h: number,
+  desbloqueadas?: ReadonlySet<IlhaId>,
+  comCabo?: ReadonlySet<IlhaId>,
+): void {
   const c = cacheDe(arq);
   const livres = desbloqueadas ?? new Set(arq.ilhas.map((r) => r.id));
   const { s, ox, oy } = ajusteMinimapa(c, w, h);
@@ -1127,6 +1138,23 @@ export function desenharMinimapa(ctx: CanvasRenderingContext2D, arq: Arquipelago
   ctx.imageSmoothingQuality = "high";
   ctx.drawImage(mini.tela.canvas, 0, 0, w, h);
   ctx.restore();
+  // cabos ligados: um traço fino de litoral a litoral, na mesma rota do mar
+  if (comCabo && comCabo.size > 0) {
+    ctx.save();
+    ctx.strokeStyle = P.sun;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 2]);
+    for (const rota of arq.rotas) {
+      if (!rota || !comCabo.has(arq.ilhas[rota.ilha].id)) continue;
+      const [ax, ay] = centro(rota.de % arq.n, Math.floor(rota.de / arq.n));
+      const [bx, by] = centro(rota.para % arq.n, Math.floor(rota.para / arq.n));
+      ctx.beginPath();
+      ctx.moveTo(ox + ax * s, oy + ay * s);
+      ctx.lineTo(ox + bx * s, oy + by * s);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
   const { meio } = arq.plataforma;
   const [nx, ny] = centro(meio, meio);
   ctx.fillStyle = P.sun;

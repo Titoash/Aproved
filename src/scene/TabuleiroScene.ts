@@ -3,7 +3,7 @@
  * módulos de `scene/tabuleiro`, recortado ao retângulo do palco. Só lê o store e despacha nada: o input é do DOM.
  */
 import Phaser from "phaser";
-import { ILHAS, OBSTACULOS, SUBESTACAO } from "../content/era1-arquipelago";
+import { ILHAS, OBSTACULOS, SUBESTACAO, type IlhaId } from "../content/era1-arquipelago";
 import { NIVEIS, type NivelId } from "../content/escalas";
 import { NUCLEO } from "../content/era1-nucleo";
 import { USINAS, VILA } from "../content/era1";
@@ -477,7 +477,8 @@ export class TabuleiroScene extends Phaser.Scene {
     ctx.stroke();
     ctx.translate(x, y);
     const cam = controleCamera().camDe("ilha");
-    desenharMinimapa(ctx, this.arq, cam, MINIMAPA.w, MINIMAPA.h, new Set(useGameStore.getState().state.mundo.ilhasAbertas));
+    const mundo = useGameStore.getState().state.mundo;
+    desenharMinimapa(ctx, this.arq, cam, MINIMAPA.w, MINIMAPA.h, new Set(mundo.ilhasAbertas), new Set(Object.keys(mundo.cabos) as IlhaId[]));
     ctx.restore();
   }
 }

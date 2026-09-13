@@ -10,3 +10,7 @@ Revisão da gestão sobre `claude/sessao-6` (9 commits): typecheck, 279 testes, 
 6. **🔬 como limiar** só acumula até a Sessão 7 existir: é o defeito registrado em §7 e a Sessão 7 o resolve.
 
 Nada disto reabre as decisões já tomadas. O que o autor apontar no playtest desta versão entra como itens novos aqui.
+
+---
+
+*Aplicados pela produção da Sessão 7: 1, 2, 3 e 4 no início (commits próprios); 5 na parte F; 6 nas partes B e C.*

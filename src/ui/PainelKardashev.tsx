@@ -35,8 +35,12 @@ export function PainelKardashev() {
             style={{ left: `${posicaoNaBarra(m.watts) * 100}%` }}
             title={`${m.nome}: ${formatarWatts(m.watts)} — ${m.texto}`}
           >
-            <span className="kardashev-marco-rotulo kardashev-marco-rotulo--longo">{m.nome}</span>
-            <span className="kardashev-marco-rotulo kardashev-marco-rotulo--curto">{m.nomeCurto}</span>
+            {m.semRotulo ? null : (
+              <>
+                <span className="kardashev-marco-rotulo kardashev-marco-rotulo--longo">{m.nome}</span>
+                <span className="kardashev-marco-rotulo kardashev-marco-rotulo--curto">{m.nomeCurto}</span>
+              </>
+            )}
           </div>
         ))}
         <div className="kardashev-cursor" style={{ left: `${pos * 100}%` }} />
