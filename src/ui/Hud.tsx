@@ -42,7 +42,8 @@ export function Hud() {
   } as CSSProperties;
 
   return (
-    <header className="hud" aria-label="Indicadores">
+    <>
+      <header className="hud" aria-label="Indicadores">
       <div className="hud-item hud-item--creditos">
         <button
           type="button"
@@ -57,14 +58,6 @@ export function Hud() {
             <span className="hud-rotulo">+{formatarTaxa(balanco.receitaPorSegundo)}</span>
           </span>
         </button>
-        {extratoAberto ? (
-          <div className="hud-extrato" role="dialog" aria-label="Extrato">
-            <Extrato />
-            <button type="button" className="pilula pilula--mini" onClick={() => setExtratoAberto(false)}>
-              Fechar
-            </button>
-          </div>
-        ) : null}
       </div>
 
       <div className="hud-item hud-item--oferta">
@@ -105,6 +98,16 @@ export function Hud() {
         <span className="hud-valor">🛡 {nucleo ? formatarPorcentagem(nucleo.estabilidade / 100) : "—"}</span>
         <span className="hud-rotulo">Estabilidade</span>
       </div>
-    </header>
+      </header>
+      {/* Fora do <header>: o HUD do celular rola na horizontal e recortaria o popover. */}
+      {extratoAberto ? (
+        <div className="hud-extrato" role="dialog" aria-label="Extrato">
+          <Extrato />
+          <button type="button" className="pilula pilula--mini" onClick={() => setExtratoAberto(false)}>
+            Fechar
+          </button>
+        </div>
+      ) : null}
+    </>
   );
 }
