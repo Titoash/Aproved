@@ -13,6 +13,8 @@ import { aplicarCascata, atualizarCronometro, deveCascatear, emScram, scram } fr
 import { passoEstabilidade } from "./estabilidade";
 import { capacidadeU, contar, espelhosEfetivosDe, passoCalor, potenciaNucleoKw } from "./nucleo";
 import { calorPorEspelho } from "./melhorias";
+import { passoRemocoes } from "./mundo";
+import { analisar, derivarRede } from "./producao";
 import { balancoRede, passoRede, type BalancoRede } from "./rede";
 import type { EventoJogo, GameState, NucleoState } from "./state";
 import { DT_ACUMULADO_MAX_MS, TICK_MS } from "./tempo";
@@ -26,12 +28,18 @@ export function potenciaNucleoEfetivaKw(nucleo: NucleoState | null): number {
   return nucleo.modoSeguro ? bruta * MODO_SEGURO.fatorPotencia : bruta;
 }
 
-/** Balanço da Rede do estado inteiro (usinas + Núcleo). É o que o HUD mostra. */
+/**
+ * Balanço da Rede do estado inteiro (usinas escoadas + Núcleo). É o que o HUD mostra.
+ * A oferta e a demanda vêm do mundo (alcance das subestações, cabos); as fórmulas de §4.1 não mudam.
+ */
 export function balancoDoEstado(state: GameState): BalancoRede {
-  return balancoRede(state.rede, {
+  const analise = analisar(state);
+  return balancoRede(derivarRede(state, analise), {
     potenciaNucleoKw: potenciaNucleoEfetivaKw(state.nucleo),
     dtS: TICK_MS / 1000,
     melhorias: state.melhorias,
+    ofertaUsinasKw: analise.ofertaKw,
+    demandaKw: analise.demandaKw,
   });
 }
 
@@ -97,38 +105,51 @@ export function passoNucleo(
   return { nucleo: proximo, pesquisaGanha, cascatou, entradaUs, saidaUs, t, faixa };
 }
 
-/** Avança o estado em um tick de `dtMs` (normalmente `TICK_MS`). Função pura. */
+/**
+ * Avança o estado em um tick de `dtMs` (normalmente `TICK_MS`). Função pura.
+ * Passo 0: a fila de remoção de obstáculos (GDD §2.4) — muda o mundo antes de medir a produção.
+ */
 export function tick(state: GameState, dtMs: number = TICK_MS): GameState {
   const tempoMs = state.tempoMs + dtMs;
 
+  // A fila de eventos é limpa a cada tick; só o próprio tick adiciona aqui.
+  const base: GameState = { ...state, tempoMs, eventos: [] };
+
+  // 0. obstáculos em remoção
+  const comMundo = passoRemocoes(base);
+  const analise = analisar(comMundo);
+  const eventos: EventoJogo[] = [...comMundo.eventos];
+
   // 1. potência do Núcleo com o Q do início do tick
-  const potenciaNucleo = potenciaNucleoEfetivaKw(state.nucleo);
+  const potenciaNucleo = potenciaNucleoEfetivaKw(comMundo.nucleo);
 
   // 2–3. Rede
-  const passo = passoRede(state.rede, dtMs, { potenciaNucleoKw: potenciaNucleo, melhorias: state.melhorias });
-  let rede = passo.rede;
-  let pesquisa = state.pesquisa;
-  let nucleo = state.nucleo;
-  // A fila de eventos é limpa a cada tick; só o próprio tick adiciona aqui.
-  const eventos: EventoJogo[] = [];
+  const passo = passoRede(derivarRede(comMundo, analise), dtMs, {
+    potenciaNucleoKw: potenciaNucleo,
+    melhorias: comMundo.melhorias,
+    ofertaUsinasKw: analise.ofertaKw,
+    demandaKw: analise.demandaKw,
+  });
+  let kwh = passo.rede.bateria.kwh;
+  let pesquisa = comMundo.pesquisa;
+  let nucleo = comMundo.nucleo;
 
   // 4–6. Núcleo
   if (nucleo) {
-    const pn = passoNucleo(nucleo, potenciaNucleo, dtMs, tempoMs, calorPorEspelho(state.melhorias));
+    const pn = passoNucleo(nucleo, potenciaNucleo, dtMs, tempoMs, calorPorEspelho(comMundo.melhorias));
     nucleo = pn.nucleo;
     pesquisa += pn.pesquisaGanha;
     if (pn.cascatou) {
-      rede = { ...rede, bateria: { ...rede.bateria, kwh: rede.bateria.kwh * (1 - CASCATA.perdaBateria) } };
+      kwh *= 1 - CASCATA.perdaBateria;
       eventos.push({ tipo: "cascata", entradaUs: pn.entradaUs, saidaUs: pn.saidaUs });
     }
   }
 
   return {
-    ...state,
-    tempoMs,
-    creditos: state.creditos + passo.receita,
+    ...comMundo,
+    creditos: comMundo.creditos + passo.receita,
     pesquisa,
-    rede,
+    rede: { ...comMundo.rede, bateria: { kwh } },
     nucleo,
     eventos,
   };

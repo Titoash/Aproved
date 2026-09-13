@@ -8,6 +8,7 @@ import { faixaDeCalor, pesquisaPorSegundo, temperatura } from "./calor";
 import { limitarEstabilidade } from "./estabilidade";
 import { calorPorEspelho } from "./melhorias";
 import { capacidadeU, equilibrioU, potenciaNucleoKw } from "./nucleo";
+import { analisar, derivarRede } from "./producao";
 import { balancoRede } from "./rede";
 import type { GameState } from "./state";
 
@@ -67,10 +68,13 @@ export function calcularOffline(state: GameState, agoraMs: number): { state: Gam
     };
   }
 
-  const balanco = balancoRede(state.rede, {
+  const analise = analisar(state);
+  const balanco = balancoRede(derivarRede(state, analise), {
     potenciaNucleoKw: potenciaNucleo,
     melhorias: state.melhorias,
     semBateria: true,
+    ofertaUsinasKw: analise.ofertaKw,
+    demandaKw: analise.demandaKw,
   });
   const creditos = balanco.receitaPorSegundo * OFFLINE.fatorRede * segundos;
   const pesquisa = pesquisaPorS * segundos;

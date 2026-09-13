@@ -8,7 +8,7 @@ import {
   multiplicadorPreco,
   potenciaOfertadaKw,
 } from "../rede";
-import { estadoInicial } from "../state";
+import { redeDeTeste } from "./ajuda";
 
 describe("multiplicador de preço por faixa de r", () => {
   it("0,7 → apagão ×0,5", () => {
@@ -51,34 +51,30 @@ describe("multiplicador de preço por faixa de r", () => {
 });
 
 describe("oferta e demanda", () => {
-  it("estado inicial: 0 kW ofertados e demanda de 5 kW", () => {
-    const { rede } = estadoInicial();
+  it("rede vazia: 0 kW ofertados, 0 de demanda", () => {
+    const rede = redeDeTeste();
     expect(potenciaOfertadaKw(rede)).toBe(0);
-    expect(demandaKw(rede)).toBe(ECONOMIA.demandaInicialKw);
-    expect(balancoRede(rede).faixa.id).toBe("apagao");
+    expect(demandaKw(rede)).toBe(0);
   });
 
-  it("cada vila soma sua demanda e cada usina soma sua potência", () => {
-    const s = estadoInicial();
-    s.rede.vilas = 2;
-    s.rede.usinas.cataVento = { quantidade: 4, nivel: 0 };
-    s.rede.usinas.painelSolar = { quantidade: 1, nivel: 1 };
-    expect(demandaKw(s.rede)).toBe(ECONOMIA.demandaInicialKw + 2 * VILA.demandaKw);
-    expect(potenciaOfertadaKw(s.rede)).toBeCloseTo(
+  it("cada bairro soma sua demanda e cada usina soma sua potência", () => {
+    const rede = redeDeTeste({ vilas: 2, cataVento: 4, painelSolar: 1, nivel: { painelSolar: 1 } });
+    expect(demandaKw(rede)).toBe(2 * VILA.demandaKw);
+    expect(potenciaOfertadaKw(rede)).toBeCloseTo(
       4 * USINAS.cataVento.potenciaKw + 1 * USINAS.painelSolar.potenciaKw * 1.5,
       10,
     );
   });
 
   it("acima de 1,25 × demanda entra em saturação e o preço cai", () => {
-    const s = estadoInicial();
-    s.rede.usinas.cataVento = { quantidade: 7, nivel: 0 }; // 7 kW contra 5 kW
-    const b = balancoRede(s.rede);
-    expect(b.r).toBeCloseTo(1.4, 10);
+    // 14 kW contra 1 bairro de 8 kW
+    const rede = redeDeTeste({ vilas: 1, cataVento: 14 });
+    const b = balancoRede(rede);
+    expect(b.r).toBeCloseTo(1.75, 10);
     expect(b.faixa.id).toBe("saturacao");
     expect(b.multiplicador).toBe(0.75);
-    expect(b.vendaDiretaKw).toBe(5);
-    expect(b.excedenteKw).toBe(2);
+    expect(b.vendaDiretaKw).toBe(VILA.demandaKw);
+    expect(b.excedenteKw).toBe(14 - VILA.demandaKw);
   });
 });
 

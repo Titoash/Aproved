@@ -118,12 +118,16 @@ export function cardParaEvento(evento: EventoJogo): string | null {
     case "primeiraCompra":
       if (evento.item === "tanque") return "tanque";
       if (evento.item === "bateria") return "bateria";
+      if (evento.item === "subestacao") return "subestacao";
       return null;
     case "melhoriaComprada":
       return evento.id === "rastreamentoSolar" ? "rastreamento" : null;
     case "cascata":
       return "cascata";
-    case "regiaoDesbloqueada":
-      return "local";
+    case "ilhaAberta":
+      return "ilha";
+    case "nucleoDesbloqueado":
+    case "obstaculoRemovido":
+      return null;
   }
 }

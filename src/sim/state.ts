@@ -1,12 +1,15 @@
-/** Tipos do estado do jogo e estado inicial (GDD §3, §8.1, §8.3, §11). */
+/** Tipos do estado do jogo e estado inicial (GDD §3, §8.1, §8.3, §8.5, §11). */
 import { ECONOMIA } from "../content/era1";
+import { ILHAS_INICIAIS, type IlhaId, type TipoObstaculo } from "../content/era1-arquipelago";
 import { NUCLEO } from "../content/era1-nucleo";
-import { REGIOES_INICIAIS } from "../content/era1-tabuleiro";
-import type { RegiaoId } from "./ilha";
+import { arquipelagoDaEra1 } from "./gerarArquipelago";
 
 export type UsinaId = "cataVento" | "painelSolar" | "turbinaEolica";
 export type MelhoriaId = "laminasDeFibra" | "rastreamentoSolar" | "grade7x7";
 export type Melhorias = Record<MelhoriaId, boolean>;
+
+/** Tudo o que o jogador coloca casa a casa no arquipélago (GDD §2.1, v0.6). */
+export type TipoConstrucao = UsinaId | "vila" | "bateria" | "subestacao";
 
 export interface UsinaEstado {
   quantidade: number;
@@ -20,11 +23,53 @@ export interface BateriaEstado {
   unidades: number;
 }
 
+/**
+ * Rede guardada no save. As **contagens são derivadas** das construções do mundo (GDD §2.1, v0.6):
+ * aqui só ficam o nível de melhoria de cada usina e a carga da bateria.
+ */
 export interface RedeState {
+  usinas: Record<UsinaId, { nivel: number }>;
+  bateria: { kwh: number };
+}
+
+/** Forma derivada, com as contagens do mundo: é o que as fórmulas de §4.1 consomem. */
+export interface RedeDerivada {
   usinas: Record<UsinaId, UsinaEstado>;
   vilas: number;
-  demandaBaseKw: number;
   bateria: BateriaEstado;
+}
+
+/* ------------------------------------------------------------------ */
+/* Mundo (GDD §2.4, v0.6)                                             */
+/* ------------------------------------------------------------------ */
+
+export interface Construcao {
+  tipo: TipoConstrucao;
+  /** Nível da construção. Por enquanto só a subestação evolui (teto ×2ⁿ, custo ×3ⁿ). */
+  nivel: number;
+  colocadoEmMs: number;
+}
+
+/** Uma remoção de obstáculo na fila; só a primeira está em curso (um Bipe de manutenção de cada vez). */
+export interface RemocaoEmCurso {
+  indice: number;
+  tipo: TipoObstaculo;
+  /** `tempoMs` do jogo em que começou; 0 = ainda esperando a vez. */
+  inicioMs: number;
+  /** `tempoMs` do jogo em que termina; 0 = ainda esperando a vez. */
+  fimMs: number;
+}
+
+export interface MundoState {
+  /** Casa (`y·n + x`) → construção. */
+  construcoes: Record<number, Construcao>;
+  /** Casas cujo obstáculo de nascença já saiu. O que resta é o do mapa menos estas. */
+  removidos: number[];
+  /** Fila de remoção; a primeira está em curso. */
+  remocoes: RemocaoEmCurso[];
+  ilhasAbertas: IlhaId[];
+  /** Ilhas ligadas à rede principal por cabo submarino. */
+  cabos: IlhaId[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -73,25 +118,22 @@ export interface NucleoState {
 /** Eventos de um tick ou de uma ação, para a UI reagir (cards). Limpos a cada tick; não vão para o save. */
 export type EventoJogo =
   | { tipo: "primeiroCarregamento" }
-  | { tipo: "primeiraCompra"; item: PecaId | "bateria" }
+  | { tipo: "primeiraCompra"; item: PecaId | "bateria" | "subestacao" }
   | { tipo: "melhoriaComprada"; id: MelhoriaId }
   | { tipo: "cascata"; entradaUs: number; saidaUs: number }
-  | { tipo: "regiaoDesbloqueada"; id: RegiaoId };
-
-/** O que o jogador muda na ilha (GDD §2.4). A geometria da ilha é derivada do conteúdo e não vive aqui. */
-export interface TabuleiroState {
-  /** Regiões desbloqueadas, na ordem em que foram abertas (a ordem define a alocação das vagas). */
-  regioesDesbloqueadas: RegiaoId[];
-}
+  | { tipo: "ilhaAberta"; id: IlhaId }
+  | { tipo: "nucleoDesbloqueado" }
+  | { tipo: "obstaculoRemovido"; indice: number };
 
 export interface GameState {
   versao: number;
   tempoMs: number;
   creditos: number;
-  /** Pesquisa acumulada (🔬). Desbloqueios comparam com este total; nada é gasto. */
+  /** Pesquisa acumulada (🔬). Desbloqueios comparam com este total; nada é gasto (a árvore é a Sessão 7). */
   pesquisa: number;
   era: 1;
   rede: RedeState;
+  mundo: MundoState;
   /** `null` enquanto o Núcleo não foi desbloqueado. */
   nucleo: NucleoState | null;
   /** Melhorias nomeadas compradas (GDD §8.2, §8.3). */
@@ -100,17 +142,12 @@ export interface GameState {
   salvoEmMs: number;
   /** Ids dos cards explicativos já mostrados. */
   cardsVistos: string[];
-  tabuleiro: TabuleiroState;
   /** Fila de eventos do tick/ação corrente (não persiste). */
   eventos: EventoJogo[];
 }
 
 /** Versão do formato de save. Incrementar ao mudar a forma do estado. */
-export const VERSAO_SAVE = 5;
-
-export function tabuleiroInicial(): TabuleiroState {
-  return { regioesDesbloqueadas: [...REGIOES_INICIAIS] };
-}
+export const VERSAO_SAVE = 6;
 
 export function melhoriasIniciais(): Melhorias {
   return { laminasDeFibra: false, rastreamentoSolar: false, grade7x7: false };
@@ -148,6 +185,15 @@ export function nucleoInicial(): NucleoState {
   };
 }
 
+/** A ilha principal nasce com a aldeia e uma subestação ao lado (GDD §8.5). */
+export function mundoInicial(): MundoState {
+  const arq = arquipelagoDaEra1();
+  const construcoes: Record<number, Construcao> = {};
+  for (const i of arq.inicio.aldeia) construcoes[i] = { tipo: "vila", nivel: 0, colocadoEmMs: 0 };
+  construcoes[arq.inicio.subestacao] = { tipo: "subestacao", nivel: 0, colocadoEmMs: 0 };
+  return { construcoes, removidos: [], remocoes: [], ilhasAbertas: [...ILHAS_INICIAIS], cabos: [] };
+}
+
 export function estadoInicial(): GameState {
   return {
     versao: VERSAO_SAVE,
@@ -156,18 +202,12 @@ export function estadoInicial(): GameState {
     pesquisa: 0,
     era: 1,
     rede: {
-      usinas: {
-        cataVento: { quantidade: 0, nivel: 0 },
-        painelSolar: { quantidade: 0, nivel: 0 },
-        turbinaEolica: { quantidade: 0, nivel: 0 },
-      },
-      vilas: 0,
-      demandaBaseKw: ECONOMIA.demandaInicialKw,
-      bateria: { kwh: 0, capacidadeKwh: 0, unidades: 0 },
+      usinas: { cataVento: { nivel: 0 }, painelSolar: { nivel: 0 }, turbinaEolica: { nivel: 0 } },
+      bateria: { kwh: 0 },
     },
+    mundo: mundoInicial(),
     nucleo: null,
     melhorias: melhoriasIniciais(),
-    tabuleiro: tabuleiroInicial(),
     salvoEmMs: 0,
     cardsVistos: [],
     eventos: [],

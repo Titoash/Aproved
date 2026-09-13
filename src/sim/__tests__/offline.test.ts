@@ -4,28 +4,29 @@ import { temperaturaNucleo } from "../calor";
 import { equilibrioU } from "../nucleo";
 import { calcularOffline, janelaOfflineMs } from "../offline";
 import { balancoRede } from "../rede";
-import { estadoInicial, nucleoInicial } from "../state";
+import { derivarRede } from "../producao";
+import { nucleoInicial } from "../state";
+import { estadoLimpo, plantar } from "./ajuda";
 import { configuracao } from "./nucleo.test";
 
 const H = 60 * 60 * 1000;
 
+/** 8 cata-ventos (8 kW) contra 1 bairro (8 kW) → ouro ×1,25 → ₵ 10/s. */
 function estadoRede() {
-  const s = estadoInicial();
-  s.rede.usinas.cataVento = { quantidade: 5, nivel: 0 }; // 5 kW contra 5 kW → ouro ×1,25 → ₵ 6,25/s
-  s.creditos = 100;
-  s.salvoEmMs = 1_000_000;
+  let s = plantar(plantar(estadoLimpo(100), "vila", 1), "cataVento", 8);
+  s = { ...s, salvoEmMs: 1_000_000 };
   return s;
 }
 
 describe("offline (GDD §7 v0.4)", () => {
   it("10 min rendem receita/s × 0,5 × 600 na Rede, sem bateria", () => {
     const s = estadoRede();
-    s.rede.bateria = { unidades: 1, capacidadeKwh: 20, kwh: 5 };
-    const { state, relatorio } = calcularOffline(s, s.salvoEmMs + 10 * 60 * 1000);
-    const receitaS = balancoRede(s.rede, { semBateria: true }).receitaPorSegundo;
-    expect(receitaS).toBeCloseTo(6.25, 6);
-    expect(relatorio.creditos).toBeCloseTo(6.25 * OFFLINE.fatorRede * 600, 6);
-    expect(state.creditos).toBeCloseTo(100 + 1875, 6);
+    const comBateria = plantar({ ...s, rede: { ...s.rede, bateria: { kwh: 5 } } }, "bateria", 1);
+    const { state, relatorio } = calcularOffline(comBateria, comBateria.salvoEmMs + 10 * 60 * 1000);
+    const receitaS = balancoRede(derivarRede(comBateria), { semBateria: true }).receitaPorSegundo;
+    expect(receitaS).toBeCloseTo(10, 6);
+    expect(relatorio.creditos).toBeCloseTo(10 * OFFLINE.fatorRede * 600, 6);
+    expect(state.creditos).toBeCloseTo(100 + 3000, 6);
     expect(state.rede.bateria.kwh).toBe(5);
     expect(relatorio.duracaoMs).toBe(600_000);
     expect(state.tempoMs).toBe(600_000);
@@ -36,7 +37,7 @@ describe("offline (GDD §7 v0.4)", () => {
     expect(janelaOfflineMs(s.salvoEmMs, s.salvoEmMs + 9 * H)).toBe(8 * H);
     const { relatorio } = calcularOffline(s, s.salvoEmMs + 9 * H);
     expect(relatorio.duracaoMs).toBe(OFFLINE.janelaMaxMs);
-    expect(relatorio.creditos).toBeCloseTo(6.25 * 0.5 * 8 * 3600, 3);
+    expect(relatorio.creditos).toBeCloseTo(10 * 0.5 * 8 * 3600, 3);
   });
 
   it("relógio para trás e save sem carimbo rendem 0", () => {
@@ -64,8 +65,8 @@ describe("offline (GDD §7 v0.4)", () => {
     expect(state.nucleo!.scramRestanteMs).toBe(0);
     expect(state.nucleo!.tempoAcimaDoLimiteMs).toBe(0);
     expect(state.nucleo!.cascatas).toBe(0);
-    // A Rede vende 5 kW das usinas + 11,2 kW do Núcleo = 16,2 kW contra 5 kW: saturação ×0,75, só 5 kW vendidos.
-    expect(relatorio.creditos).toBeCloseTo(5 * 0.75 * 0.5 * 600, 6);
+    // 8 kW das usinas + 11,2 kW do Núcleo = 19,2 kW contra 8 kW de demanda: saturação ×0,75, só 8 kW vendidos.
+    expect(relatorio.creditos).toBeCloseTo(8 * 0.75 * 0.5 * 600, 6);
   });
 
   it("T* ≥ 95 % → Núcleo desligado, relatório com o motivo, Q em 95 % da capacidade, nunca cascateia", () => {
@@ -79,7 +80,7 @@ describe("offline (GDD §7 v0.4)", () => {
     expect(state.nucleo!.cascatas).toBe(0);
     expect(temperaturaNucleo(state.nucleo!)).toBeCloseTo(0.95, 6);
     // Só a Rede rendeu, e sem o Núcleo na oferta.
-    expect(relatorio.creditos).toBeCloseTo(6.25 * 0.5 * 8 * 3600, 3);
+    expect(relatorio.creditos).toBeCloseTo(10 * 0.5 * 8 * 3600, 3);
   });
 
   it("h = 6 (T* = 100 %) também fica desligado; sem turbinas (Q* infinito) idem", () => {

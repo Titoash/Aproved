@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { estadoLimpo, plantar } from "./ajuda";
 import { CASCATA, MODO_SEGURO } from "../../content/era1-nucleo";
 import { temperaturaNucleo } from "../calor";
 import { custoReconstrucao, faltaParaLimpezaMs, podeLimparEntulho, reconstruir, scram } from "../cascata";
@@ -54,15 +55,15 @@ describe("Cascata", () => {
     const grade = configuracao(6.5);
     const s0 = comNucleo(grade, 100, { pesquisa: 123.4 });
     // Bateria cheia: o excedente do Núcleo não pode carregá-la antes da Cascata.
-    s0.rede.bateria = { kwh: 10, capacidadeKwh: 10, unidades: 1 };
-    const { s, ticks } = ateQue(s0, (x) => x.nucleo!.cascatas === 1, 200);
+    const s0b = plantar({ ...s0, rede: { ...s0.rede, bateria: { kwh: 20 } } }, "bateria", 1);
+    const { s, ticks } = ateQue(s0b, (x) => x.nucleo!.cascatas === 1, 200);
     expect(ticks).not.toBe(Infinity);
     const n = s.nucleo!;
     expect(n.estabilidade).toBe(20);
     expect(n.scramRestanteMs).toBe(CASCATA.scramMs);
     for (const i of ANEL1) if (grade[i]) expect(n.grade[i]?.tipo).toBe("entulho");
     expect(n.grade[ANEL2[0]]).toEqual({ tipo: "peca", id: "heliostato" });
-    expect(s.rede.bateria.kwh).toBeCloseTo(9, 10);
+    expect(s.rede.bateria.kwh).toBeCloseTo(18, 10);
     expect(s.pesquisa).toBeGreaterThan(123.4); // ganhou pesquisa até a Cascata e não perdeu nada
     expect(n.tempoAcimaDoLimiteMs).toBe(0);
     expect(n.ultimaCascataMs).toBe(s.tempoMs);
@@ -131,7 +132,7 @@ describe("acoplamento Núcleo → Rede e ordem do tick", () => {
     expect(b.ofertaUsinasKw).toBe(0);
     expect(b.ofertaNucleoKw).toBeCloseTo(16, 6);
     expect(b.ofertaKw).toBeCloseTo(16, 6);
-    expect(b.r).toBeCloseTo(16 / 5, 6);
+    expect(b.r).toBeCloseTo(16 / 8, 6); // a aldeia de nascença pede 8 kW
     expect(b.faixa.id).toBe("saturacao");
   });
 
@@ -161,10 +162,9 @@ describe("acoplamento Núcleo → Rede e ordem do tick", () => {
   });
 
   it("sem Núcleo o tick da Sessão 1 não muda", () => {
-    const s0 = estadoInicial();
-    s0.rede.usinas.cataVento = { quantidade: 6, nivel: 0 };
-    s0.creditos = 0;
-    expect(avancarTicks(s0, 100).creditos).toBeCloseTo(50, 6);
+    // 10 kW contra um bairro de 8 kW: faixa neutra ×1, vende 8 kW por 10 s.
+    const s0 = plantar(plantar(estadoLimpo(0), "vila", 1), "cataVento", 10);
+    expect(avancarTicks(s0, 100).creditos).toBeCloseTo(80, 6);
   });
 });
 

@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { derivarRede } from "../producao";
+import { estadoLimpo, plantar } from "./ajuda";
 import { MELHORIAS } from "../../content/era1";
 import { calorPorEspelho, comprarMelhoria, fatorPotenciaUsina, podeComprarMelhoria } from "../melhorias";
 import { balancoDeCalor, equilibrioU } from "../nucleo";
@@ -19,14 +21,12 @@ describe("melhorias nomeadas", () => {
   });
 
   it("a oferta da Rede e o tick leem as Lâminas do estado", () => {
-    const s = estadoInicial();
-    s.rede.usinas.cataVento = { quantidade: 4, nivel: 0 };
-    s.melhorias.laminasDeFibra = true;
-    expect(potenciaOfertadaKw(s.rede, s.melhorias)).toBeCloseTo(5, 10);
-    expect(balancoDoEstado(s).ofertaUsinasKw).toBeCloseTo(5, 10);
-    s.creditos = 0;
-    // 5 kW contra 5 kW → zona de ouro ×1,25 → ₵ 6,25/s
-    expect(avancarTicks(s, 10).creditos).toBeCloseTo(6.25, 6);
+    const base = plantar(plantar(estadoLimpo(0), "vila", 1), "cataVento", 8);
+    const s = { ...base, melhorias: { ...base.melhorias, laminasDeFibra: true } };
+    expect(potenciaOfertadaKw(derivarRede(s), s.melhorias)).toBeCloseTo(10, 10);
+    expect(balancoDoEstado(s).ofertaUsinasKw).toBeCloseTo(10, 10);
+    // 10 kW contra 8 kW → faixa neutra ×1 → ₵ 8/s
+    expect(avancarTicks(s, 10).creditos).toBeCloseTo(8, 6);
   });
 
   it("Rastreamento solar: espelhos a 5 u/s; h = 5, t = 2 vai de Q* = 83,3 para 104,2", () => {

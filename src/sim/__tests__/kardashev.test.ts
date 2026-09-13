@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { estadoLimpo, plantar } from "./ajuda";
 import { MARCOS_KARDASHEV } from "../../content/kardashev";
 import { formatarWatts, indiceK, kVisivel, posicaoNaBarra, potenciaInstaladaW, proximoMarco } from "../kardashev";
 import { equilibrioU } from "../nucleo";
-import { estadoInicial, nucleoInicial } from "../state";
+import { nucleoInicial } from "../state";
 import { configuracao } from "./nucleo.test";
 
 describe("medidor Kardashev (GDD §6)", () => {
@@ -33,11 +34,9 @@ describe("medidor Kardashev (GDD §6)", () => {
   });
 
   it("potência instalada soma usinas e Núcleo, em W, vendida ou não", () => {
-    const s = estadoInicial();
-    s.rede.usinas.cataVento = { quantidade: 5, nivel: 0 };
     const grade = configuracao(5);
-    s.nucleo = { ...nucleoInicial(), grade, calorU: equilibrioU(grade) };
-    expect(potenciaInstaladaW(s)).toBeCloseTo(21_000, 3); // 5 kW + 16 kW, demanda é só 5 kW
+    const s = { ...plantar(estadoLimpo(), "cataVento", 5), nucleo: { ...nucleoInicial(), grade, calorU: equilibrioU(grade) } };
+    expect(potenciaInstaladaW(s)).toBeCloseTo(21_000, 3); // 5 kW + 16 kW, sem bairro nenhum
   });
 
   it("formatação", () => {

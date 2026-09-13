@@ -1,68 +1,48 @@
 import { describe, expect, it } from "vitest";
-import { BATERIA, USINAS, VILA } from "../../content/era1";
-import { comprarBateria, comprarUsina, comprarVila, desbloqueado, melhorarUsina } from "../acoes";
-import { custoMelhoria, custoUnidade } from "../custos";
+import { BATERIA, USINAS } from "../../content/era1";
+import { custoProximaMelhoria, desbloqueado, melhorarUsina, tipoDisponivel } from "../acoes";
+import { custoMelhoria } from "../custos";
+import { derivarRede } from "../producao";
 import { potenciaOfertadaKw } from "../rede";
-import { estadoInicial } from "../state";
+import { estadoLimpo, plantar } from "./ajuda";
 
-describe("ações", () => {
-  it("comprar usina desconta o custo e aumenta a potência", () => {
-    const s0 = estadoInicial();
-    const s1 = comprarUsina(s0, "cataVento")!;
-    expect(s1.creditos).toBeCloseTo(s0.creditos - USINAS.cataVento.custoBase, 10);
-    expect(s1.rede.usinas.cataVento.quantidade).toBe(1);
-    expect(potenciaOfertadaKw(s1.rede)).toBe(USINAS.cataVento.potenciaKw);
-    expect(s0.rede.usinas.cataVento.quantidade).toBe(0);
-  });
-
-  it("não compra sem créditos", () => {
-    const s = { ...estadoInicial(), creditos: 1 };
-    expect(comprarUsina(s, "cataVento")).toBeNull();
-    expect(comprarVila(s)).toBeNull();
-  });
-
-  it("respeita o desbloqueio por quantidade", () => {
-    const s = { ...estadoInicial(), creditos: 1e9 };
+describe("ações da Rede (desbloqueios e níveis)", () => {
+  it("respeita o desbloqueio por quantidade colocada", () => {
+    const s = estadoLimpo();
     expect(desbloqueado(s, USINAS.painelSolar.desbloqueio)).toBe(false);
-    expect(comprarUsina(s, "painelSolar")).toBeNull();
-    const [id, n] = USINAS.painelSolar.desbloqueio!.usina!;
-    s.rede.usinas[id] = { quantidade: n, nivel: 0 };
-    expect(desbloqueado(s, USINAS.painelSolar.desbloqueio)).toBe(true);
-    expect(comprarUsina(s, "painelSolar")).not.toBeNull();
-  });
-
-  it("melhorar exige ao menos uma unidade e sobe o nível", () => {
-    const s = { ...estadoInicial(), creditos: 1e9 };
-    expect(melhorarUsina(s, "cataVento")).toBeNull();
-    const s1 = comprarUsina(s, "cataVento")!;
-    const s2 = melhorarUsina(s1, "cataVento")!;
-    expect(s2.rede.usinas.cataVento.nivel).toBe(1);
-    expect(s1.creditos - s2.creditos).toBeCloseTo(custoMelhoria(USINAS.cataVento, 0), 10);
-    expect(potenciaOfertadaKw(s2.rede)).toBeGreaterThan(potenciaOfertadaKw(s1.rede));
+    expect(tipoDisponivel(s, "painelSolar")).toBe(false);
+    const [, n] = USINAS.painelSolar.desbloqueio!.usina!;
+    const s1 = plantar(s, "cataVento", n);
+    expect(desbloqueado(s1, USINAS.painelSolar.desbloqueio)).toBe(true);
+    expect(tipoDisponivel(s1, "painelSolar")).toBe(true);
   });
 
   it("desbloqueio por pesquisa compara com o 🔬 acumulado, sem gastar", () => {
-    const s = { ...estadoInicial(), creditos: 1e9 };
+    const s = estadoLimpo();
     expect(USINAS.turbinaEolica.desbloqueio?.pesquisa).toBe(40);
-    expect(desbloqueado(s, USINAS.turbinaEolica.desbloqueio)).toBe(false);
-    expect(comprarUsina(s, "turbinaEolica")).toBeNull();
-    expect(comprarBateria(s)).toBeNull();
-    s.pesquisa = 40;
-    const s1 = comprarUsina(s, "turbinaEolica")!;
-    expect(s1).not.toBeNull();
-    expect(s1.pesquisa).toBe(40);
-    expect(comprarBateria(s1)).not.toBeNull();
+    expect(tipoDisponivel(s, "turbinaEolica")).toBe(false);
+    expect(tipoDisponivel(s, "bateria")).toBe(false);
+    const s1 = { ...s, pesquisa: BATERIA.desbloqueio!.pesquisa! };
+    expect(tipoDisponivel(s1, "bateria")).toBe(true);
+    expect(tipoDisponivel(s1, "turbinaEolica")).toBe(false);
+    const s2 = { ...s, pesquisa: 40 };
+    expect(tipoDisponivel(s2, "turbinaEolica")).toBe(true);
+    expect(s2.pesquisa).toBe(40);
   });
 
-  it("vila aumenta a demanda e bateria aumenta a capacidade", () => {
-    const s = { ...estadoInicial(), creditos: 1e9, pesquisa: BATERIA.desbloqueio!.pesquisa! };
-    const s1 = comprarVila(s)!;
-    expect(s1.rede.vilas).toBe(1);
-    expect(s.creditos - s1.creditos).toBeCloseTo(custoUnidade(VILA, 0), 10);
-    const s2 = comprarBateria(s1)!;
-    expect(s2.rede.bateria.unidades).toBe(1);
-    expect(s2.rede.bateria.capacidadeKwh).toBe(BATERIA.capacidadeKwh);
-    const s3 = comprarBateria(s2)!;
-    expect(s3.rede.bateria.capacidadeKwh).toBe(2 * BATERIA.capacidadeKwh);
+  it("melhorar exige ao menos uma unidade colocada e sobe o nível", () => {
+    const s = estadoLimpo();
+    expect(melhorarUsina(s, "cataVento")).toBeNull();
+    const s1 = plantar(s, "cataVento", 1);
+    const s2 = melhorarUsina(s1, "cataVento")!;
+    expect(s2.rede.usinas.cataVento.nivel).toBe(1);
+    expect(s1.creditos - s2.creditos).toBeCloseTo(custoMelhoria(USINAS.cataVento, 0), 10);
+    expect(custoProximaMelhoria(s2, "cataVento")).toBeCloseTo(custoMelhoria(USINAS.cataVento, 1), 10);
+    expect(potenciaOfertadaKw(derivarRede(s2))).toBeGreaterThan(potenciaOfertadaKw(derivarRede(s1)));
+  });
+
+  it("não melhora sem créditos", () => {
+    const s = { ...plantar(estadoLimpo(), "cataVento", 1), creditos: 1 };
+    expect(melhorarUsina(s, "cataVento")).toBeNull();
   });
 });

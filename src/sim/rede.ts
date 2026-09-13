@@ -6,7 +6,7 @@ import { BATERIA, ECONOMIA, FAIXAS_R, USINAS, VILA, type FaixaR } from "../conte
 import { fatorMelhoria } from "./custos";
 import { fatorPotenciaUsina } from "./melhorias";
 import { TICK_MS } from "./tempo";
-import type { BateriaEstado, Melhorias, RedeState, UsinaEstado, UsinaId } from "./state";
+import type { BateriaEstado, Melhorias, RedeDerivada, UsinaEstado, UsinaId } from "./state";
 
 /* ------------------------------------------------------------------ */
 /* Faixas de r (tabela em content/era1.ts)                            */
@@ -33,7 +33,7 @@ export function potenciaUsina(id: UsinaId, estado: UsinaEstado, melhorias?: Melh
   return USINAS[id].potenciaKw * estado.quantidade * fatorMelhoria(estado.nivel) * fatorPotenciaUsina(melhorias, id);
 }
 
-export function potenciaOfertadaKw(rede: RedeState, melhorias?: Melhorias): number {
+export function potenciaOfertadaKw(rede: RedeDerivada, melhorias?: Melhorias): number {
   let total = 0;
   for (const id of Object.keys(rede.usinas) as UsinaId[]) {
     total += potenciaUsina(id, rede.usinas[id], melhorias);
@@ -41,8 +41,9 @@ export function potenciaOfertadaKw(rede: RedeState, melhorias?: Melhorias): numb
   return total;
 }
 
-export function demandaKw(rede: RedeState): number {
-  return rede.demandaBaseKw + rede.vilas * VILA.demandaKw;
+/** Demanda: só os bairros (GDD §2.5, v0.6). Bairro sem subestação no alcance não conta — quem filtra é `producao`. */
+export function demandaKw(rede: RedeDerivada): number {
+  return rede.vilas * VILA.demandaKw;
 }
 
 export function razaoOfertaDemanda(ofertaKw: number, demanda: number): number {
@@ -121,6 +122,10 @@ export interface OpcoesBalanco {
   melhorias?: Melhorias;
   /** Offline (GDD §7): a bateria nem carrega nem descarrega. */
   semBateria?: boolean;
+  /** Oferta das usinas já escoada pelo mundo (GDD §2.4, v0.6). Sem isto, conta-se pela quantidade. */
+  ofertaUsinasKw?: number;
+  /** Demanda dos bairros atendidos por subestação. Sem isto, conta-se pelo número de vilas. */
+  demandaKw?: number;
 }
 
 export interface BalancoRede {
@@ -156,12 +161,12 @@ export interface BalancoRede {
 const DT_PADRAO_S = TICK_MS / 1000;
 const EPSILON_KW = 1e-9;
 
-export function balancoRede(rede: RedeState, opcoes: OpcoesBalanco = {}): BalancoRede {
+export function balancoRede(rede: RedeDerivada, opcoes: OpcoesBalanco = {}): BalancoRede {
   const potenciaNucleoKw = Math.max(0, opcoes.potenciaNucleoKw ?? 0);
   const dtS = opcoes.dtS ?? DT_PADRAO_S;
-  const ofertaUsinasKw = potenciaOfertadaKw(rede, opcoes.melhorias);
+  const ofertaUsinasKw = opcoes.ofertaUsinasKw ?? potenciaOfertadaKw(rede, opcoes.melhorias);
   const ofertaKw = ofertaUsinasKw + potenciaNucleoKw;
-  const demanda = demandaKw(rede);
+  const demanda = opcoes.demandaKw ?? demandaKw(rede);
   const rBruto = razaoOfertaDemanda(ofertaKw, demanda);
   const faixaBruta = faixaDeR(rBruto);
   const vendaDiretaKw = Math.min(ofertaKw, demanda);
@@ -210,7 +215,7 @@ export function balancoRede(rede: RedeState, opcoes: OpcoesBalanco = {}): Balanc
 }
 
 export interface PassoRede {
-  rede: RedeState;
+  rede: RedeDerivada;
   balanco: BalancoRede;
   /** Energia vendida no passo, em kW·s. */
   vendidoKwS: number;
@@ -223,7 +228,7 @@ export interface PassoRede {
  * Um passo da rede, sempre nesta ordem:
  * produção (usinas + Núcleo) → venda até a demanda → bateria (excedente/déficit) → receita com multiplicador de r.
  */
-export function passoRede(rede: RedeState, dtMs: number, opcoes: Omit<OpcoesBalanco, "dtS"> = {}): PassoRede {
+export function passoRede(rede: RedeDerivada, dtMs: number, opcoes: Omit<OpcoesBalanco, "dtS"> = {}): PassoRede {
   const dtS = dtMs / 1000;
   const balanco = balancoRede(rede, { ...opcoes, dtS });
   const bat = opcoes.semBateria

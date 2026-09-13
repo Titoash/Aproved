@@ -1,31 +1,34 @@
-import { REGIOES } from "../content/era1-tabuleiro";
-import type { RegiaoId } from "./ilha";
 /**
  * Persistência: único arquivo que toca `localStorage`.
  * Salva a cada `INTERVALO_SAVE_MS`, carrega no início, exporta/importa JSON,
  * migra saves de versões anteriores.
  */
 import { MELHORIAS } from "../content/era1";
+import { ILHAS, ORDEM_OBSTACULOS, type IlhaId, type TipoObstaculo } from "../content/era1-arquipelago";
 import { NUCLEO, PECAS } from "../content/era1-nucleo";
+import { arquipelagoDaEra1 } from "./gerarArquipelago";
+import { migrarParaMundo } from "./migracao-v6";
 import { anel } from "./nucleo";
 import { calcularOffline, type RelatorioOffline } from "./offline";
-import { capacidadeBateriaKwh } from "./rede";
 import {
   estadoInicial,
   gradeVazia,
   indiceReceptor,
   melhoriasIniciais,
-  tabuleiroInicial,
-  type TabuleiroState,
+  mundoInicial,
   nucleoInicial,
   VERSAO_SAVE,
   type Casa,
+  type Construcao,
   type GameState,
   type MelhoriaId,
   type Melhorias,
+  type MundoState,
   type NucleoState,
   type PecaId,
   type RedeState,
+  type RemocaoEmCurso,
+  type TipoConstrucao,
   type UsinaId,
 } from "./state";
 
@@ -132,15 +135,60 @@ function normalizarCardsVistos(bruto: unknown): string[] {
   return Array.from(new Set(bruto.filter((x): x is string => typeof x === "string")));
 }
 
-/** Regiões conhecidas na ordem salva; as iniciais entram sempre (um save nunca pode "perder" o Campo dos Ventos). */
-function normalizarTabuleiro(bruto: unknown): TabuleiroState {
-  const base = tabuleiroInicial();
-  const lista = bruto && typeof bruto === "object" ? (bruto as Record<string, unknown>).regioesDesbloqueadas : undefined;
-  const conhecidas = new Set(REGIOES.map((r) => r.id));
-  const salvas = Array.isArray(lista) ? lista.filter((id): id is RegiaoId => typeof id === "string" && conhecidas.has(id as RegiaoId)) : [];
-  const ordem: RegiaoId[] = [];
-  for (const id of [...base.regioesDesbloqueadas, ...salvas]) if (!ordem.includes(id)) ordem.push(id);
-  return { regioesDesbloqueadas: ordem };
+const TIPOS_CONSTRUCAO: readonly TipoConstrucao[] = ["cataVento", "painelSolar", "turbinaEolica", "vila", "bateria", "subestacao"];
+
+function ehTipoConstrucao(valor: unknown): valor is TipoConstrucao {
+  return typeof valor === "string" && TIPOS_CONSTRUCAO.includes(valor as TipoConstrucao);
+}
+
+function ehIlhaId(valor: unknown): valor is IlhaId {
+  return typeof valor === "string" && ILHAS.some((i) => i.id === valor);
+}
+
+/** Mundo salvo: construções em casas válidas, obstáculos removidos que existiam, ilhas e cabos conhecidos. */
+function normalizarMundo(bruto: unknown): MundoState {
+  const arq = arquipelagoDaEra1();
+  const base = mundoInicial();
+  const m = objeto(bruto);
+  if (bruto === undefined || bruto === null) return base;
+
+  const construcoes: Record<number, Construcao> = {};
+  for (const [chave, valor] of Object.entries(objeto(m.construcoes))) {
+    const i = Number(chave);
+    if (!Number.isInteger(i) || i < 0 || i >= arq.n * arq.n || arq.terra[i] !== 1) continue;
+    const c = objeto(valor);
+    if (!ehTipoConstrucao(c.tipo)) continue;
+    construcoes[i] = { tipo: c.tipo, nivel: inteiro(c.nivel, 0), colocadoEmMs: numero(c.colocadoEmMs, 0) };
+  }
+
+  const removidos = Array.isArray(m.removidos)
+    ? Array.from(new Set(m.removidos.filter((i): i is number => Number.isInteger(i) && i >= 0 && i < arq.n * arq.n && arq.obstaculos[i] !== 255)))
+    : [];
+
+  const remocoes: RemocaoEmCurso[] = Array.isArray(m.remocoes)
+    ? m.remocoes
+        .map((bruta) => {
+          const r = objeto(bruta);
+          const indice = inteiro(r.indice, -1);
+          const tipoBruto = r.tipo;
+          const valido =
+            indice >= 0 &&
+            indice < arq.n * arq.n &&
+            arq.obstaculos[indice] !== 255 &&
+            typeof tipoBruto === "string" &&
+            (ORDEM_OBSTACULOS as readonly string[]).includes(tipoBruto);
+          if (!valido) return null;
+          return { indice, tipo: tipoBruto as TipoObstaculo, inicioMs: numero(r.inicioMs, 0), fimMs: numero(r.fimMs, 0) };
+        })
+        .filter((r): r is RemocaoEmCurso => r !== null)
+    : [];
+
+  const abertas = Array.isArray(m.ilhasAbertas) ? m.ilhasAbertas.filter(ehIlhaId) : [];
+  const ilhasAbertas: IlhaId[] = [];
+  for (const id of [...base.ilhasAbertas, ...abertas]) if (!ilhasAbertas.includes(id)) ilhasAbertas.push(id);
+  const cabos = Array.isArray(m.cabos) ? Array.from(new Set(m.cabos.filter(ehIlhaId))).filter((id) => id !== "principal") : [];
+
+  return { construcoes, removidos, remocoes, ilhasAbertas, cabos };
 }
 
 function normalizarMelhorias(bruto: unknown): Melhorias {
@@ -160,24 +208,11 @@ function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState 
   const usinas = { ...base.rede.usinas };
   for (const id of IDS_USINA) {
     const u = objeto(usinasBrutas[id]);
-    usinas[id] = {
-      quantidade: inteiro(u.quantidade, base.rede.usinas[id].quantidade),
-      nivel: inteiro(u.nivel, base.rede.usinas[id].nivel),
-    };
+    usinas[id] = { nivel: inteiro(u.nivel, base.rede.usinas[id].nivel) };
   }
 
-  const unidades = inteiro(bateriaBruta.unidades, base.rede.bateria.unidades);
-  const capacidadeKwh = capacidadeBateriaKwh(unidades);
-  const rede: RedeState = {
-    usinas,
-    vilas: inteiro(redeBruta.vilas, base.rede.vilas),
-    demandaBaseKw: numero(redeBruta.demandaBaseKw, base.rede.demandaBaseKw),
-    bateria: {
-      unidades,
-      capacidadeKwh,
-      kwh: Math.min(numero(bateriaBruta.kwh, 0), capacidadeKwh),
-    },
-  };
+  // As contagens são derivadas do mundo (GDD §2.1, v0.6): aqui só o nível e a carga.
+  const rede: RedeState = { usinas, bateria: { kwh: numero(bateriaBruta.kwh, 0) } };
 
   return {
     versao: VERSAO_SAVE,
@@ -190,7 +225,7 @@ function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState 
     melhorias: normalizarMelhorias(bruto.melhorias),
     salvoEmMs: typeof bruto.salvoEmMs === "number" && bruto.salvoEmMs > 0 ? bruto.salvoEmMs : agoraMs,
     cardsVistos: normalizarCardsVistos(bruto.cardsVistos),
-    tabuleiro: normalizarTabuleiro(bruto.tabuleiro),
+    mundo: normalizarMundo(bruto.mundo),
     eventos: [],
   };
 }
@@ -201,6 +236,8 @@ function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState 
  * v2 → v3: entram `melhorias` (vazias) e `salvoEmMs` (= agora, sem ganho offline na primeira carga).
  * v3 → v4: entram `nucleo.lado` (5), `nucleo.ultimaCascata` (null) e `cardsVistos` ([]).
  * v4 → v5: entra `tabuleiro` com as regiões iniciais da ilha (GDD §2.4).
+ * v5 → v6: a Rede vira colocação (GDD §2.1, v0.6): as contagens viram construções na ilha principal,
+ *          o excedente vira ₵, e `tabuleiro` (regiões/vagas) some — quem manda agora é `mundo`.
  */
 function migrar(bruto: Record<string, unknown>, agoraMs: number): Record<string, unknown> {
   const versao = bruto.versao;
@@ -224,8 +261,27 @@ function migrar(bruto: Record<string, unknown>, agoraMs: number): Record<string,
     v = 4;
   }
   if (v === 4) {
-    atual = { ...atual, tabuleiro: tabuleiroInicial(), versao: 5 };
+    atual = { ...atual, tabuleiro: { regioesDesbloqueadas: [] }, versao: 5 };
     v = 5;
+  }
+  if (v === 5) {
+    const redeBruta = objeto(atual.rede);
+    const usinasBrutas = objeto(redeBruta.usinas);
+    const conta = (id: string) => inteiro(objeto(usinasBrutas[id]).quantidade, 0);
+    const { mundo, reembolso } = migrarParaMundo({
+      cataVento: conta("cataVento"),
+      turbinaEolica: conta("turbinaEolica"),
+      painelSolar: conta("painelSolar"),
+      vila: inteiro(redeBruta.vilas, 0),
+      bateria: inteiro(objeto(redeBruta.bateria).unidades, 0),
+    });
+    const rede = {
+      usinas: Object.fromEntries(IDS_USINA.map((id) => [id, { nivel: inteiro(objeto(usinasBrutas[id]).nivel, 0) }])),
+      bateria: { kwh: numero(objeto(redeBruta.bateria).kwh, 0) },
+    };
+    const { tabuleiro: _tabuleiro, ...resto } = atual;
+    atual = { ...resto, rede, mundo, creditos: numero(atual.creditos, 0) + reembolso, versao: 6 };
+    v = 6;
   }
   return { ...atual, versao: v };
 }

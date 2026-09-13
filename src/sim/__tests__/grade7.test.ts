@@ -94,7 +94,7 @@ describe("Grade 7×7 (Parte D)", () => {
     const s0 = estadoInicial();
     s0.creditos = 1234;
     s0.pesquisa = 77;
-    s0.rede.usinas.painelSolar = { quantidade: 3, nivel: 1 };
+    s0.rede.usinas.painelSolar = { nivel: 1 };
     s0.melhorias.laminasDeFibra = true;
     s0.nucleo = { ...nucleoInicial(), grade: configuracao(5), calorU: 80, estabilidade: 12, cascatas: 2 };
     const v3 = JSON.parse(JSON.stringify(s0));
@@ -108,7 +108,7 @@ describe("Grade 7×7 (Parte D)", () => {
     expect(s.versao).toBe(VERSAO_SAVE);
     expect(s.creditos).toBe(1234);
     expect(s.pesquisa).toBe(77);
-    expect(s.rede.usinas.painelSolar).toEqual({ quantidade: 3, nivel: 1 });
+    expect(s.rede.usinas.painelSolar).toEqual({ nivel: 1 });
     expect(s.melhorias).toEqual({ laminasDeFibra: true, rastreamentoSolar: false, grade7x7: false });
     expect(s.nucleo!.lado).toBe(5);
     expect(s.nucleo!.grade).toEqual(configuracao(5));
