@@ -2,8 +2,9 @@
  * Balança da Rede (GDD §4.1): potência ofertada, demanda, razão `r`,
  * multiplicador de preço por faixa, bateria e receita.
  */
-import { BATERIA, ECONOMIA, FAIXAS_R, USINAS, type FaixaR } from "../content/era1";
-import { DENSIDADES } from "../content/cidade-era1";
+import { BATERIA, ECONOMIA, FAIXAS_R, type FaixaR } from "../content/era1";
+import { USINAS } from "../content/usinas";
+import { DENSIDADES } from "../content/cidade";
 import { fatorMelhoria } from "./custos";
 import { efeitosNeutros, type EfeitosArvore } from "./efeitos";
 import { TICK_MS } from "./tempo";
@@ -59,9 +60,12 @@ export function capacidadeBateriaKwh(unidades: number, efeitos: EfeitosArvore = 
   return unidades * BATERIA.capacidadeKwh * efeitos.capacidadeBateriaFator;
 }
 
-/** Potência máxima de carga ou descarga, em kW: ±10 kW por unidade (GDD §4.1). */
+/**
+ * Potência máxima de carga ou descarga, em kW: ±10 kW por unidade da Era 1 e ±1 000 kW por bateria de
+ * rede (GDD §4.1 e Parte 2 §3.2). Quem soma é `producao.bateriaDoMundo`; aqui só se lê.
+ */
 export function potenciaBateriaKw(bateria: BateriaEstado): number {
-  return bateria.unidades * BATERIA.potenciaKw;
+  return bateria.potenciaKw ?? bateria.unidades * BATERIA.potenciaKw;
 }
 
 /* ------------------------------------------------------------------ */
@@ -119,6 +123,8 @@ export function atualizarBateria(
 /* ------------------------------------------------------------------ */
 
 export interface OpcoesBalanco {
+  /** ₵/s de combustível das térmicas: a receita líquida é a receita menos isto (GDD Parte 2 §1). */
+  custoOperacaoPorSegundo?: number;
   /** Potência do Núcleo que entra na oferta (GDD §2.3). */
   potenciaNucleoKw?: number;
   /** Intervalo do tick, em s: limita o que a bateria cobre/absorve por energia. */
@@ -163,6 +169,10 @@ export interface BalancoRede {
   tarifa: number;
   /** Estimativa de receita por segundo real no estado atual. */
   receitaPorSegundo: number;
+  /** ₵/s de combustível (térmicas a gás da Era 2). */
+  custoPorSegundo: number;
+  /** Receita − custo: é o número que importa a partir da Era 2 (GDD Parte 2 §1). */
+  receitaLiquidaPorSegundo: number;
 }
 
 /** Tick padrão para o limite de energia da bateria, quando o chamador não informa. */
@@ -201,6 +211,7 @@ export function balancoRede(rede: RedeDerivada, opcoes: OpcoesBalanco = {}): Bal
   // Receita/s = vendido (kW) × preço (₵ por kW·s) × tarifa da cidade × multiplicador da balança (GDD §7).
   const tarifa = opcoes.tarifa ?? 1;
   const receitaPorSegundo = vendidoKw * ECONOMIA.precoBase * tarifa * faixa.multiplicador;
+  const custoPorSegundo = Math.max(0, opcoes.custoOperacaoPorSegundo ?? 0);
 
   return {
     ofertaKw,
@@ -221,6 +232,8 @@ export function balancoRede(rede: RedeDerivada, opcoes: OpcoesBalanco = {}): Bal
     motivoBateria,
     tarifa,
     receitaPorSegundo,
+    custoPorSegundo,
+    receitaLiquidaPorSegundo: receitaPorSegundo - custoPorSegundo,
   };
 }
 
@@ -231,7 +244,10 @@ export interface PassoRede {
   vendidoKwS: number;
   carregadoKwh: number;
   descarregadoKwh: number;
+  /** ₵ ganhos no passo, já **líquidos** do combustível queimado (GDD Parte 2 §1). */
   receita: number;
+  /** ₵ de combustível gastos no passo. */
+  custo: number;
 }
 
 /**
@@ -245,13 +261,15 @@ export function passoRede(rede: RedeDerivada, dtMs: number, opcoes: Omit<OpcoesB
     ? { bateria: rede.bateria, carregadoKwh: 0, descarregadoKwh: 0 }
     : atualizarBateria(rede.bateria, balanco.excedenteKw, balanco.deficitKw, dtS);
   const vendidoKwS = balanco.vendaDiretaKw * dtS + bat.descarregadoKwh / ECONOMIA.kwhPorKwSegundo;
-  const receita = vendidoKwS * ECONOMIA.precoBase * balanco.tarifa * balanco.multiplicador;
+  const bruta = vendidoKwS * ECONOMIA.precoBase * balanco.tarifa * balanco.multiplicador;
+  const custo = balanco.custoPorSegundo * dtS;
   return {
     rede: { ...rede, bateria: bat.bateria },
     balanco,
     vendidoKwS,
     carregadoKwh: bat.carregadoKwh,
     descarregadoKwh: bat.descarregadoKwh,
-    receita,
+    receita: bruta - custo,
+    custo,
   };
 }

@@ -5,7 +5,7 @@
  * As três melhorias nomeadas das sessões 3 e 4 (Lâminas de fibra, Rastreamento solar, Grade 7×7)
  * viraram nós daqui, e os desbloqueios de usina passaram a **gastar** 🔬 em vez de só exigir.
  */
-import { NOS, NO_POR_ID, type NoDef } from "../content/arvore-era1";
+import { NOS, NO_POR_ID, type NoDef } from "../content/arvore";
 import { expandirGrade } from "./nucleo";
 import type { GameState } from "./state";
 
@@ -35,6 +35,8 @@ export function avaliarNo(state: GameState, id: string): RecusaNo {
   if (!no) return { ok: false, motivo: "Nó desconhecido" };
   if (pesquisado(state, id)) return { ok: false, motivo: "Já pesquisado" };
   if (excluido(state, no)) return { ok: false, motivo: "Excluído pela escolha que você fez" };
+  // Um nó da Era 2 só existe depois do reator construído (GDD Parte 2 §6).
+  if (no.era > state.era) return { ok: false, motivo: `Exige a Era ${no.era}` };
   const faltando = (no.pre ?? []).filter((p) => !pesquisado(state, p));
   if (faltando.length > 0) return { ok: false, motivo: `Exige ${faltando.map((p) => NO_POR_ID[p]?.nome ?? p).join(" e ")}` };
   // Nós que mexem na estrutura do Núcleo só fazem sentido com o Núcleo desbloqueado.
@@ -56,6 +58,7 @@ export function podePesquisar(state: GameState, id: string): boolean {
 export function disponivel(state: GameState, id: string): boolean {
   const no = NO_POR_ID[id];
   if (!no || pesquisado(state, id) || excluido(state, no)) return false;
+  if (no.era > state.era) return false;
   return (no.pre ?? []).every((p) => pesquisado(state, p));
 }
 

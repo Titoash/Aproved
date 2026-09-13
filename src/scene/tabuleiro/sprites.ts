@@ -53,6 +53,19 @@ export type NomeSprite =
   | "subestacao"
   | "laboratorio"
   | "universidade"
+  | "vaso"
+  | "vareta"
+  | "barraControle"
+  | "torreResfriamento"
+  | "piscina"
+  | "eolicaOffshore"
+  | "fazendaSolar"
+  | "termicaGas"
+  | "subestacao138"
+  | "subestacaoOffshore"
+  | "bateriaRede"
+  | "distritoIndustrial"
+  | "institutoPesquisa"
   | "cristal"
   | "placaBloqueio"
   | "bipe"
@@ -82,6 +95,19 @@ export const NOMES_SPRITES: readonly NomeSprite[] = [
   "subestacao",
   "laboratorio",
   "universidade",
+  "vaso",
+  "vareta",
+  "barraControle",
+  "torreResfriamento",
+  "piscina",
+  "eolicaOffshore",
+  "fazendaSolar",
+  "termicaGas",
+  "subestacao138",
+  "subestacaoOffshore",
+  "bateriaRede",
+  "distritoIndustrial",
+  "institutoPesquisa",
   "cristal",
   "placaBloqueio",
   "bipe",
@@ -159,6 +185,15 @@ export interface EstadoSprite {
   zoom?: number;
   /** Reservado (a amostra não usa; o pop do entulho vem de `t0`). */
   pop?: number;
+  /* --- Era 2 (GDD Parte 2 §8) --- */
+  /** vareta: 0..1 do combustível que resta — o gradiente apaga de cima para baixo. */
+  combustivel?: number;
+  /** vareta: já esgotou (cinza com brilho residual). */
+  gasta?: boolean;
+  /** vareta gasta: 0..1 do calor de decaimento (o jogador vê o 7 % sumindo). */
+  decaimento?: number;
+  /** vaso: há torre de resfriamento na grade (desenha as duas torres hiperbólicas ao lado). */
+  comTorre?: boolean;
 }
 
 /** Feixe do espelho (`de`, ponto do chão) ao centro da esfera (`para`, ponto do chão), em coordenadas de mundo. */
@@ -202,6 +237,16 @@ const P = {
   lodo2: "#2d5f55",
   neve: "#eef3ff",
   poste: "#c9cfff",
+  // Era 2 (GDD Parte 2 §8)
+  aco: "#b8c0e8",
+  aco2: "#8f98c8",
+  acoEsc: "#5d6698",
+  barra: "#2a3060",
+  piscinaAgua: "#79dcf5",
+  piscinaFundo: "#3ea5cf",
+  vapor: "#eef3ff",
+  fumaca: "#8b93bd",
+  industria: "#c0562f",
 } as const;
 
 const TETOS: Record<Teto, string> = { coral: P.coral, sun: P.sun, sky: P.sky };
@@ -251,6 +296,15 @@ const D = {
   carcacaTampa: C(P.turbinaCarcaca, 0.35),
   carcacaBorda: E(P.tanque2, 0.25),
   vaporClaro: A(P.ink, 0.55),
+  acoSW: E("#b8c0e8", 0.16),
+  acoSE: E("#b8c0e8", 0.3),
+  acoBorda: E("#8f98c8", 0.3),
+  barraHalo: A("#8a5cff", 0.16),
+  piscinaBorda: E("#3ea5cf", 0.3),
+  vaporClaro2: A("#eef3ff", 0.4),
+  fumacaAlfa: A("#8b93bd", 0.45),
+  industriaSW: E("#c0562f", 0.18),
+  industriaSE: E("#c0562f", 0.32),
   fusteDir: P.torre,
   fusteEsq: P.torre2,
   fustePonto: A(P.ink, 0.12),
@@ -1596,6 +1650,311 @@ const S: Record<NomeSprite, FnSprite> = {
     circulo(ctx, 0, 0, r * 2.2, D.laranjaHalo);
     ctx.globalCompositeOperation = "source-over";
     circulo(ctx, 0, 0, r, vida > 0.25 ? rampa(0.6 + 0.4 * vida) : D.brasaFim[Math.round(vida * 20)]);
+  },
+
+  /* --------------------------------------------------------------------------------------------
+   * Era 2 (GDD Parte 2 §8): reator, varetas, barra, piscina, e as construções 2×2 da Rede.
+   * ------------------------------------------------------------------------------------------ */
+
+  // Vaso de pressão: cilindro com cúpula sobre a plataforma, na rampa de calor; duas torres
+  // hiperbólicas quando há torre de resfriamento na grade, e vapor branco chapado.
+  vaso(ctx, e, t, longe) {
+    const T = e.T ?? 0;
+    const scram = !!e.scram;
+    const cor = scram ? P.scram : rampa(T);
+    if (!longe) sombra(ctx, 0, 0, 24, 11, 6);
+    // base
+    elipseCheia(ctx, 0, 0, 22, 10, P.acoEsc);
+    cilindro(ctx, 30, 46, 8, P.aco, D.acoSE, P.aco2, -4);
+    // cúpula
+    ctx.fillStyle = scram ? D.scramEscuro : cor;
+    ctx.beginPath();
+    ctx.ellipse(0, -50, 15, 13, 0, Math.PI, 0);
+    ctx.closePath();
+    ctx.fill();
+    circulo(ctx, -4, -54, 5, scram ? D.scramMiolo : rampaMiolo(T));
+    if (!scram && T > 0.05) {
+      ctx.globalCompositeOperation = "lighter";
+      circulo(ctx, 0, -52, 26, halo1(T));
+      ctx.globalCompositeOperation = "source-over";
+    }
+    if (longe) return;
+    // anéis do vaso
+    for (let i = 1; i <= 2; i++) rect(ctx, -15, -14 * i - 6, 30, 3, P.aco2);
+    if (e.comTorre) {
+      for (const lado of [-1, 1]) {
+        const x = lado * 34;
+        ctx.fillStyle = P.aco2;
+        ctx.beginPath();
+        ctx.moveTo(x - 11, 2);
+        ctx.quadraticCurveTo(x - 4, -18, x - 8, -34);
+        ctx.lineTo(x + 8, -34);
+        ctx.quadraticCurveTo(x + 4, -18, x + 11, 2);
+        ctx.closePath();
+        ctx.fill();
+        elipseCheia(ctx, x, -34, 8, 3, P.aco);
+        // vapor: três bolhas subindo
+        for (let i = 0; i < 3; i++) {
+          const k = frac(t * 0.3 + i / 3);
+          ctx.globalAlpha = 0.5 * (1 - k);
+          circulo(ctx, x + 5 * Math.sin(k * 4 + i), -40 - 26 * k, 5 + 6 * k, P.vapor);
+        }
+        ctx.globalAlpha = 1;
+      }
+    }
+  },
+
+  // Vareta: barra vertical com o gradiente de calor que **apaga de cima para baixo** conforme o
+  // combustível acaba; gasta = cinza com brilho residual que esmaece com o decaimento.
+  vareta(ctx, e, t, longe) {
+    const gasta = !!e.gasta;
+    const combustivel = clamp01(e.combustivel ?? 1);
+    const decaimento = clamp01(e.decaimento ?? 0);
+    const h = 34;
+    if (!longe) sombra(ctx, 0, 0, 8, 4, 3);
+    // suporte
+    caixa(ctx, 0.16, 0.12, 5, P.acoEsc, D.acoSW, D.acoSE);
+    // corpo
+    rect(ctx, -4, -h - 5, 8, h, gasta ? P.scram : P.aco2);
+    if (!gasta) {
+      // a parte cheia acende de baixo para cima: o topo apaga primeiro
+      const cheio = Math.round(h * combustivel);
+      ctx.fillStyle = corRampa(0.45 + 0.5 * combustivel);
+      ctx.fillRect(-3, -5 - cheio, 6, cheio);
+    } else if (decaimento > 0.01) {
+      ctx.globalAlpha = Math.min(0.9, decaimento * 8);
+      ctx.fillStyle = corRampa(0.35);
+      ctx.fillRect(-3, -5 - h * 0.3, 6, h * 0.3);
+      ctx.globalAlpha = 1;
+    }
+    if (longe) return;
+    ctx.strokeStyle = D.acoBorda;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-4, -h - 5, 8, h);
+    if (gasta && decaimento > 0.01) {
+      // brilho residual pulsando devagar: o jogador vê o 7 % sumindo
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = Math.min(0.5, decaimento * 5) * (0.7 + 0.3 * Math.sin(t * 2));
+      circulo(ctx, 0, -h / 2 - 5, 13, corRampa(0.3));
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
+    }
+  },
+
+  // Barra de controle: barra escura que "abraça" as vizinhas (halo tênue sobre as 8 casas).
+  barraControle(ctx, e, t, longe) {
+    if (!longe) {
+      ctx.globalCompositeOperation = "lighter";
+      ctx.fillStyle = D.barraHalo;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 92, 46, 0, 0, TAU);
+      ctx.fill();
+      ctx.globalCompositeOperation = "source-over";
+      sombra(ctx, 0, 0, 8, 4, 3);
+    }
+    caixa(ctx, 0.18, 0.14, 6, P.acoEsc, D.acoSW, D.acoSE);
+    rect(ctx, -3, -38, 6, 32, P.barra);
+    rect(ctx, -5, -42, 10, 5, P.aco2);
+    if (longe) return;
+    ctx.strokeStyle = A(P.void, 0.5 + 0.2 * Math.sin(t * 1.6));
+    ctx.lineWidth = 1.2;
+    ctx.strokeRect(-3, -38, 6, 32);
+    void e;
+  },
+
+  // Torre de resfriamento: torre hiperbólica com vapor branco chapado.
+  torreResfriamento(ctx, _e, t, longe) {
+    if (!longe) sombra(ctx, 0, 0, 15, 7);
+    ctx.fillStyle = P.aco2;
+    ctx.beginPath();
+    ctx.moveTo(-14, 2);
+    ctx.quadraticCurveTo(-5, -20, -10, -42);
+    ctx.lineTo(10, -42);
+    ctx.quadraticCurveTo(5, -20, 14, 2);
+    ctx.closePath();
+    ctx.fill();
+    elipseCheia(ctx, 0, -42, 10, 4, P.aco);
+    if (longe) return;
+    ctx.strokeStyle = D.acoBorda;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    for (let i = 0; i < 4; i++) {
+      const k = frac(t * 0.28 + i / 4);
+      ctx.globalAlpha = 0.55 * (1 - k);
+      circulo(ctx, 6 * Math.sin(k * 4 + i * 1.7), -48 - 32 * k, 6 + 8 * k, P.vapor);
+    }
+    ctx.globalAlpha = 1;
+  },
+
+  // Piscina de resfriamento: quadrado azul-claro com ondulação.
+  piscina(ctx, _e, t, longe) {
+    if (!longe) sombra(ctx, 0, 0, 17, 8);
+    caixa(ctx, 0.34, 0.26, 5, P.piscinaFundo, D.acoSW, D.acoSE);
+    ctx.save();
+    losangoCentrado(ctx, 0.29, 0.22, -5);
+    ctx.clip();
+    ctx.fillStyle = P.piscinaAgua;
+    ctx.fillRect(-24, -20, 48, 30);
+    if (!longe) {
+      ctx.strokeStyle = D.vaporClaro2;
+      ctx.lineWidth = 1.2;
+      for (let i = 0; i < 3; i++) {
+        const y = -12 + i * 6 + 1.5 * Math.sin(t * 1.4 + i);
+        ctx.beginPath();
+        ctx.moveTo(-14, y);
+        ctx.quadraticCurveTo(0, y - 2.5, 14, y);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+    if (!longe) contornoCaixa(ctx, 0.34, 0.26, 5, D.piscinaBorda);
+  },
+
+  // Eólica offshore: a mesma silhueta da turbina, sobre uma monoestaca no mar.
+  eolicaOffshore(ctx, e, t, longe) {
+    elipseCheia(ctx, 0, 2, 13, 6, A(P.ink, 0.14));
+    rect(ctx, -4, -14, 8, 16, P.aco2);
+    ctx.save();
+    ctx.translate(0, -12);
+    S.turbinaEolica(ctx, e, t, longe, 0, 0);
+    ctx.restore();
+  },
+
+  // Fazenda solar: fileiras de painéis numa base 2×2.
+  fazendaSolar(ctx, _e, _t, longe) {
+    if (!longe) sombra(ctx, 0, 6, 34, 16, 5);
+    caixa(ctx, 0.98, 0.98, 3, P.grama2, E(P.grama2, 0.18), E(P.grama2, 0.3));
+    for (let f = 0; f < 3; f++) {
+      const y = -6 + f * 9;
+      for (let c = 0; c < 2; c++) {
+        const x = -20 + c * 22;
+        ctx.fillStyle = P.painel;
+        ctx.beginPath();
+        ctx.moveTo(x, y - 8);
+        ctx.lineTo(x + 18, y - 2);
+        ctx.lineTo(x + 18, y + 2);
+        ctx.lineTo(x, y - 4);
+        ctx.closePath();
+        ctx.fill();
+        if (!longe) {
+          ctx.strokeStyle = D.painelBorda;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+    }
+  },
+
+  // Térmica a gás: bloco 2×2 com chaminé e fumaça.
+  termicaGas(ctx, _e, t, longe) {
+    if (!longe) sombra(ctx, 0, 6, 34, 16, 6);
+    caixa(ctx, 0.9, 0.9, 22, P.aco, D.acoSW, D.acoSE);
+    rect(ctx, 8, -66, 9, 46, P.aco2);
+    rect(ctx, 7, -70, 11, 5, P.acoEsc);
+    if (longe) return;
+    contornoCaixa(ctx, 0.9, 0.9, 22, D.acoBorda);
+    for (let i = 0; i < 4; i++) {
+      const k = frac(t * 0.22 + i / 4);
+      ctx.globalAlpha = 0.45 * (1 - k);
+      circulo(ctx, 12 + 8 * Math.sin(k * 3 + i), -74 - 34 * k, 5 + 9 * k, P.fumaca);
+    }
+    ctx.globalAlpha = 1;
+  },
+
+  // Subestação de 138 kV: o mesmo pórtico, maior, com dois andares de isoladores.
+  subestacao138(ctx, e, t, longe) {
+    const nivel = Math.max(0, Math.round(e.nivel ?? 0));
+    if (!longe) sombra(ctx, 0, 0, 19, 9);
+    caixa(ctx, 0.4, 0.3, 16, P.aco, D.acoSW, D.acoSE);
+    rect(ctx, -15, -56, 4, 40, P.poste);
+    rect(ctx, 11, -56, 4, 40, P.poste);
+    rect(ctx, -15, -59, 30, 4, P.poste);
+    if (longe) return;
+    contornoCaixa(ctx, 0.4, 0.3, 16, D.acoBorda);
+    ctx.strokeStyle = D.fustePonto;
+    ctx.lineWidth = 1;
+    for (const y of [-50, -44, -38]) {
+      ctx.beginPath();
+      ctx.moveTo(-13, y);
+      ctx.lineTo(13, y);
+      ctx.stroke();
+    }
+    for (let i = 0; i <= nivel && i < 4; i++) circulo(ctx, -9 + i * 6, -62, 2.4, P.sun);
+    const k = frac(t * 0.8);
+    ctx.strokeStyle = A(P.sun, 0.8 * (1 - Math.abs(k * 2 - 1)));
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(-12, -55);
+    ctx.quadraticCurveTo(0, -47 - 5 * Math.sin(k * Math.PI), 12, -55);
+    ctx.stroke();
+  },
+
+  // Subestação offshore: plataforma sobre estacas no mar raso.
+  subestacaoOffshore(ctx, e, t, longe) {
+    elipseCheia(ctx, 0, 2, 16, 7, A(P.ink, 0.14));
+    for (const x of [-11, 11]) rect(ctx, x - 2, -16, 4, 18, P.aco2);
+    ctx.save();
+    ctx.translate(0, -16);
+    caixa(ctx, 0.4, 0.3, 12, P.aco, D.acoSW, D.acoSE);
+    if (!longe) {
+      contornoCaixa(ctx, 0.4, 0.3, 12, D.acoBorda);
+      rect(ctx, -3, -30, 6, 18, P.poste);
+      const nivel = Math.max(0, Math.round(e.nivel ?? 0));
+      for (let i = 0; i <= nivel && i < 3; i++) circulo(ctx, -4 + i * 4, -32, 2, P.sun);
+      ctx.strokeStyle = A(P.sky, 0.4 + 0.3 * Math.sin(t * 2));
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(0, -24, 12, 0, TAU);
+      ctx.stroke();
+    }
+    ctx.restore();
+  },
+
+  // Bateria de rede: contêiner com barras de carga.
+  bateriaRede(ctx, e, _t, longe) {
+    const carga = clamp01(e.carga ?? 1);
+    if (!longe) sombra(ctx, 0, 0, 18, 8);
+    caixa(ctx, 0.45, 0.32, 14, P.bateriaCaixa, D.bateriaSW, D.bateriaSE);
+    if (longe) return;
+    contornoCaixa(ctx, 0.45, 0.32, 14, D.bateriaBorda);
+    const acesas = Math.ceil(carga * 4);
+    for (let i = 0; i < 4; i++) {
+      rect(ctx, -12 + i * 6.5, -24, 5, 8, i < acesas ? P.leaf : D.leafApagado);
+    }
+  },
+
+  // Distrito industrial: galpões 2×2 com telhado de duas águas.
+  distritoIndustrial(ctx, _e, _t, longe) {
+    if (!longe) sombra(ctx, 0, 6, 34, 16, 6);
+    caixa(ctx, 0.95, 0.95, 10, P.aco2, D.acoSW, D.acoSE);
+    for (let i = 0; i < 3; i++) {
+      const x = -20 + i * 18;
+      rect(ctx, x, -34, 15, 22, P.industria);
+      ctx.fillStyle = D.industriaSW;
+      ctx.beginPath();
+      ctx.moveTo(x, -34);
+      ctx.lineTo(x + 7.5, -42);
+      ctx.lineTo(x + 15, -34);
+      ctx.closePath();
+      ctx.fill();
+      if (!longe) rect(ctx, x + 4, -26, 7, 6, A(P.sun, 0.55));
+    }
+  },
+
+  // Instituto de pesquisa: bloco 2×2 com cúpula.
+  institutoPesquisa(ctx, _e, t, longe) {
+    if (!longe) sombra(ctx, 0, 6, 32, 15, 6);
+    caixa(ctx, 0.9, 0.9, 18, P.labParede, D.labSE, E(P.labParede2, 0.22));
+    ctx.fillStyle = P.sky;
+    ctx.beginPath();
+    ctx.ellipse(0, -48, 16, 13, 0, Math.PI, 0);
+    ctx.closePath();
+    ctx.fill();
+    if (longe) return;
+    contornoCaixa(ctx, 0.9, 0.9, 18, D.labBorda);
+    ctx.globalAlpha = 0.5 + 0.3 * Math.sin(t * 1.2);
+    circulo(ctx, -5, -52, 4, P.ink);
+    ctx.globalAlpha = 1;
   },
 
   // Partícula de calor: sobe e some.

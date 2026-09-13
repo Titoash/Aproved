@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { USINAS } from "../content/era1";
+import { USINAS } from "../content/usinas";
 import { OBSTACULOS } from "../content/era1-arquipelago";
 import { naPlataforma } from "../sim/arquipelago";
 import { arquipelagoDaEra1 } from "../sim/gerarArquipelago";

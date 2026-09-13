@@ -2,7 +2,8 @@
  * Cidade (GDD §2.5, §8.6, v0.6): os bairros colocados, com densidade, população, demanda e o botão de
  * evoluir (₵ + 🔬). Tocar num bairro no tabuleiro seleciona a linha correspondente.
  */
-import { DENSIDADES, UNIVERSIDADE } from "../content/cidade-era1";
+import { UNIVERSIDADE } from "../content/cidade-era1";
+import { DENSIDADES } from "../content/cidade";
 import { ARQUIPELAGO } from "../content/era1-arquipelago";
 import { avaliarEvolucao, custoEvolucao, densidadeDe, limiteUniversidades } from "../sim/cidade";
 import { formatarNumero, formatarPotencia } from "../sim/formatar";

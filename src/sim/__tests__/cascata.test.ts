@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CAPITULOS } from "../../content/capitulos-era1";
+import { CAPITULOS } from "../../content/capitulos";
 import { estadoLimpo, plantar } from "./ajuda";
 import { CASCATA, MODO_SEGURO } from "../../content/era1-nucleo";
 import { temperaturaNucleo } from "../calor";

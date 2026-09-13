@@ -2,7 +2,8 @@
  * Ações do jogador sobre a Rede que não são colocação (GDD §7, §8.2): desbloqueios e níveis de melhoria.
  * Colocar e remover prédios vive em `sim/mundo.ts` (GDD §2.1, v0.6). Funções puras.
  */
-import { USINAS, type Desbloqueio } from "../content/era1";
+import { type Desbloqueio } from "../content/era1";
+import { USINAS } from "../content/usinas";
 import { pesquisado } from "./arvore";
 import { custoMelhoria } from "./custos";
 import { desbloqueioDe } from "./mundo";

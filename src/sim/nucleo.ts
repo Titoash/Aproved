@@ -2,7 +2,8 @@
  * Núcleo da Era 1 — Torre Solar (GDD §8.3): geometria da grade, espelhos efetivos,
  * capacidade, balanço de calor, equilíbrio e potência. Funções puras.
  */
-import { NUCLEO, PECAS, RECEPTOR_CERAMICO } from "../content/era1-nucleo";
+import { NUCLEO, RECEPTOR_CERAMICO } from "../content/era1-nucleo";
+import { PECA_POR_ID } from "../content/pecas";
 import { efeitosNeutros, type EfeitosArvore } from "./efeitos";
 import { indiceReceptor, ladoDaGrade, type Casa, type PecaId } from "./state";
 
@@ -166,7 +167,7 @@ export function podeColocar(grade: readonly Casa[], indice: number, pecaId: Peca
   const casa = grade[indice];
   if (casa?.tipo === "entulho") return { ok: false, motivo: "Limpe o entulho primeiro." };
   if (casa) return { ok: false, motivo: "Casa ocupada." };
-  const def = PECAS[pecaId];
+  const def = PECA_POR_ID[pecaId];
   const a = anel(indice, lado);
   if (a === 0 || !def.aneis.includes(a)) {
     return { ok: false, motivo: `${def.nome} só no anel ${def.aneis.join(" ou ")}.` };
@@ -191,12 +192,17 @@ export function remover(grade: readonly Casa[], indice: number): Casa[] {
   return nova;
 }
 
-/** Transforma as peças do anel 1 em entulho (GDD §5). */
+/**
+ * Transforma as peças do anel 1 em entulho (GDD §5). Na Era 2 a vareta destruída vira **entulho
+ * quente**: para de fissionar, mas o calor de decaimento continua entrando no Vaso (GDD Parte 2 §5.2).
+ */
 export function entulharAnel1(grade: readonly Casa[], tempoMs: number): Casa[] {
   const lado = ladoDaGrade(grade);
-  return grade.map((casa, i) =>
-    casa && casa.tipo === "peca" && adjacenteAoReceptor(i, lado) ? { tipo: "entulho", id: casa.id, desdeMs: tempoMs } : casa,
-  );
+  return grade.map((casa, i) => {
+    if (!casa || casa.tipo !== "peca" || !adjacenteAoReceptor(i, lado)) return casa;
+    if (!casa.vareta) return { tipo: "entulho", id: casa.id, desdeMs: tempoMs };
+    return { tipo: "entulho", id: casa.id, desdeMs: tempoMs, vareta: { restanteS: 0, gastaDesdeMs: casa.vareta.gastaDesdeMs ?? tempoMs } };
+  });
 }
 
 /**

@@ -77,7 +77,7 @@ describe("bateria como amortecedor (GDD §4.1 v0.4)", () => {
   });
 
   it("a energia guardada também limita o que cobre num tick", () => {
-    const bateria: BateriaEstado = { unidades: 1, capacidadeKwh: 20, kwh: 0.5 };
+    const bateria: BateriaEstado = { unidades: 1, capacidadeKwh: 20, kwh: 0.5, potenciaKw: (1) * BATERIA.potenciaKw };
     // 0,5 kWh em 0,1 s sustentam 5 kW.
     expect(cobrivelKw(bateria, 8, 0.1)).toBeCloseTo(5, 6);
     expect(absorvivelKw({ ...bateria, kwh: 19.5 }, 8, 0.1)).toBeCloseTo(5, 6);
@@ -85,7 +85,7 @@ describe("bateria como amortecedor (GDD §4.1 v0.4)", () => {
   });
 
   it("carga e descarga respeitam a potência da unidade", () => {
-    const bateria: BateriaEstado = { unidades: 1, capacidadeKwh: 20, kwh: 10 };
+    const bateria: BateriaEstado = { unidades: 1, capacidadeKwh: 20, kwh: 10, potenciaKw: (1) * BATERIA.potenciaKw };
     const carga = atualizarBateria(bateria, 25, 0, 1);
     expect(carga.carregadoKwh).toBeCloseTo(10, 6); // 10 kW × 1 s, não 25
     const descarga = atualizarBateria(bateria, 0, 25, 1);

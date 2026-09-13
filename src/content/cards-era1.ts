@@ -3,6 +3,7 @@
  * `{entrada}` e `{saida}` no card da Cascata são preenchidos pela UI com `nucleo.ultimaCascata`.
  */
 import type { EventoJogo } from "../sim/state";
+import { CARDS_ERA2 } from "./cards-era2";
 
 export type BipePapel = "operador" | "manutencao" | "cientista";
 export type BipeExpressao = "neutro" | "apontando" | "alarmado" | "cansado";
@@ -212,6 +213,9 @@ CARDS_ERA1.cristal = {
   ],
 };
 
+/** Todos os cards das duas eras (a fila do store lê daqui). */
+export const CARDS: Record<string, CardDef> = { ...CARDS_ERA1, ...CARDS_ERA2 };
+
 export function cardParaEvento(evento: EventoJogo): string | null {
   switch (evento.tipo) {
     case "primeiroCarregamento":
@@ -222,6 +226,8 @@ export function cardParaEvento(evento: EventoJogo): string | null {
       if (evento.item === "subestacao") return "subestacao";
       if (evento.item === "laboratorio") return "laboratorio";
       if (evento.item === "universidade") return "universidade";
+      if (evento.item === "eolicaOffshore") return "offshore";
+      if (evento.item === "termicaGas") return "produzirCusta";
       return null;
     case "noPesquisado":
       if (evento.id === "rastreamentoSolar") return "rastreamento";
@@ -238,5 +244,13 @@ export function cardParaEvento(evento: EventoJogo): string | null {
       return "evolucao";
     case "capituloConcluido":
       return null;
+    case "eraMudou":
+      return "calorDeDecaimento";
+    case "varetaEsgotada":
+      return "varetaGasta";
+    case "varetaTrocada":
+      return null;
+    case "scram":
+      return evento.era === 2 ? "scramEra2" : null;
   }
 }

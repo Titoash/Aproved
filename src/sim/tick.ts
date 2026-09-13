@@ -7,11 +7,12 @@
  *   5. pesquisa e Estabilidade, pela faixa de T depois do passo 4;
  *   6. modo seguro, cronômetro e checagem da Cascata.
  */
-import { CASCATA, MODO_SEGURO, NUCLEO, type FaixaCalor } from "../content/era1-nucleo";
+import { CASCATA, MODO_SEGURO, type FaixaCalor } from "../content/era1-nucleo";
 import { faixaDeCalor, pesquisaPorSegundo, temperatura } from "./calor";
 import { aplicarCascata, atualizarCronometro, deveCascatear, emScram, scram } from "./cascata";
 import { passoEstabilidade } from "./estabilidade";
-import { capacidadeU, contar, espelhosEfetivosDe, passoCalor, potenciaNucleoKw } from "./nucleo";
+import { motorDoNucleo, passoMotor, potenciaMotor } from "./motor";
+import { passoVaretas } from "./reator";
 import { efeitosDe, efeitosNeutros, type EfeitosArvore } from "./efeitos";
 import { passoCapitulos } from "./capitulos";
 import { passoRemocoes } from "./mundo";
@@ -23,10 +24,15 @@ import { DT_ACUMULADO_MAX_MS, TICK_MS } from "./tempo";
 export { DT_ACUMULADO_MAX_MS, TICK_MS };
 
 /** Potência que o Núcleo entrega à Rede: 0 em SCRAM, ×0,7 no modo seguro. */
-export function potenciaNucleoEfetivaKw(nucleo: NucleoState | null, efeitos: EfeitosArvore = efeitosNeutros()): number {
+export function potenciaNucleoEfetivaKw(nucleo: NucleoState | null, efeitos: EfeitosArvore = efeitosNeutros(), tempoMs = 0): number {
   if (!nucleo || emScram(nucleo)) return 0;
-  const bruta = potenciaNucleoKw(nucleo.grade, nucleo.calorU, efeitos);
+  const bruta = potenciaMotor(motorDoNucleo(nucleo, efeitos, tempoMs), nucleo.calorU);
   return nucleo.modoSeguro ? bruta * MODO_SEGURO.fatorPotencia : bruta;
+}
+
+/** Atalho: a potência do Núcleo do estado, com o relógio do jogo (o decaimento da Era 2 depende dele). */
+export function potenciaNucleoDoEstado(state: GameState): number {
+  return potenciaNucleoEfetivaKw(state.nucleo, efeitosDe(state), state.tempoMs);
 }
 
 /**
@@ -37,12 +43,13 @@ export function balancoDoEstado(state: GameState): BalancoRede {
   const analise = analisar(state);
   const efeitos = efeitosDe(state);
   return balancoRede(derivarRede(state, analise), {
-    potenciaNucleoKw: potenciaNucleoEfetivaKw(state.nucleo, efeitos),
+    potenciaNucleoKw: potenciaNucleoEfetivaKw(state.nucleo, efeitos, state.tempoMs),
     dtS: TICK_MS / 1000,
     efeitos,
     ofertaUsinasKw: analise.ofertaKw,
     demandaKw: analise.demandaKw,
     tarifa: analise.tarifa,
+    custoOperacaoPorSegundo: analise.custoOperacaoPorSegundo,
   });
 }
 
@@ -56,6 +63,8 @@ export interface PassoNucleo {
   /** T depois do passo de calor. */
   t: number;
   faixa: FaixaCalor;
+  /** Casas cujas varetas esgotaram neste passo (Era 2). */
+  esgotadas: number[];
 }
 
 /**
@@ -72,40 +81,52 @@ export function passoNucleo(
   const dtS = dtMs / 1000;
   const scramAtivo = emScram(nucleo);
 
+  // 3b. combustível: as varetas gastam enquanto o reator está ligado, e a que zera vira gasta e passa
+  //     a só decair (GDD Parte 2 §5.2). Na Era 1 isto não faz nada.
+  let atual = nucleo;
+  const esgotadas: number[] = [];
+  if (nucleo.era === 2) {
+    const pv = passoVaretas(nucleo, dtMs, tempoMs, efeitos);
+    if (pv.grade !== nucleo.grade) atual = { ...nucleo, grade: pv.grade };
+    esgotadas.push(...pv.esgotadas);
+  }
+
   // Fluxos do início do tick (o card da Cascata mostra estes números, não os do SCRAM que vem depois).
-  const c = contar(nucleo.grade);
-  const entradaUs = scramAtivo ? 0 : efeitos.calorPorEspelho * espelhosEfetivosDe(c);
-  const saidaUs = efeitos.dissipacaoRadiador * c.radiadoresAdjacentes + (scramAtivo ? 0 : NUCLEO.consumoTurbina * c.turbinas * nucleo.calorU);
+  const motor = motorDoNucleo(atual, efeitos, tempoMs);
+  const entradaUs = motor.entradaUs;
+  const saidaUs = motor.dissipacaoUs + motor.fatorTurbina * atual.calorU;
 
   // 4. calor
-  const capacidade = capacidadeU(nucleo.grade, nucleo.receptorCeramico, efeitos);
-  const tAntes = temperatura(nucleo.calorU, capacidade);
-  const calorU = passoCalor(nucleo.grade, nucleo.calorU, dtS, scramAtivo, efeitos);
+  const capacidade = motor.capacidadeU;
+  const tAntes = temperatura(atual.calorU, capacidade);
+  const calorU = passoMotor(motor, atual.calorU, dtS);
   const t = temperatura(calorU, capacidade);
   const faixa = faixaDeCalor(t);
 
   // 5. pesquisa e Estabilidade (nada durante o SCRAM; Estabilidade só com o Núcleo produzindo)
-  const pesquisaGanha = scramAtivo ? 0 : pesquisaPorSegundo(potenciaKw, t) * dtS;
+  const pesquisaGanha = scramAtivo ? 0 : pesquisaPorSegundo(potenciaKw, t, motor.pesquisaPorKw) * dtS;
   const porMinuto = scramAtivo || potenciaKw <= 0 ? 0 : faixa.estabilidadePorMinuto;
-  const estabilidade = passoEstabilidade(nucleo.estabilidade, porMinuto, dtS);
+  const estabilidade = passoEstabilidade(atual.estabilidade, porMinuto, dtS);
 
+  const scramRestanteMs = Math.max(0, atual.scramRestanteMs - dtMs);
   let proximo: NucleoState = {
-    ...nucleo,
+    ...atual,
     calorU,
     estabilidade,
-    scramRestanteMs: Math.max(0, nucleo.scramRestanteMs - dtMs),
+    scramRestanteMs,
+    scramInicioMs: scramRestanteMs > 0 ? atual.scramInicioMs : null,
   };
 
   // 6. modo seguro → cronômetro → Cascata
-  if (proximo.modoSeguro && !scramAtivo && t >= MODO_SEGURO.limiarT) proximo = scram(proximo);
-  proximo.tempoAcimaDoLimiteMs = atualizarCronometro(nucleo.tempoAcimaDoLimiteMs, tAntes, t, dtMs, emScram(proximo));
+  if (proximo.modoSeguro && !scramAtivo && t >= MODO_SEGURO.limiarT) proximo = scram(proximo, tempoMs);
+  proximo.tempoAcimaDoLimiteMs = atualizarCronometro(atual.tempoAcimaDoLimiteMs, tAntes, t, dtMs, emScram(proximo));
   let cascatou = false;
   if (deveCascatear(proximo.tempoAcimaDoLimiteMs)) {
     proximo = aplicarCascata(proximo, tempoMs, { entradaUs, saidaUs });
     cascatou = true;
   }
 
-  return { nucleo: proximo, pesquisaGanha, cascatou, entradaUs, saidaUs, t, faixa };
+  return { nucleo: proximo, pesquisaGanha, cascatou, entradaUs, saidaUs, t, faixa, esgotadas };
 }
 
 /**
@@ -125,7 +146,7 @@ export function tick(state: GameState, dtMs: number = TICK_MS): GameState {
   const eventos: EventoJogo[] = [...comMundo.eventos];
 
   // 1. potência do Núcleo com o Q do início do tick
-  const potenciaNucleo = potenciaNucleoEfetivaKw(comMundo.nucleo, efeitos);
+  const potenciaNucleo = potenciaNucleoEfetivaKw(comMundo.nucleo, efeitos, tempoMs);
 
   // 2–3. Rede
   const passo = passoRede(derivarRede(comMundo, analise), dtMs, {
@@ -134,6 +155,7 @@ export function tick(state: GameState, dtMs: number = TICK_MS): GameState {
     ofertaUsinasKw: analise.ofertaKw,
     demandaKw: analise.demandaKw,
     tarifa: analise.tarifa,
+    custoOperacaoPorSegundo: analise.custoOperacaoPorSegundo,
   });
   let kwh = passo.rede.bateria.kwh;
   // Laboratórios e universidades rendem 🔬 junto com o Núcleo (GDD §2.5, §8.6).
@@ -149,6 +171,7 @@ export function tick(state: GameState, dtMs: number = TICK_MS): GameState {
       kwh *= 1 - CASCATA.perdaBateria;
       eventos.push({ tipo: "cascata", entradaUs: pn.entradaUs, saidaUs: pn.saidaUs });
     }
+    for (const indice of pn.esgotadas) eventos.push({ tipo: "varetaEsgotada", indice });
   }
 
   const proximo: GameState = {

@@ -4,10 +4,11 @@
  * O capítulo ativo é o primeiro ainda não concluído. Quando a condição fecha, ele paga a recompensa
  * (₵ e/ou 🔬) e passa a vez — sem botão de "coletar": o jogo avisa, não cobra atenção.
  */
-import { CAPITULOS, type CapituloDef, type CondicaoCapitulo } from "../content/capitulos-era1";
+import { capitulosDaEra, type CapituloDef, type CondicaoCapitulo } from "../content/capitulos";
 import { densidadeDe } from "./cidade";
 import { analisar, terrenoDeJogo } from "./producao";
-import { balancoDoEstado } from "./tick";
+import { balancoDoEstado, potenciaNucleoEfetivaKw } from "./tick";
+import { efeitosDe } from "./efeitos";
 import type { GameState } from "./state";
 
 export interface ProgressoCapitulo {
@@ -18,8 +19,9 @@ export interface ProgressoCapitulo {
   concluido: boolean;
 }
 
+/** O capítulo ativo é o primeiro ainda não concluído **da era em curso** (GDD Parte 2 §2). */
 export function capituloAtivo(state: GameState): CapituloDef | null {
-  return CAPITULOS.find((c) => !state.capitulos.includes(c.id)) ?? null;
+  return capitulosDaEra(state.era).find((c) => !state.capitulos.includes(c.id)) ?? null;
 }
 
 /** Quantos nós o jogador comprou de fato (os iniciais não contam). */
@@ -55,6 +57,12 @@ export function medir(state: GameState, condicao: CondicaoCapitulo): { atual: nu
       return { atual: nosComprados(state), alvo: condicao.n };
     case "nucleo":
       return { atual: state.nucleo ? 1 : 0, alvo: 1 };
+    case "era":
+      return { atual: state.era, alvo: condicao.minima };
+    case "potenciaNucleoKw":
+      return { atual: potenciaNucleoEfetivaKw(state.nucleo, efeitosDe(state), state.tempoMs), alvo: condicao.kw };
+    case "trocaEmFaixa":
+      return { atual: state.nucleo?.trocasEmFaixa ?? 0, alvo: condicao.n };
     case "pecas": {
       const n = state.nucleo?.grade.filter((casa) => casa?.tipo === "peca" && casa.id === condicao.peca).length ?? 0;
       return { atual: n, alvo: condicao.n };
@@ -90,7 +98,7 @@ export function progressoDoAtivo(state: GameState): ProgressoCapitulo | null {
  * segundo sai 100 ms depois.
  */
 export function passoCapitulos(state: GameState): GameState {
-  const capitulo = CAPITULOS.find((c) => {
+  const capitulo = capitulosDaEra(state.era).find((c) => {
     if (state.capitulos.includes(c.id)) return false;
     const { atual, alvo } = medir(state, c.condicao);
     return atual >= alvo;

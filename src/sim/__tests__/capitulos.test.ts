@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CAPITULOS } from "../../content/capitulos-era1";
+import { CAPITULOS } from "../../content/capitulos";
 import { capituloAtivo, medir, passoCapitulos, progressoDoAtivo } from "../capitulos";
 import { desserializar, serializar } from "../save";
 import { avancarTicks, tick } from "../tick";

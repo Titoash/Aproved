@@ -6,83 +6,28 @@
  * anteriores (Lâminas de fibra, Rastreamento solar, Grade 7×7) viraram nós daqui, e os desbloqueios de
  * usina (turbina eólica, bateria) passaram a **gastar** 🔬 em vez de só exigir.
  */
-import type { TipoConstrucao, UsinaId } from "../sim/state";
+import type { NoDef, RamoDef } from "./arvore-tipos";
 
-export type RamoId = "vento" | "sol" | "rede" | "nucleo" | "cidade";
+export type { EfeitoNo, NoDef, RamoDef, RamoId } from "./arvore-tipos";
 
-export interface RamoDef {
-  id: RamoId;
-  nome: string;
-  descricao: string;
-}
-
-export const RAMOS: readonly RamoDef[] = [
-  { id: "vento", nome: "Vento", descricao: "Pás, torres e a esteira que uma turbina deixa atrás de si." },
-  { id: "sol", nome: "Sol", descricao: "Luz que vira corrente — e luz que vira calor na Torre." },
-  { id: "rede", nome: "Rede", descricao: "Levar a energia mais longe e guardá-la para depois." },
-  { id: "nucleo", nome: "Núcleo", descricao: "As cinco peças da Torre Solar, uma geração acima." },
-  { id: "cidade", nome: "Cidade", descricao: "O que a cidade faz com cada kW que recebe." },
+export const RAMOS_ERA1: readonly RamoDef[] = [
+  { id: "vento", era: 1, nome: "Vento", descricao: "Pás, torres e a esteira que uma turbina deixa atrás de si." },
+  { id: "sol", era: 1, nome: "Sol", descricao: "Luz que vira corrente — e luz que vira calor na Torre." },
+  { id: "rede", era: 1, nome: "Rede", descricao: "Levar a energia mais longe e guardá-la para depois." },
+  { id: "nucleo", era: 1, nome: "Núcleo", descricao: "As cinco peças da Torre Solar, uma geração acima." },
+  { id: "cidade", era: 1, nome: "Cidade", descricao: "O que a cidade faz com cada kW que recebe." },
 ];
-
-/** O que um nó muda. Tudo é lido pelo sim; nada é copiado para a UI. */
-export type EfeitoNo =
-  /** Potência das usinas listadas × `fator`. */
-  | { tipo: "potenciaUsinas"; usinas: readonly UsinaId[]; fator: number }
-  /** Perda de esteira por vizinho eólico × `fator` (0 = sem esteira). */
-  | { tipo: "esteira"; fator: number }
-  /** Alcance da subestação, em casas. */
-  | { tipo: "alcanceSubestacao"; casas: number }
-  /** Capacidade de cada bateria × `fator`. */
-  | { tipo: "capacidadeBateria"; fator: number }
-  /** Demanda de cada bairro × `fator` (a tarifa não muda). */
-  | { tipo: "demandaBairro"; fator: number }
-  /** Tarifa × `fator`. */
-  | { tipo: "tarifa"; fator: number }
-  /** Calor que um Heliostato do anel 1 injeta, em u/s (valor absoluto). */
-  | { tipo: "calorPorEspelho"; valor: number }
-  /** Calor de todos os espelhos × `fator`. */
-  | { tipo: "calorEspelhoFator"; fator: number }
-  /** kW por u consumida pela Turbina × `fator`. */
-  | { tipo: "turbinaKwFator"; fator: number }
-  /** Radiador ativo: dissipa `dissipacao` u/s e consome `consomeKw` da potência do Núcleo. */
-  | { tipo: "radiadorAtivo"; dissipacao: number; consomeKw: number }
-  /** Capacidade de cada Tanque de sal × `fator`. */
-  | { tipo: "capacidadeTanque"; fator: number }
-  /** Capacidade do Receptor +50 u (o Receptor cerâmico de §8.3). */
-  | { tipo: "receptorCeramico" }
-  /** Lado da grade do Núcleo. */
-  | { tipo: "gradeLado"; lado: number }
-  /** Libera um prédio na paleta de construção. */
-  | { tipo: "desbloqueia"; construcao: TipoConstrucao };
-
-export interface NoDef {
-  id: string;
-  ramo: RamoId;
-  nome: string;
-  /** O que o nó faz, em linguagem de jogo. */
-  efeitoTexto: string;
-  /** Uma frase de física de verdade (GDD §9). */
-  fisica: string;
-  /** 🔬 gastos. */
-  pesquisa: number;
-  /** ₵ gastos junto, quando o nó também custa dinheiro (§8.3). */
-  creditos?: number;
-  /** Nós exigidos antes deste. */
-  pre?: readonly string[];
-  /** Nós que este nó torna impossíveis (escolha exclusiva). */
-  exclui?: readonly string[];
-  efeitos: readonly EfeitoNo[];
-}
 
 /**
  * A ordem dentro de cada ramo é a ordem da coluna na tela da árvore.
  * Os números vêm de §8.6 e foram recalibrados pela simulação de 60 minutos (parte F da Sessão 7).
  */
-export const NOS: readonly NoDef[] = [
+export const NOS_ERA1: readonly NoDef[] = [
   /* ---------------------------------------------------------------- Vento */
   {
     id: "laminasDeFibra",
     ramo: "vento",
+    era: 1,
     nome: "Lâminas de fibra",
     efeitoTexto: "Cata-vento e turbina eólica +25 %.",
     fisica: "Fibra de vidro pesa um terço do aço para a mesma rigidez, então a pá pode ser mais longa — e a potência cresce com a área varrida, que vai com o quadrado do comprimento.",
@@ -92,6 +37,7 @@ export const NOS: readonly NoDef[] = [
   {
     id: "turbinaEolica",
     ramo: "vento",
+    era: 1,
     nome: "Turbina eólica",
     efeitoTexto: "Libera a turbina eólica (6 kW) na paleta.",
     fisica: "Uma torre de 30 m alcança um vento mais rápido e menos turbulento que o do quintal: a camada-limite do ar freia tudo o que está perto do chão.",
@@ -101,6 +47,7 @@ export const NOS: readonly NoDef[] = [
   {
     id: "torreMaisAlta",
     ramo: "vento",
+    era: 1,
     nome: "Torre mais alta",
     efeitoTexto: "Cata-vento e turbina eólica +40 %.",
     fisica: "A potência do vento vai com o cubo da velocidade, e a 80 m o vento é uns 30 % mais rápido que a 30 m. No papel isso seria mais que o dobro; a torre mais alta e mais pesada come o resto, e sobra +40 %.",
@@ -111,6 +58,7 @@ export const NOS: readonly NoDef[] = [
   {
     id: "controleDePasso",
     ramo: "vento",
+    era: 1,
     nome: "Controle de passo",
     efeitoTexto: "A esteira entre vizinhos eólicos cai pela metade (−20 % → −10 %).",
     fisica: "Girar a pá em torno do próprio eixo muda o ângulo de ataque e, com ele, o quanto de vento a turbina rouba de quem está atrás. Parques reais fazem isso de propósito.",
@@ -121,6 +69,7 @@ export const NOS: readonly NoDef[] = [
   {
     id: "rotorTresPas",
     ramo: "vento",
+    era: 1,
     nome: "Rotor de três pás",
     efeitoTexto: "Cata-vento e turbina eólica +15 %.",
     fisica: "Três pás é o meio-termo que venceu: duas vibram a cada passagem pela torre, quatro custam mais do que acrescentam, porque o ar que passa já foi desacelerado pela pá anterior.",
@@ -131,6 +80,7 @@ export const NOS: readonly NoDef[] = [
   {
     id: "eixoVertical",
     ramo: "vento",
+    era: 1,
     nome: "Eixo vertical",
     efeitoTexto: "Acaba com a esteira — e tira 20 % da potência eólica.",
     fisica: "Um rotor vertical (Darrieus) não precisa se virar para o vento e deixa uma esteira que se recompõe rápido, mas a pá passa metade da volta trabalhando contra o vento: rende menos por área.",
@@ -145,6 +95,7 @@ export const NOS: readonly NoDef[] = [
   {
     id: "eixoHorizontal",
     ramo: "vento",
+    era: 1,
     nome: "Eixo horizontal",
     efeitoTexto: "Mantém a esteira e ganha mais 20 % de potência eólica.",
     fisica: "O rotor horizontal encara o vento o tempo todo e chega perto do limite de Betz (59 % da energia do vento). O preço é a esteira: quem fica atrás recebe um vento já gasto.",
@@ -158,6 +109,7 @@ export const NOS: readonly NoDef[] = [
   {
     id: "painelBifacial",
     ramo: "sol",
+    era: 1,
     nome: "Painel bifacial",
     efeitoTexto: "Painel solar +15 %.",
     fisica: "O painel bifacial também gera com a luz que o chão devolve. Sobre areia clara o albedo passa de 0,3: quase um terço da luz volta para cima.",
@@ -167,6 +119,7 @@ export const NOS: readonly NoDef[] = [
   {
     id: "antirreflexo",
     ramo: "sol",
+    era: 1,
     nome: "Antirreflexo",
     efeitoTexto: "Painel solar +8 %.",
     fisica: "Uma camada de espessura igual a um quarto do comprimento de onda faz a luz refletida na frente e no fundo dela se cancelar por interferência. O vidro nu devolve uns 8 % da luz; com a camada, quase nada.",
@@ -177,6 +130,7 @@ export const NOS: readonly NoDef[] = [
   {
     id: "limpezaAutomatica",
     ramo: "sol",
+    era: 1,
     nome: "Limpeza automática",
     efeitoTexto: "Painel solar +10 %.",
     fisica: "Poeira acumulada tira de 10 % a 25 % da geração num clima seco. É a manutenção mais barata que existe: passar uma escova.",
@@ -187,6 +141,7 @@ export const NOS: readonly NoDef[] = [
   {
     id: "rastreamentoSolar",
     ramo: "sol",
+    era: 1,
     nome: "Rastreamento solar",
     efeitoTexto: "Cada espelho do Núcleo injeta 5 u/s em vez de 4. Muda o equilíbrio — reajuste a grade.",
     fisica: "Um espelho fixo só aponta certo duas vezes por dia; seguindo o Sol em dois eixos ele mantém o feixe no receptor o dia inteiro. É por isso que toda torre solar de verdade tem heliostatos móveis.",
@@ -199,6 +154,7 @@ export const NOS: readonly NoDef[] = [
   {
     id: "bateria",
     ramo: "rede",
+    era: 1,
     nome: "Bateria",
     efeitoTexto: "Libera a bateria (+20 kWh, ±10 kW) na paleta.",
     fisica: "Guardar energia é o que separa uma rede que oscila de uma rede que aguenta: a bateria cobre o buraco de segundos entre o que a cidade pede e o que o vento dá.",
@@ -208,6 +164,7 @@ export const NOS: readonly NoDef[] = [
   {
     id: "laboratorio",
     ramo: "rede",
+    era: 1,
     nome: "Laboratório",
     efeitoTexto: "Libera o laboratório (🔬 0,2/s, consome 2 kW) na paleta.",
     fisica: "Ciência custa energia: um laboratório é um prédio que transforma kW em conhecimento — devagar, e sem parar.",
@@ -218,6 +175,7 @@ export const NOS: readonly NoDef[] = [
   {
     id: "subestacaoAltaTensao",
     ramo: "rede",
+    era: 1,
     nome: "Subestação de alta tensão",
     efeitoTexto: "Alcance da subestação passa de 3 para 5 casas.",
     fisica: "A perda numa linha é R·I². Dobrando a tensão, a mesma potência viaja com metade da corrente e perde quatro vezes menos — por isso a linha longa é sempre de alta tensão.",
@@ -227,6 +185,7 @@ export const NOS: readonly NoDef[] = [
   {
     id: "bateriaDeFluxo",
     ramo: "rede",
+    era: 1,
     nome: "Bateria de fluxo",
     efeitoTexto: "Cada bateria guarda +50 % de kWh.",
     fisica: "Numa bateria de fluxo a energia está no eletrólito dos tanques e a potência está na célula onde ele passa: dá para aumentar só a capacidade, aumentando o tanque.",
@@ -237,6 +196,7 @@ export const NOS: readonly NoDef[] = [
   {
     id: "universidade",
     ramo: "rede",
+    era: 1,
     nome: "Universidade",
     efeitoTexto: "Libera a universidade: 🔬 pela raiz da população, 1 por 2 000 habitantes.",
     fisica: "Pesquisa escala com gente, mas não linearmente: dobrar a população não dobra as descobertas — por isso a raiz quadrada, e não a multiplicação.",
@@ -248,6 +208,7 @@ export const NOS: readonly NoDef[] = [
   {
     id: "receptorCeramico",
     ramo: "nucleo",
+    era: 1,
     nome: "Receptor cerâmico",
     efeitoTexto: "Receptor +50 u de capacidade.",
     fisica: "Cerâmicas de carbeto de silício aguentam mais de 1 000 °C sem fluência, onde o aço já amoleceu. Mais temperatura no receptor é mais margem antes do limite.",
@@ -258,6 +219,7 @@ export const NOS: readonly NoDef[] = [
   {
     id: "heliostatoDoisEixos",
     ramo: "nucleo",
+    era: 1,
     nome: "Heliostato de dois eixos",
     efeitoTexto: "Todos os espelhos entregam +25 % de calor.",
     fisica: "Com dois eixos o espelho corrige azimute e elevação e mantém o ângulo de incidência pequeno o ano inteiro — o cosseno do erro é o que se perde.",
@@ -268,6 +230,7 @@ export const NOS: readonly NoDef[] = [
   {
     id: "turbinaAltaPressao",
     ramo: "nucleo",
+    era: 1,
     nome: "Turbina de alta pressão",
     efeitoTexto: "Cada u consumida rende +30 % de kW.",
     fisica: "O rendimento de Carnot é 1 − T_fria ÷ T_quente: subindo a pressão sobe a temperatura do vapor, e mais trabalho sai do mesmo calor.",
@@ -277,6 +240,7 @@ export const NOS: readonly NoDef[] = [
   {
     id: "radiadorAtivo",
     ramo: "nucleo",
+    era: 1,
     nome: "Radiador ativo",
     efeitoTexto: "Radiador dissipa 9 u/s em vez de 6, consumindo 1 kW do Núcleo.",
     fisica: "Convecção forçada tira muito mais calor que convecção natural: o ventilador gasta energia para não deixar o ar quente ficar grudado na aleta.",
@@ -286,6 +250,7 @@ export const NOS: readonly NoDef[] = [
   {
     id: "tanqueDoisSais",
     ramo: "nucleo",
+    era: 1,
     nome: "Tanque de dois sais",
     efeitoTexto: "Cada tanque guarda +50 % de capacidade.",
     fisica: "Dois tanques, um frio e um quente, deixam o sal trabalhar numa faixa de temperatura maior — e a energia guardada é massa × calor específico × ΔT.",
@@ -295,6 +260,7 @@ export const NOS: readonly NoDef[] = [
   {
     id: "grade7x7",
     ramo: "nucleo",
+    era: 1,
     nome: "Grade 7×7",
     efeitoTexto: "Abre o anel 3: 24 casas novas, só para espelhos, a 1 u/s cada. O 5×5 fica no centro.",
     fisica: "Num campo de heliostatos os espelhos de fora chegam mais inclinados e rendem menos por área — e é por isso que crescer para fora só compensa junto com mais capacidade de armazenar.",
@@ -307,6 +273,7 @@ export const NOS: readonly NoDef[] = [
   {
     id: "iluminacaoEficiente",
     ramo: "cidade",
+    era: 1,
     nome: "Iluminação eficiente",
     efeitoTexto: "Os bairros pedem 10 % menos e pagam o mesmo por kW.",
     fisica: "Um LED entrega quase dez vezes mais luz por watt que uma lâmpada incandescente, que na prática era um aquecedor que também brilhava.",
@@ -316,6 +283,7 @@ export const NOS: readonly NoDef[] = [
   {
     id: "bombasDeCalor",
     ramo: "cidade",
+    era: 1,
     nome: "Bombas de calor",
     efeitoTexto: "Tarifa +10 %.",
     fisica: "Uma bomba de calor não gera calor: ela move o que já existe lá fora, e por isso entrega 3 a 4 kWh de aquecimento por kWh elétrico. Eletricidade que substitui combustível vale mais.",
@@ -328,6 +296,7 @@ export const NOS: readonly NoDef[] = [
   {
     id: "fissaoBasica",
     ramo: "nucleo",
+    era: 1,
     nome: "Fissão básica",
     efeitoTexto: "Abre a Era 2. Exige Estabilidade 100 % no Núcleo.",
     fisica: "Um núcleo de urânio-235 atingido por um nêutron lento se parte e solta mais nêutrons: se cada fissão provoca exatamente uma outra, a reação se sustenta sozinha — é o k = 1 de um reator.",
@@ -338,7 +307,4 @@ export const NOS: readonly NoDef[] = [
   },
 ];
 
-export const NO_POR_ID: Record<string, NoDef> = Object.fromEntries(NOS.map((n) => [n.id, n]));
 
-/** Nós que já nascem pesquisados: o laboratório é a primeira ciência e não pode custar 🔬. */
-export const NOS_INICIAIS: readonly string[] = ["laboratorio"];

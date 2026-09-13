@@ -2,7 +2,8 @@
  * Conteúdo da Era 1 — camada Rede (GDD §7, §8.1, §8.2).
  * Só dados: nenhuma regra aqui. A simulação e a UI leem deste arquivo.
  */
-import type { UsinaId } from "../sim/state";
+import type { UsinaId, UsinaEra1Id } from "../sim/state";
+import type { TipoTerreno } from "./era1-arquipelago";
 
 export interface Desbloqueio {
   /** Desbloqueia ao possuir pelo menos N unidades da usina indicada. */
@@ -21,6 +22,14 @@ export interface UsinaDef {
   crescimento: number;
   potenciaKw: number;
   desbloqueio?: Desbloqueio;
+  /** Lado em casas: 2 = construção 2×2 da Era 2 (GDD Parte 2 §3.1). Ausente = 1. */
+  lado?: number;
+  /** Vai em casa de **mar raso**, não em terra (eólica offshore). */
+  agua?: boolean;
+  /** Terrenos que a usina recusa (a fazenda solar não sobe em colina). */
+  terrenosProibidos?: readonly TipoTerreno[];
+  /** ₵ por segundo enquanto liga (térmica a gás). O extrato mostra como custo. */
+  combustivelPorSegundo?: number;
 }
 
 export interface ItemDef {
@@ -53,7 +62,7 @@ export const MELHORIA = {
 } as const;
 
 /** GDD §8.2. */
-export const USINAS: Record<UsinaId, UsinaDef> = {
+export const USINAS_ERA1: Record<UsinaEra1Id, UsinaDef> = {
   cataVento: {
     id: "cataVento",
     nome: "Cata-vento",
@@ -86,7 +95,7 @@ export const USINAS: Record<UsinaId, UsinaDef> = {
   },
 };
 
-export const ORDEM_USINAS: readonly UsinaId[] = ["cataVento", "painelSolar", "turbinaEolica"];
+export const ORDEM_USINAS_ERA1: readonly UsinaEra1Id[] = ["cataVento", "painelSolar", "turbinaEolica"];
 
 /** GDD §8.2 e §4.1: Bateria ₵ 80, +20 kWh de capacidade e ±10 kW de carga/descarga por unidade. */
 export const BATERIA: ItemDef & { capacidadeKwh: number; potenciaKw: number } = {

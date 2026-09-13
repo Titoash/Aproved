@@ -3,8 +3,9 @@
  * `plantar` coloca construções em casas neutras (terreno de fator 1, sem vizinho eólico, sem sombra)
  * e garante subestação no alcance, para que a potência de uma usina seja exatamente a base × nível.
  */
-import { BATERIA, USINAS } from "../../content/era1";
-import { CAPITULOS } from "../../content/capitulos-era1";
+import { BATERIA } from "../../content/era1";
+import { USINAS } from "../../content/usinas";
+import { CAPITULOS } from "../../content/capitulos";
 import { SUBESTACAO, TERRENOS, type TipoTerreno } from "../../content/era1-arquipelago";
 import { ORDEM_TERRENOS, indiceCasa, naPlataforma } from "../arquipelago";
 import { arquipelagoDaEra1 } from "../gerarArquipelago";
@@ -15,6 +16,9 @@ export interface OpcoesRede {
   cataVento?: number;
   painelSolar?: number;
   turbinaEolica?: number;
+  eolicaOffshore?: number;
+  fazendaSolar?: number;
+  termicaGas?: number;
   nivel?: Partial<Record<UsinaId, number>>;
   bairros?: number;
   bateria?: number;
@@ -29,11 +33,15 @@ export function redeDeTeste(op: OpcoesRede = {}): RedeDerivada {
       cataVento: { quantidade: op.cataVento ?? 0, nivel: op.nivel?.cataVento ?? 0 },
       painelSolar: { quantidade: op.painelSolar ?? 0, nivel: op.nivel?.painelSolar ?? 0 },
       turbinaEolica: { quantidade: op.turbinaEolica ?? 0, nivel: op.nivel?.turbinaEolica ?? 0 },
+      eolicaOffshore: { quantidade: op.eolicaOffshore ?? 0, nivel: op.nivel?.eolicaOffshore ?? 0 },
+      fazendaSolar: { quantidade: op.fazendaSolar ?? 0, nivel: op.nivel?.fazendaSolar ?? 0 },
+      termicaGas: { quantidade: op.termicaGas ?? 0, nivel: op.nivel?.termicaGas ?? 0 },
     },
     bairros: op.bairros ?? 0,
     bateria: {
       unidades,
       capacidadeKwh: unidades * BATERIA.capacidadeKwh,
+      potenciaKw: unidades * BATERIA.potenciaKw,
       kwh: op.kwh ?? 0,
     },
   };

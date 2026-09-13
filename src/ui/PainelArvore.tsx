@@ -7,7 +7,7 @@
  * `leaf` mais forte quando ele já está comprado. É o que faz a tela ler como árvore.
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { NOS, RAMOS, type NoDef } from "../content/arvore-era1";
+import { NOS, RAMOS, type NoDef } from "../content/arvore";
 import { avaliarNo, disponivel, excluido, pesquisado, podePesquisar } from "../sim/arvore";
 import { formatarCreditos, formatarNumero } from "../sim/formatar";
 import type { GameState } from "../sim/state";

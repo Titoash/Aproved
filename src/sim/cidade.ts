@@ -6,7 +6,9 @@
  * mais gente e **paga mais por kW**. É o único jeito de a população crescer (GDD §7: "população só
  * cresce com bairro evoluído").
  */
-import { DENSIDADES, UNIVERSIDADE, type DensidadeDef } from "../content/cidade-era1";
+import { UNIVERSIDADE } from "../content/cidade-era1";
+import { DENSIDADES, type DensidadeDef } from "../content/cidade";
+import { NO_POR_ID } from "../content/arvore";
 import type { Construcao, GameState, MundoState } from "./state";
 
 /** Definição da densidade de um bairro a partir do nível da construção (0 = aldeia). */
@@ -32,7 +34,12 @@ export function avaliarEvolucao(state: GameState, indice: number): RecusaEvoluca
   const c = state.mundo.construcoes[indice];
   if (!c || c.tipo !== "bairro") return { ok: false, motivo: "Só bairros evoluem" };
   const custo = custoEvolucao(c.nivel);
-  if (!custo) return { ok: false, motivo: "Metrópole: não há densidade acima" };
+  if (!custo) return { ok: false, motivo: `${densidadeDoNivel(c.nivel).nome}: não há densidade acima` };
+  // As densidades 5 e 6 pedem nó da árvore da Era 2 (GDD Parte 2 §4.1).
+  const proxima = densidadeDoNivel(c.nivel + 1);
+  if (proxima.no && !state.pesquisados.includes(proxima.no)) {
+    return { ok: false, motivo: `Exige o nó "${NO_POR_ID[proxima.no]?.nome ?? proxima.no}"` };
+  }
   if (state.creditos < custo.creditos) return { ok: false, motivo: "₵ insuficientes" };
   if (state.pesquisa < custo.pesquisa) return { ok: false, motivo: `Precisa de 🔬 ${custo.pesquisa}` };
   return { ok: true, motivo: null };

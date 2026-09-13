@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { USINAS } from "../../content/era1";
-import { DENSIDADES } from "../../content/cidade-era1";
+import { USINAS } from "../../content/usinas";
+import { DENSIDADES } from "../../content/cidade";
 import { CABO, SUBESTACAO, TERRENOS, VIZINHANCA } from "../../content/era1-arquipelago";
 import { ORDEM_TERRENOS, indiceCasa, naPlataforma, type TipoTerreno } from "../arquipelago";
 import { arquipelagoDaEra1 } from "../gerarArquipelago";

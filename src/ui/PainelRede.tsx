@@ -2,9 +2,11 @@
  * Painel da Rede (GDD §2.1, v0.6): a lista de compra virou **paleta de construção** — escolhe-se um prédio e
  * toca-se numa casa do arquipélago. Abaixo dela ficam o extrato, as ilhas (expedição e cabo) e as melhorias.
  */
-import { ORDEM_USINAS, USINAS, BATERIA, type Desbloqueio } from "../content/era1";
-import { BAIRRO, DENSIDADES, LABORATORIO, UNIVERSIDADE } from "../content/cidade-era1";
-import { NO_POR_ID } from "../content/arvore-era1";
+import { BATERIA, type Desbloqueio } from "../content/era1";
+import { ORDEM_USINAS, USINAS } from "../content/usinas";
+import { BAIRRO, LABORATORIO, UNIVERSIDADE } from "../content/cidade-era1";
+import { DENSIDADES } from "../content/cidade";
+import { NO_POR_ID } from "../content/arvore";
 import { CABO, ILHAS, OBSTACULOS, SUBESTACAO, type IlhaId } from "../content/era1-arquipelago";
 import { custoProximaMelhoria, desbloqueado, podeMelhorarUsina } from "../sim/acoes";
 import { fatorMelhoria } from "../sim/custos";

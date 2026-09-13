@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { NOS, NOS_INICIAIS, NO_POR_ID } from "../../content/arvore-era1";
+import { NOS, NOS_INICIAIS, NO_POR_ID } from "../../content/arvore";
 import { SUBESTACAO, VIZINHANCA } from "../../content/era1-arquipelago";
 import { NUCLEO } from "../../content/era1-nucleo";
-import { USINAS } from "../../content/era1";
+import { USINAS } from "../../content/usinas";
 import { avaliarNo, disponivel, efeitosDos, excluido, pesquisar, podePesquisar, proximoNo } from "../arvore";
 import { capacidadeU, colocar, equilibrioU, potenciaNucleoKw } from "../nucleo";
 import { analisar } from "../producao";
@@ -12,14 +12,17 @@ import { estadoLimpo, plantar } from "./ajuda";
 
 const comCiencia = (pesquisa: number, creditos = 1e6): GameState => ({ ...estadoLimpo(creditos), pesquisa });
 
+/** Nós que só abrem uma porta: a era seguinte, ou uma densidade de bairro. */
+const SEM_EFEITO = ["fissaoBasica", "fusaoBasica", "megacidade", "arcologia"];
+
 describe("árvore de pesquisa: conteúdo (GDD §8.6)", () => {
   it("todo nó tem uma frase de física e um efeito", () => {
     for (const no of NOS) {
       expect(no.fisica.length, no.id).toBeGreaterThan(30);
       expect(no.nome.length, no.id).toBeGreaterThan(2);
       expect(no.efeitoTexto.length, no.id).toBeGreaterThan(5);
-      // "Fissão básica" é a porta da Era 2: cobra 🔬 e ₵ e não muda nada por si (GDD §8.4)
-      if (no.id !== "fissaoBasica") expect(no.efeitos.length, no.id).toBeGreaterThan(0);
+      // Portas de era e nós que só liberam uma densidade não mudam nada por si (GDD §8.4, Parte 2 §4.1)
+      if (!SEM_EFEITO.includes(no.id)) expect(no.efeitos.length, no.id).toBeGreaterThan(0);
       expect(no.pesquisa, no.id).toBeGreaterThanOrEqual(0);
     }
   });
@@ -93,18 +96,30 @@ describe("árvore de pesquisa: compra", () => {
   it("sempre há um nó comprável à vista: 🔬 nunca acumula sem sumidouro (GDD §7)", () => {
     let s = comCiencia(0);
     expect(proximoNo(s)).not.toBeNull();
-    // compra tudo o que der, com 🔬 e ₵ de sobra, até a árvore acabar
-    s = { ...s, pesquisa: 1e6, creditos: 1e6, nucleo: nucleoInicial() };
-    const comprados: string[] = [];
-    for (let i = 0; i < NOS.length + 5; i++) {
-      const proximo = proximoNo(s);
-      if (!proximo) break;
-      comprados.push(proximo.id);
-      s = pesquisar(s, proximo.id)!;
-    }
-    // só as escolhas exclusivas ficam de fora (uma das duas)
-    expect(comprados.length).toBe(NOS.length - NOS_INICIAIS.length - 1);
-    expect(proximoNo(s)).toBeNull();
+    // compra tudo o que der, com 🔬 e ₵ de sobra, até a árvore da Era 1 acabar
+    s = { ...s, pesquisa: 1e9, creditos: 1e9, nucleo: nucleoInicial() };
+    const comprarTudo = (estado: GameState): [GameState, string[]] => {
+      const lista: string[] = [];
+      for (let i = 0; i < NOS.length + 5; i++) {
+        const proximo = proximoNo(estado);
+        if (!proximo) break;
+        lista.push(proximo.id);
+        estado = pesquisar(estado, proximo.id)!;
+      }
+      return [estado, lista];
+    };
+    const [depoisDaEra1, era1] = comprarTudo(s);
+    // só as escolhas exclusivas ficam de fora (uma das duas); os nós da Era 2 ainda nem aparecem
+    const nosEra1 = NOS.filter((n) => n.era === 1);
+    expect(era1.length).toBe(nosEra1.length - NOS_INICIAIS.length - 1);
+    expect(proximoNo(depoisDaEra1)).toBeNull();
+
+    // na Era 2 a árvore volta a ter para onde ir, e acaba do mesmo jeito
+    const naEra2: GameState = { ...depoisDaEra1, era: 2, nucleo: { ...nucleoInicial(), era: 2 }, pesquisa: 1e9, creditos: 1e9 };
+    expect(proximoNo(naEra2)).not.toBeNull();
+    const [fim, era2] = comprarTudo(naEra2);
+    expect(era2.length).toBe(NOS.filter((n) => n.era === 2).length - 1);
+    expect(proximoNo(fim)).toBeNull();
   });
 
   it("o nó do laboratório nasce comprado: a primeira ciência não pode custar 🔬", () => {

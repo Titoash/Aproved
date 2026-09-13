@@ -6,7 +6,8 @@
  * usinas). O que não couber vira crédito de ₵ com reembolso integral do que aquelas unidades custaram.
  * TypeScript puro e determinístico.
  */
-import { BATERIA, USINAS } from "../content/era1";
+import { BATERIA } from "../content/era1";
+import { USINAS } from "../content/usinas";
 import { BAIRRO } from "../content/cidade-era1";
 import { SUBESTACAO } from "../content/era1-arquipelago";
 import { custoUnidade } from "./custos";

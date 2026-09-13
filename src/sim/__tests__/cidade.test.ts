@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { DENSIDADES, LABORATORIO, UNIVERSIDADE } from "../../content/cidade-era1";
+import { LABORATORIO, UNIVERSIDADE } from "../../content/cidade-era1";
+import { DENSIDADES } from "../../content/cidade";
 import { CRISTAL } from "../../content/era1-arquipelago";
 import { avaliarEvolucao, custoEvolucao, densidadeDoNivel, evoluirBairro, limiteUniversidades, pesquisaUniversidade, populacaoDoMundo } from "../cidade";
 import { analisar } from "../producao";
@@ -19,12 +20,14 @@ const casasDe = (s: GameState, tipo: string) =>
     .filter((i) => s.mundo.construcoes[i].tipo === tipo);
 
 describe("densidade dos bairros (GDD §8.6)", () => {
-  it("a tabela é a de §8.6: demanda, população e tarifa por densidade", () => {
-    expect(DENSIDADES.map((d) => d.demandaKw)).toEqual([8, 20, 48, 110]);
-    expect(DENSIDADES.map((d) => d.populacao)).toEqual([100, 400, 1600, 6400]);
-    expect(DENSIDADES.map((d) => d.tarifa)).toEqual([1, 1.15, 1.3, 1.5]);
-    expect(DENSIDADES.map((d) => d.evolucao?.creditos ?? null)).toEqual([250, 625, 1562, null]);
-    expect(DENSIDADES.map((d) => d.evolucao?.pesquisa ?? null)).toEqual([30, 150, 600, null]);
+  it("a tabela é a de §8.6 e de Parte 2 §4.1: demanda, população e tarifa por densidade", () => {
+    expect(DENSIDADES.map((d) => d.demandaKw)).toEqual([8, 20, 48, 110, 400, 1500]);
+    expect(DENSIDADES.map((d) => d.populacao)).toEqual([100, 400, 1600, 6400, 25_000, 100_000]);
+    expect(DENSIDADES.map((d) => d.tarifa)).toEqual([1, 1.15, 1.3, 1.5, 1.7, 2]);
+    expect(DENSIDADES.map((d) => d.evolucao?.creditos ?? null)).toEqual([250, 625, 1562, 97_650, 244_000, null]);
+    expect(DENSIDADES.map((d) => d.evolucao?.pesquisa ?? null)).toEqual([30, 150, 600, 3_000, 15_000, null]);
+    // as duas últimas só com o nó da Era 2 (GDD Parte 2 §4.1)
+    expect(DENSIDADES.map((d) => d.no ?? null)).toEqual([null, null, null, null, "megacidade", "arcologia"]);
   });
 
   it("a curva de evolução é quase exponencial: ₵ ×2,5 e 🔬 ×5 por degrau", () => {
@@ -34,7 +37,11 @@ describe("densidade dos bairros (GDD §8.6)", () => {
       expect(b.creditos / a.creditos).toBeCloseTo(2.5, 1);
       expect(b.pesquisa / a.pesquisa).toBeCloseTo(n === 0 ? 5 : 4, 1);
     }
-    expect(custoEvolucao(3)).toBeNull(); // metrópole não evolui
+    // a Era 2 dá um salto de escala em ₵ na entrada da megacidade e volta ao ×2,5 (GDD Parte 2 §4.1)
+    expect(custoEvolucao(3)!.creditos / custoEvolucao(2)!.creditos).toBeCloseTo(62.5, 1);
+    expect(custoEvolucao(4)!.creditos / custoEvolucao(3)!.creditos).toBeCloseTo(2.5, 1);
+    expect(custoEvolucao(4)!.pesquisa / custoEvolucao(3)!.pesquisa).toBeCloseTo(5, 1);
+    expect(custoEvolucao(5)).toBeNull(); // arcologia não evolui
   });
 
   it("evoluir gasta ₵ + 🔬, sobe um degrau e muda demanda, população e tarifa", () => {

@@ -3,10 +3,13 @@
  * Salva a cada `INTERVALO_SAVE_MS`, carrega no início, exporta/importa JSON,
  * migra saves de versões anteriores.
  */
-import { NOS_INICIAIS, NO_POR_ID } from "../content/arvore-era1";
-import { CAPITULO_POR_ID } from "../content/capitulos-era1";
+import { NOS_INICIAIS, NO_POR_ID } from "../content/arvore";
+import { CAPITULO_POR_ID } from "../content/capitulos";
 import { ILHAS, ORDEM_OBSTACULOS, type IlhaId, type TipoObstaculo } from "../content/era1-arquipelago";
-import { NUCLEO, PECAS } from "../content/era1-nucleo";
+import { NUCLEO } from "../content/era1-nucleo";
+import { VARETA } from "../content/era2-nucleo";
+import { PECA_POR_ID, ordemDasPecas } from "../content/pecas";
+import { ehDeAgua } from "./producao";
 import { arquipelagoDaEra1 } from "./gerarArquipelago";
 import { migrarParaMundo } from "./migracao-v6";
 import { anel } from "./nucleo";
@@ -28,6 +31,7 @@ import {
   type RemocaoEmCurso,
   type TipoConstrucao,
   type UsinaId,
+  type VaretaEstado,
 } from "./state";
 
 export const CHAVE_SAVE = "aproved.save";
@@ -82,30 +86,48 @@ function objeto(valor: unknown): Record<string, unknown> {
   return valor !== null && typeof valor === "object" ? (valor as Record<string, unknown>) : {};
 }
 
-const IDS_USINA: readonly UsinaId[] = ["cataVento", "painelSolar", "turbinaEolica"];
+const IDS_USINA: readonly UsinaId[] = ["cataVento", "painelSolar", "turbinaEolica", "eolicaOffshore", "fazendaSolar", "termicaGas"];
 
 function ehPecaId(valor: unknown): valor is PecaId {
-  return typeof valor === "string" && valor in PECAS;
+  return typeof valor === "string" && valor in PECA_POR_ID;
 }
 
-function normalizarCasa(bruto: unknown, indice: number, lado: number): Casa {
+/** Combustível de uma vareta salva; `undefined` para as peças que não são vareta. */
+function normalizarVareta(id: PecaId, bruto: unknown): VaretaEstado | undefined {
+  if (id !== "vareta") return undefined;
+  const v = objeto(bruto);
+  const restanteS = numero(v.restanteS, VARETA.combustivelS);
+  const gasta = typeof v.gastaDesdeMs === "number" && Number.isFinite(v.gastaDesdeMs) ? v.gastaDesdeMs : null;
+  // Ou tem combustível, ou está gasta: o save não pode chegar nas duas situações ao mesmo tempo.
+  if (gasta !== null) return { restanteS: 0, gastaDesdeMs: gasta };
+  return { restanteS: Math.min(VARETA.combustivelS, Math.max(0, restanteS)), gastaDesdeMs: null };
+}
+
+function normalizarCasa(bruto: unknown, indice: number, lado: number, era: 1 | 2): Casa {
   if (indice === indiceReceptor(lado)) return { tipo: "receptor" };
   const c = objeto(bruto);
   if (!ehPecaId(c.id)) return null;
+  // Peça de outra era não entra na grade: a Torre não tem vareta e o reator não tem heliostato.
+  if (!ordemDasPecas(era).includes(c.id)) return null;
   const a = anel(indice, lado);
-  if (a === 0 || !PECAS[c.id].aneis.includes(a)) return null;
-  if (c.tipo === "peca") return { tipo: "peca", id: c.id };
-  if (c.tipo === "entulho") return { tipo: "entulho", id: c.id, desdeMs: numero(c.desdeMs, 0) };
+  if (a === 0 || !PECA_POR_ID[c.id].aneis.includes(a)) return null;
+  const vareta = normalizarVareta(c.id, c.vareta);
+  if (c.tipo === "peca") return vareta ? { tipo: "peca", id: c.id, vareta } : { tipo: "peca", id: c.id };
+  if (c.tipo === "entulho") {
+    const base = { tipo: "entulho" as const, id: c.id, desdeMs: numero(c.desdeMs, 0) };
+    // Entulho de vareta continua quente: se o save não trouxe a marca, ele já está decaindo.
+    return vareta ? { ...base, vareta: { restanteS: 0, gastaDesdeMs: vareta.gastaDesdeMs ?? base.desdeMs } } : base;
+  }
   return null;
 }
 
-function normalizarNucleo(bruto: unknown): NucleoState | null {
+function normalizarNucleo(bruto: unknown, era: 1 | 2): NucleoState | null {
   if (bruto === null || bruto === undefined || typeof bruto !== "object") return null;
   const n = objeto(bruto);
   const base = nucleoInicial();
   const lado = n.lado === 7 ? 7 : NUCLEO.ladoInicial;
   const gradeBruta = Array.isArray(n.grade) ? n.grade : [];
-  const grade = gradeVazia(lado).map((_, i) => normalizarCasa(gradeBruta[i], i, lado));
+  const grade = gradeVazia(lado).map((_, i) => normalizarCasa(gradeBruta[i], i, lado, era));
   const scramRestanteMs = numero(n.scramRestanteMs, base.scramRestanteMs);
   const ultimaCascataMs = typeof n.ultimaCascataMs === "number" && Number.isFinite(n.ultimaCascataMs) ? n.ultimaCascataMs : null;
   const uc = objeto(n.ultimaCascata);
@@ -114,11 +136,14 @@ function normalizarNucleo(bruto: unknown): NucleoState | null {
       ? { tempoMs: numero(uc.tempoMs, 0), entradaUs: numero(uc.entradaUs, 0), saidaUs: numero(uc.saidaUs, 0) }
       : null;
   return {
+    era,
     lado,
     grade,
     calorU: numero(n.calorU, base.calorU),
     tempoAcimaDoLimiteMs: numero(n.tempoAcimaDoLimiteMs, base.tempoAcimaDoLimiteMs),
     scramRestanteMs,
+    scramInicioMs: scramRestanteMs > 0 && typeof n.scramInicioMs === "number" && Number.isFinite(n.scramInicioMs) ? n.scramInicioMs : null,
+    trocasEmFaixa: inteiro(n.trocasEmFaixa, 0),
     estabilidade: Math.min(100, numero(n.estabilidade, base.estabilidade)),
     modoSeguro: booleano(n.modoSeguro, base.modoSeguro),
     receptorCeramico: booleano(n.receptorCeramico, base.receptorCeramico),
@@ -133,7 +158,24 @@ function normalizarCardsVistos(bruto: unknown): string[] {
   return Array.from(new Set(bruto.filter((x): x is string => typeof x === "string")));
 }
 
-const TIPOS_CONSTRUCAO: readonly TipoConstrucao[] = ["cataVento", "painelSolar", "turbinaEolica", "bairro", "bateria", "subestacao", "laboratorio", "universidade"];
+const TIPOS_CONSTRUCAO: readonly TipoConstrucao[] = [
+  "cataVento",
+  "painelSolar",
+  "turbinaEolica",
+  "eolicaOffshore",
+  "fazendaSolar",
+  "termicaGas",
+  "bairro",
+  "bateria",
+  "subestacao",
+  "laboratorio",
+  "universidade",
+  "subestacao138",
+  "subestacaoOffshore",
+  "bateriaRede",
+  "distritoIndustrial",
+  "institutoPesquisa",
+];
 
 function ehTipoConstrucao(valor: unknown): valor is TipoConstrucao {
   return typeof valor === "string" && TIPOS_CONSTRUCAO.includes(valor as TipoConstrucao);
@@ -153,9 +195,11 @@ function normalizarMundo(bruto: unknown): MundoState {
   const construcoes: Record<number, Construcao> = {};
   for (const [chave, valor] of Object.entries(objeto(m.construcoes))) {
     const i = Number(chave);
-    if (!Number.isInteger(i) || i < 0 || i >= arq.n * arq.n || arq.terra[i] !== 1) continue;
+    if (!Number.isInteger(i) || i < 0 || i >= arq.n * arq.n) continue;
     const c = objeto(valor);
     if (!ehTipoConstrucao(c.tipo)) continue;
+    // Offshore mora no mar; o resto, em terra (GDD Parte 2 §3.1).
+    if (ehDeAgua(c.tipo) ? arq.terra[i] === 1 : arq.terra[i] !== 1) continue;
     construcoes[i] = { tipo: c.tipo, nivel: inteiro(c.nivel, 0), colocadoEmMs: numero(c.colocadoEmMs, 0) };
   }
 
@@ -226,14 +270,15 @@ function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState 
   // As contagens são derivadas do mundo (GDD §2.1, v0.6): aqui só o nível e a carga.
   const rede: RedeState = { usinas, bateria: { kwh: numero(bateriaBruta.kwh, 0) } };
 
+  const era: 1 | 2 = bruto.era === 2 ? 2 : 1;
   return {
     versao: VERSAO_SAVE,
     tempoMs: numero(bruto.tempoMs, base.tempoMs),
     creditos: numero(bruto.creditos, base.creditos),
     pesquisa: numero(bruto.pesquisa, base.pesquisa),
-    era: 1,
+    era,
     rede,
-    nucleo: normalizarNucleo(bruto.nucleo),
+    nucleo: normalizarNucleo(bruto.nucleo, era),
     pesquisados: normalizarPesquisados(bruto.pesquisados),
     capitulos: normalizarCapitulos(bruto.capitulos),
     salvoEmMs: typeof bruto.salvoEmMs === "number" && bruto.salvoEmMs > 0 ? bruto.salvoEmMs : agoraMs,
@@ -254,6 +299,8 @@ function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState 
  * v6 → v7: o cabo submarino ganha nível (lista de ilhas → ilha: nível), entram as casas de cristal,
  *          "vila" vira "bairro" com densidade, e as melhorias nomeadas viram nós da árvore — 🔬
  *          acumulado vira saldo e o que já estava desbloqueado fica desbloqueado sem cobrar.
+ * v7 → v8: entra a **era** (GDD Parte 2 §2). Saves antigos são todos da Era 1 e continuam jogáveis;
+ *          o Núcleo ganha `era`, `scramInicioMs` e `trocasEmFaixa`.
  */
 function migrar(bruto: Record<string, unknown>, agoraMs: number): Record<string, unknown> {
   const versao = bruto.versao;
@@ -327,6 +374,13 @@ function migrar(bruto: Record<string, unknown>, agoraMs: number): Record<string,
     const { melhorias: _melhorias, ...resto } = atual;
     atual = { ...resto, mundo: { ...mundoBruto, construcoes, cabos, cristais: [] }, pesquisados, capitulos: [], versao: 7 };
     v = 7;
+  }
+  if (v === 7) {
+    // v7 → v8: entra a era. Todo save antigo é da Era 1 e continua jogável exatamente como estava; o
+    // Núcleo ganha a marca da era, o relógio do SCRAM e o contador de trocas de vareta.
+    const nucleoBruto = atual.nucleo && typeof atual.nucleo === "object" ? { ...(atual.nucleo as Record<string, unknown>), era: 1, scramInicioMs: null, trocasEmFaixa: 0 } : atual.nucleo;
+    atual = { ...atual, era: 1, nucleo: nucleoBruto, versao: 8 };
+    v = 8;
   }
   return { ...atual, versao: v };
 }

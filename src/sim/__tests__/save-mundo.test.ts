@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { USINAS } from "../../content/era1";
-import { DENSIDADES } from "../../content/cidade-era1";
+import { USINAS } from "../../content/usinas";
+import { DENSIDADES } from "../../content/cidade";
 import { arquipelagoDaEra1 } from "../gerarArquipelago";
 import { comprarIlha, ligarCabo, removerObstaculo } from "../mundo";
 import { analisar, obstaculoEm, quantidadeDe } from "../producao";
@@ -12,8 +12,8 @@ import { estadoLimpo, plantar } from "./ajuda";
 const arq = arquipelagoDaEra1();
 
 describe("save do mundo", () => {
-  it("a versão é 7", () => {
-    expect(VERSAO_SAVE).toBe(7);
+  it("a versão é 8", () => {
+    expect(VERSAO_SAVE).toBe(8);
   });
 
   it("ida e volta: construções, obstáculos removidos, fila, ilhas e cabos", () => {
@@ -24,7 +24,7 @@ describe("save do mundo", () => {
     s = removerObstaculo(s, arvore)!;
     const meio = avancarTicks(s, 5); // fila ainda em curso
     const lido = desserializar(serializar(meio, 1000), 1000);
-    expect(lido.versao).toBe(7);
+    expect(lido.versao).toBe(8);
     expect(lido.mundo.construcoes).toEqual(meio.mundo.construcoes);
     expect(lido.mundo.ilhasAbertas).toEqual(["principal", "ventania"]);
     expect(lido.mundo.cabos).toEqual({ ventania: 0 });
@@ -83,7 +83,7 @@ describe("save do mundo", () => {
       salvoEmMs: 1000,
     };
     const s = desserializar(JSON.stringify(v5), 1000);
-    expect(s.versao).toBe(7);
+    expect(s.versao).toBe(8);
     expect(s.rede.usinas.cataVento.nivel).toBe(1);
     expect(quantidadeDe(s, "cataVento")).toBe(12);
     expect(quantidadeDe(s, "painelSolar")).toBe(4);

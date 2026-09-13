@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { ECONOMIA, USINAS } from "../../content/era1";
-import { DENSIDADES } from "../../content/cidade-era1";
+import { BATERIA, ECONOMIA } from "../../content/era1";
+import { USINAS } from "../../content/usinas";
+import { DENSIDADES } from "../../content/cidade";
 import {
   atualizarBateria,
   balancoRede,
@@ -80,7 +81,7 @@ describe("oferta e demanda", () => {
 });
 
 describe("bateria", () => {
-  const bateria = { kwh: 0, capacidadeKwh: 10, unidades: 1 };
+  const bateria = { kwh: 0, capacidadeKwh: 10, unidades: 1, potenciaKw: (1) * BATERIA.potenciaKw };
 
   it("a escala da bateria é 1 kWh por kW·s (ver ESTADO.md)", () => {
     expect(ECONOMIA.kwhPorKwSegundo).toBe(1);
@@ -113,7 +114,7 @@ describe("bateria", () => {
   });
 
   it("sem capacidade não faz nada", () => {
-    const r = atualizarBateria({ kwh: 0, capacidadeKwh: 0, unidades: 0 }, 5, 0, 1);
+    const r = atualizarBateria({ kwh: 0, capacidadeKwh: 0, unidades: 0, potenciaKw: 0 }, 5, 0, 1);
     expect(r.carregadoKwh).toBe(0);
     expect(r.bateria.kwh).toBe(0);
   });

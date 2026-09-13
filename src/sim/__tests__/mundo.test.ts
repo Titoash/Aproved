@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { USINAS } from "../../content/era1";
+import { USINAS } from "../../content/usinas";
 import { BAIRRO } from "../../content/cidade-era1";
 import { CABO, OBSTACULOS, SUBESTACAO, ilhaDef } from "../../content/era1-arquipelago";
 import { indiceCasa, naPlataforma } from "../arquipelago";

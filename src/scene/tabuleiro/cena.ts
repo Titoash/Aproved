@@ -21,7 +21,18 @@ import { ELEV_PLAT } from "./terreno";
 // Tipos públicos
 // ---------------------------------------------------------------------------------------------
 
-export type TipoPecaCena = "receptor" | "heliostato" | "turbina" | "radiador" | "tanque" | "entulho";
+export type TipoPecaCena =
+  | "receptor"
+  | "heliostato"
+  | "turbina"
+  | "radiador"
+  | "tanque"
+  | "entulho"
+  | "vareta"
+  | "barraControle"
+  | "turbinaAlta"
+  | "torreResfriamento"
+  | "piscina";
 
 /** Peça do Núcleo já convertida para a casa da plataforma na grade da ilha. */
 export interface PecaCena {
@@ -29,6 +40,12 @@ export interface PecaCena {
   y: number;
   tipo: TipoPecaCena;
   anel: 1 | 2 | 3;
+  /** vareta: 0..1 do combustível que resta. */
+  combustivel?: number;
+  /** vareta: já esgotou. */
+  gasta?: boolean;
+  /** vareta gasta: 0..1 do calor de decaimento. */
+  decaimento?: number;
   /** entulho: remoção grátis (contorno `leaf`). */
   gratis?: boolean;
   /** entulho: `tempoMs` do jogo em que nasceu (pop de 250 ms). */
@@ -36,6 +53,8 @@ export interface PecaCena {
 }
 
 export interface NucleoCena {
+  /** 1 = Torre Solar, 2 = Reator PWR: a peça fixa do centro muda de arte e de nome. */
+  era: 1 | 2;
   lado: number;
   pecas: readonly PecaCena[];
   /** Temperatura 0..1,2. */
@@ -45,6 +64,8 @@ export interface NucleoCena {
   consumo: number;
   /** Rastreamento solar: varredura dos espelhos. */
   rastreamento: boolean;
+  /** Era 2: há torre de resfriamento na grade (o Vaso ganha as torres hiperbólicas). */
+  comTorre?: boolean;
 }
 
 export type AncoraCallout = "torre" | "grade" | "vento" | "vila";
@@ -68,6 +89,8 @@ export interface RealceCena {
   valido: boolean;
   /** Motivo da recusa ou ressalva ("sem escoamento", "esteira −40 %"). */
   texto: string | null;
+  /** 2 = prévia de construção 2×2: as quatro casas acendem juntas (GDD Parte 2 §3.1). */
+  lado?: number;
 }
 
 /** Uma construção colocada, já na casa do arquipélago. */
@@ -76,6 +99,8 @@ export interface ConstrucaoCena {
   y: number;
   tipo: TipoConstrucao;
   nivel: number;
+  /** Lado em casas: 2 = construção 2×2 da Era 2 (o sprite senta no centro do bloco). */
+  lado?: number;
   /** Usina que produz sem ter para onde escoar (GDD §7). */
   semEscoamento: boolean;
 }
@@ -123,6 +148,8 @@ export interface EntradaCena {
   bateriaCarga: number;
   /** Casa sob o ponteiro. */
   realce: RealceCena | null;
+  /** A ferramenta escolhida é offshore: o mar raso inteiro acende (GDD Parte 2 §3.1). */
+  rasoRealcado: boolean;
   /** Casa do obstáculo em remoção (o Bipe de manutenção vai até lá). */
   remocao: { x: number; y: number } | null;
   /** Tempo do jogo (para o pop do entulho). */
@@ -208,6 +235,8 @@ export interface CascataCena {
 export interface Cena {
   /** Ponto do chão do Receptor (mundo, já com a elevação). */
   torre: [number, number];
+  /** A ferramenta escolhida é offshore: o mar raso inteiro acende. */
+  rasoRealcado: boolean;
   /** Centro da esfera (mundo). */
   esfera: [number, number];
   realce: RealceCena | null;
@@ -301,6 +330,19 @@ const ALTO: Partial<Record<NomeSprite, number>> = {
   placaBloqueio: 70,
   bipe: 52,
   entulho: 14,
+  vaso: 90,
+  vareta: 46,
+  barraControle: 48,
+  torreResfriamento: 56,
+  piscina: 20,
+  eolicaOffshore: 140,
+  fazendaSolar: 26,
+  termicaGas: 80,
+  subestacao138: 66,
+  subestacaoOffshore: 50,
+  bateriaRede: 34,
+  distritoIndustrial: 50,
+  institutoPesquisa: 62,
 };
 
 /** Cor-chave do modo mapa: cada objeto vira um disco de 2 px de tela. Quem não está aqui (torre, placa, cristal) continua sprite. */
@@ -320,6 +362,15 @@ const CHAVE: Partial<Record<NomeSprite, string>> = {
   entulho: P.entulho,
   laboratorio: P.sky,
   universidade: P.sun,
+  eolicaOffshore: P.pa,
+  fazendaSolar: P.painel,
+  termicaGas: P.coral,
+  bateriaRede: P.leaf,
+  distritoIndustrial: P.laranja,
+  institutoPesquisa: P.sky,
+  vareta: P.sun,
+  barraControle: P.void,
+  piscina: P.agua2,
 };
 const COR_BIPE: Record<PapelBipe, string> = { operador: P.sky, manutencao: P.leaf, cientista: P.sun };
 const TETOS: Record<Teto, string> = { coral: P.coral, sun: P.sun, sky: P.sky };
@@ -401,6 +452,14 @@ const SPRITE_CONSTRUCAO: Record<TipoConstrucao, NomeSprite> = {
   subestacao: "subestacao",
   laboratorio: "laboratorio",
   universidade: "universidade",
+  eolicaOffshore: "eolicaOffshore",
+  fazendaSolar: "fazendaSolar",
+  termicaGas: "termicaGas",
+  subestacao138: "subestacao138",
+  subestacaoOffshore: "subestacaoOffshore",
+  bateriaRede: "bateriaRede",
+  distritoIndustrial: "distritoIndustrial",
+  institutoPesquisa: "institutoPesquisa",
 };
 
 /** Um cristal por casa aberta por montanha dinamitada. */
@@ -494,8 +553,12 @@ function construirRede(cena: Cena, construcoes: readonly ConstrucaoCena[], carga
       default:
         break;
     }
+    if (c.tipo === "subestacao138" || c.tipo === "subestacaoOffshore") estado.nivel = c.nivel;
+    if (c.tipo === "bateriaRede") estado.carga = carga;
     estado.semEscoamento = c.semEscoamento;
-    objetos.push(novoObjeto(arq, SPRITE_CONSTRUCAO[c.tipo], c.x, c.y, estado));
+    // Construção 2×2: o sprite senta no centro do bloco, meia casa a sudeste da âncora.
+    const meio = (c.lado ?? 1) === 2 ? 0.5 : 0;
+    objetos.push(novoObjeto(arq, SPRITE_CONSTRUCAO[c.tipo], c.x, c.y, estado, meio, meio));
   }
   cena.rede = objetos;
   cena.redeObjetos = objetos;
@@ -516,8 +579,23 @@ function construirNucleo(cena: Cena, nu: NucleoCena | null): void {
       let o: Objeto;
       switch (p.tipo) {
         case "receptor":
-          o = novoObjeto(arq, "receptor", p.x, p.y, { lod: "perto", T: nu.T, scram: nu.scram });
+          o = novoObjeto(arq, nu.era === 2 ? "vaso" : "receptor", p.x, p.y, { lod: "perto", T: nu.T, scram: nu.scram, comTorre: nu.comTorre });
           cena.receptor = o.estado;
+          break;
+        case "vareta":
+          o = novoObjeto(arq, "vareta", p.x, p.y, { lod: "perto", combustivel: p.combustivel, gasta: p.gasta, decaimento: p.decaimento });
+          break;
+        case "barraControle":
+          o = novoObjeto(arq, "barraControle", p.x, p.y, { lod: "perto" });
+          break;
+        case "turbinaAlta":
+          o = novoObjeto(arq, "turbinaVapor", p.x, p.y, { lod: "perto", consumo: nu.consumo, scram: nu.scram });
+          break;
+        case "torreResfriamento":
+          o = novoObjeto(arq, "torreResfriamento", p.x, p.y, { lod: "perto" });
+          break;
+        case "piscina":
+          o = novoObjeto(arq, "piscina", p.x, p.y, { lod: "perto" });
           break;
         case "heliostato":
           // fases bem distintas entre espelhos: a varredura de rastreamento não sincroniza
@@ -711,6 +789,7 @@ export function criarCena(entrada: EntradaCena): Cena {
     torre,
     esfera,
     realce: null,
+    rasoRealcado: false,
     cascata: null,
     reduzido: movimentoReduzido(),
     arq,
@@ -756,6 +835,7 @@ export function criarCena(entrada: EntradaCena): Cena {
 export function atualizarCena(cena: Cena, entrada: EntradaCena): void {
   cena.tempoMs = entrada.tempoMs;
   cena.realce = entrada.realce;
+  cena.rasoRealcado = entrada.rasoRealcado;
   const nu = entrada.nucleo;
   let remontar = false;
 
@@ -829,6 +909,17 @@ export function atualizarCena(cena: Cena, entrada: EntradaCena): void {
         case "receptor":
           e.T = nu.T;
           e.scram = nu.scram;
+          e.comTorre = nu.comTorre;
+          break;
+        case "vareta":
+          // o gradiente apaga de cima para baixo a cada tick, e o brilho da gasta esmaece
+          e.combustivel = p.combustivel;
+          e.gasta = p.gasta;
+          e.decaimento = p.decaimento;
+          break;
+        case "turbinaAlta":
+          e.consumo = nu.consumo;
+          e.scram = nu.scram;
           break;
         case "heliostato":
           e.rastreamento = nu.rastreamento;
@@ -856,8 +947,8 @@ export function atualizarCena(cena: Cena, entrada: EntradaCena): void {
   for (let i = 0; i < construcoes.length; i++) {
     const c = construcoes[i];
     const e = cena.redeObjetos[i].estado;
-    if (c.tipo === "bateria") e.carga = entrada.bateriaCarga;
-    if (c.tipo === "subestacao") e.nivel = c.nivel;
+    if (c.tipo === "bateria" || c.tipo === "bateriaRede") e.carga = entrada.bateriaCarga;
+    if (c.tipo === "subestacao" || c.tipo === "subestacao138" || c.tipo === "subestacaoOffshore") e.nivel = c.nivel;
     e.semEscoamento = c.semEscoamento;
   }
 
@@ -970,23 +1061,59 @@ export function desenharCena(ctx: CanvasRenderingContext2D, cena: Cena, cam: Cam
       desenharSprite("casaNucleo", ctx, c[0], c[1] - ELEV, 1, REALCE_PLAT, t);
     } else {
       const cor = re.valido ? P.leaf : P.coral;
+      const passo = re.lado && re.lado > 1 ? re.lado : 1;
       ctx.save();
-      ctx.translate(c[0], c[1]);
       ctx.globalAlpha = 0.9;
-      ctx.fillStyle = alfa(cor, 0.25);
-      ctx.beginPath();
-      ctx.moveTo(0, -16);
-      ctx.lineTo(32, 0);
-      ctx.lineTo(0, 16);
-      ctx.lineTo(-32, 0);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = cor;
-      ctx.lineWidth = 2 / z;
-      ctx.stroke();
+      for (let dy = 0; dy < passo; dy++) {
+        for (let dx = 0; dx < passo; dx++) {
+          const cc = centro(re.x + dx, re.y + dy);
+          ctx.save();
+          ctx.translate(cc[0], cc[1]);
+          ctx.fillStyle = alfa(cor, 0.25);
+          ctx.beginPath();
+          ctx.moveTo(0, -16);
+          ctx.lineTo(32, 0);
+          ctx.lineTo(0, 16);
+          ctx.lineTo(-32, 0);
+          ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = cor;
+          ctx.lineWidth = 2 / z;
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
       ctx.globalAlpha = 1;
       ctx.restore();
     }
+  }
+
+  // 1a. mar raso aceso quando a ferramenta é offshore: mostra onde a peça cabe (GDD Parte 2 §3.1)
+  if (cena.rasoRealcado && !mapa) {
+    const arqR = cena.arq;
+    const nR = arqR.n;
+    ctx.save();
+    ctx.fillStyle = alfa(P.leaf, 0.16);
+    ctx.strokeStyle = alfa(P.leaf, 0.45);
+    ctx.lineWidth = 1 / z;
+    ctx.beginPath();
+    for (let yy = 0; yy < nR; yy++) {
+      for (let xx = 0; xx < nR; xx++) {
+        const i = yy * nR + xx;
+        if (arqR.terra[i] === 1) continue;
+        const d = arqR.distMar[i];
+        if (d < 1 || d > 3) continue;
+        const cc = centro(xx, yy);
+        ctx.moveTo(cc[0], cc[1] - 16);
+        ctx.lineTo(cc[0] + 32, cc[1]);
+        ctx.lineTo(cc[0], cc[1] + 16);
+        ctx.lineTo(cc[0] - 32, cc[1]);
+        ctx.closePath();
+      }
+    }
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
   }
 
   // 1b. alcance das subestações selecionadas (sob os objetos)

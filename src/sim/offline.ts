@@ -7,7 +7,8 @@ import { MODO_SEGURO } from "../content/era1-nucleo";
 import { faixaDeCalor, pesquisaPorSegundo, temperatura } from "./calor";
 import { limitarEstabilidade } from "./estabilidade";
 import { efeitosDe } from "./efeitos";
-import { capacidadeU, equilibrioU, potenciaNucleoKw } from "./nucleo";
+import { equilibrioMotor, motorDoNucleo, potenciaMotor } from "./motor";
+import { avancarVaretasOffline } from "./reator";
 import { analisar, derivarRede } from "./producao";
 import { balancoRede } from "./rede";
 import type { GameState } from "./state";
@@ -45,8 +46,11 @@ export function calcularOffline(state: GameState, agoraMs: number): { state: Gam
   const analise = analisar(state);
 
   if (nucleo) {
-    const capacidade = capacidadeU(nucleo.grade, nucleo.receptorCeramico, efeitos);
-    const qEquilibrio = equilibrioU(nucleo.grade, efeitos);
+    // O motor é o da configuração salva rodando em modo seguro (GDD §7). O SCRAM que estivesse em
+    // curso não conta: ele zera na volta, e o que interessa é o equilíbrio da grade.
+    const motor = motorDoNucleo({ ...nucleo, scramRestanteMs: 0, scramInicioMs: null }, efeitos, state.tempoMs);
+    const capacidade = motor.capacidadeU;
+    const qEquilibrio = equilibrioMotor(motor);
     const tEq = temperatura(qEquilibrio, capacidade);
     tEquilibrio = tEq;
 
@@ -54,18 +58,23 @@ export function calcularOffline(state: GameState, agoraMs: number): { state: Gam
       // Modo seguro obrigatório: a configuração dispararia o SCRAM, então fica desligado o tempo todo.
       nucleoDesligado = true;
     } else {
-      potenciaNucleo = potenciaNucleoKw(nucleo.grade, qEquilibrio, efeitos) * OFFLINE.fatorNucleo;
-      pesquisaPorS = pesquisaPorSegundo(potenciaNucleo, tEq);
+      potenciaNucleo = potenciaMotor(motor, qEquilibrio) * OFFLINE.fatorNucleo;
+      pesquisaPorS = pesquisaPorSegundo(potenciaNucleo, tEq, motor.pesquisaPorKw);
       if (potenciaNucleo > 0) estabilidadePorS = (faixaDeCalor(tEq).estabilidadePorMinuto / 60) * OFFLINE.fatorNucleo;
     }
 
     const limiteQ = capacidade * MODO_SEGURO.limiarT;
     const qVolta = Number.isFinite(qEquilibrio) ? Math.min(qEquilibrio, limiteQ) : limiteQ;
+    // O tempo passa no combustível mesmo com o jogo fechado (GDD Parte 2 §5.2): uma vareta que
+    // acabaria no meio da ausência é marcada como gasta no instante exato em que acabou.
+    const grade = nucleo.era === 2 && !nucleoDesligado ? avancarVaretasOffline(nucleo, segundos, state.tempoMs, efeitos) : nucleo.grade;
     nucleo = {
       ...nucleo,
+      grade,
       calorU: qVolta,
       tempoAcimaDoLimiteMs: 0,
       scramRestanteMs: 0,
+      scramInicioMs: null,
       estabilidade: limitarEstabilidade(nucleo.estabilidade + estabilidadePorS * segundos),
     };
   }
@@ -77,8 +86,10 @@ export function calcularOffline(state: GameState, agoraMs: number): { state: Gam
     ofertaUsinasKw: analise.ofertaKw,
     demandaKw: analise.demandaKw,
     tarifa: analise.tarifa,
+    custoOperacaoPorSegundo: analise.custoOperacaoPorSegundo,
   });
-  const creditos = balanco.receitaPorSegundo * OFFLINE.fatorRede * segundos;
+  // Térmicas a gás também cobram combustível offline, com o mesmo fator da receita (GDD Parte 2 §5.2).
+  const creditos = (balanco.receitaPorSegundo - balanco.custoPorSegundo) * OFFLINE.fatorRede * segundos;
   // Laboratórios e universidades rendem offline com o mesmo fator da Rede (decisão da Sessão 7).
   const pesquisa = (pesquisaPorS + analise.pesquisaPorSegundo * OFFLINE.fatorRede) * segundos;
   const estabilidade = nucleo && state.nucleo ? nucleo.estabilidade - state.nucleo.estabilidade : 0;

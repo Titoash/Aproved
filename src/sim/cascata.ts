@@ -1,5 +1,7 @@
 /** Cascata e SCRAM (GDD §5): cronômetro, efeitos, entulho e modo seguro. */
-import { CASCATA, PECAS } from "../content/era1-nucleo";
+import { CASCATA } from "../content/era1-nucleo";
+import { SCRAM_ERA2 } from "../content/era2-nucleo";
+import { PECA_POR_ID } from "../content/pecas";
 import { perdaCascata } from "./estabilidade";
 import { entulharAnel1 } from "./nucleo";
 import type { Casa, NucleoState, UltimaCascata } from "./state";
@@ -37,9 +39,17 @@ export function deveCascatear(tempoAcimaMs: number): boolean {
   return tempoAcimaMs >= CASCATA.atrasoMs;
 }
 
-/** Liga o SCRAM: 20 s sem espelhos, sem turbinas, sem pesquisa, sem potência. */
-export function scram(nucleo: NucleoState): NucleoState {
-  return { ...nucleo, scramRestanteMs: CASCATA.scramMs, tempoAcimaDoLimiteMs: 0 };
+/**
+ * Duração do SCRAM na era: 20 s na Torre Solar; no reator são 60 s de parada mínima mais 30 s para
+ * religar, e nesse tempo todo as varetas decaem (GDD §5 e Parte 2 §5.2).
+ */
+export function duracaoScramMs(era: 1 | 2): number {
+  return era === 2 ? SCRAM_ERA2.totalMs : CASCATA.scramMs;
+}
+
+/** Liga o SCRAM. `tempoMs` marca o começo: é dele que sai o decaimento das varetas na Era 2. */
+export function scram(nucleo: NucleoState, tempoMs = 0): NucleoState {
+  return { ...nucleo, scramRestanteMs: duracaoScramMs(nucleo.era), scramInicioMs: tempoMs, tempoAcimaDoLimiteMs: 0 };
 }
 
 /**
@@ -56,7 +66,8 @@ export function aplicarCascata(
     ...nucleo,
     grade: entulharAnel1(nucleo.grade, tempoMs),
     estabilidade: perdaCascata(nucleo.estabilidade),
-    scramRestanteMs: CASCATA.scramMs,
+    scramRestanteMs: duracaoScramMs(nucleo.era),
+    scramInicioMs: tempoMs,
     tempoAcimaDoLimiteMs: 0,
     cascatas: nucleo.cascatas + 1,
     ultimaCascataMs: tempoMs,
@@ -86,7 +97,7 @@ export function faltaParaLimpezaMs(casa: Casa, tempoMs: number): number {
 /** Reconstruir custa metade do preço da peça. */
 export function custoReconstrucao(casa: Casa): number {
   if (!ehEntulho(casa)) return 0;
-  return PECAS[casa.id].custo * CASCATA.fracaoReconstrucao;
+  return PECA_POR_ID[casa.id].custo * CASCATA.fracaoReconstrucao;
 }
 
 export function limparEntulho(grade: readonly Casa[], indice: number): Casa[] {

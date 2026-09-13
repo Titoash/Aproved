@@ -5,46 +5,12 @@
  * Um objetivo ativo por vez, curto, sempre com a recompensa à vista. Servem de trilho para quem abre o
  * jogo pela primeira vez e de régua de ritmo para a simulação de 60 minutos (parte F da Sessão 7).
  */
-import type { TipoConstrucao } from "../sim/state";
-import type { IlhaId, TipoTerreno } from "./era1-arquipelago";
 
-export type CondicaoCapitulo =
-  /** Ter `n` construções do tipo (opcionalmente num terreno). */
-  | { tipo: "construcoes"; construcao: TipoConstrucao; n: number; terreno?: TipoTerreno }
-  /** Ter um bairro na densidade pedida ou acima. */
-  | { tipo: "densidade"; minima: number }
-  /** População total. */
-  | { tipo: "populacao"; n: number }
-  /** Nós da árvore comprados (sem contar os que nascem prontos). */
-  | { tipo: "pesquisados"; n: number }
-  /** Núcleo desbloqueado. */
-  | { tipo: "nucleo" }
-  /** Peças do Núcleo de um tipo. */
-  | { tipo: "pecas"; peca: "heliostato" | "turbina" | "radiador" | "tanque"; n: number }
-  /** A balança da Rede na zona de ouro. */
-  | { tipo: "zonaDeOuro" }
-  /** Estabilidade em `valor` % ou mais. */
-  | { tipo: "estabilidade"; valor: number }
-  /** Potência instalada, em kW. */
-  | { tipo: "potenciaKw"; kw: number }
-  /** Ilha aberta pela expedição. */
-  | { tipo: "ilhaAberta"; ilha: IlhaId }
-  /** Ilha ligada por cabo submarino. */
-  | { tipo: "cabo"; ilha: IlhaId }
-  /** Obstáculos já removidos. */
-  | { tipo: "desmatados"; n: number };
-
-export interface CapituloDef {
-  id: string;
-  titulo: string;
-  /** Uma linha do que fazer. */
-  objetivo: string;
-  condicao: CondicaoCapitulo;
-  recompensa: { creditos?: number; pesquisa?: number };
-}
+export type { CapituloDef, CondicaoCapitulo } from "./capitulos-tipos";
+import type { CapituloDef } from "./capitulos-tipos";
 
 /** A ordem é a ordem do jogo: um capítulo ativo por vez. */
-export const CAPITULOS: readonly CapituloDef[] = [
+export const CAPITULOS_ERA1: readonly CapituloDef[] = [
   {
     id: "primeirosVentos",
     titulo: "Os primeiros ventos",
@@ -166,4 +132,4 @@ export const CAPITULOS: readonly CapituloDef[] = [
   },
 ];
 
-export const CAPITULO_POR_ID: Record<string, CapituloDef> = Object.fromEntries(CAPITULOS.map((c) => [c.id, c]));
+

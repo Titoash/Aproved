@@ -2,7 +2,7 @@
  * Extrato da Rede (GDD §10, v0.6): o que existe, quanto rende e quanto está sem escoamento.
  * Usado no painel e no popover da nota de ₵ no HUD.
  */
-import { ORDEM_USINAS, USINAS } from "../content/era1";
+import { ORDEM_USINAS, USINAS } from "../content/usinas";
 import { BAIRRO, LABORATORIO, UNIVERSIDADE } from "../content/cidade-era1";
 import { ilhaDef, SUBESTACAO } from "../content/era1-arquipelago";
 import { formatarCreditos, formatarNumero, formatarPotencia, formatarTaxa } from "../sim/formatar";

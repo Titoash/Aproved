@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { BATERIA, USINAS } from "../../content/era1";
+import { BATERIA } from "../../content/era1";
+import { USINAS } from "../../content/usinas";
 import { custoProximaMelhoria, desbloqueado, melhorarUsina, tipoDisponivel } from "../acoes";
 import { custoMelhoria } from "../custos";
 import { derivarRede } from "../producao";
 import { potenciaOfertadaKw } from "../rede";
 import { pesquisar } from "../arvore";
-import { NO_POR_ID } from "../../content/arvore-era1";
+import { NO_POR_ID } from "../../content/arvore";
 import { estadoLimpo, plantar } from "./ajuda";
 
 describe("ações da Rede (desbloqueios e níveis)", () => {

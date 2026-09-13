@@ -3,29 +3,14 @@
  * Só dados: nenhuma regra aqui. `sim/cidade.ts` e `sim/producao.ts` leem daqui.
  */
 
-/** 1 = aldeia, 4 = metrópole. */
-export type Densidade = 1 | 2 | 3 | 4;
-
-export interface DensidadeDef {
-  densidade: Densidade;
-  nome: string;
-  nomePlural: string;
-  descricao: string;
-  /** kW que o bairro pede. */
-  demandaKw: number;
-  /** Habitantes. */
-  populacao: number;
-  /** Multiplicador do preço por kW vendido (GDD §7). */
-  tarifa: number;
-  /** Custo de evoluir para a densidade seguinte; `null` na última. */
-  evolucao: { creditos: number; pesquisa: number } | null;
-}
+export type { Densidade, DensidadeDef } from "./cidade-tipos";
+import type { DensidadeDef } from "./cidade-tipos";
 
 /**
  * GDD §8.6. A curva de evolução é quase exponencial de propósito: ₵ ×2,5 e 🔬 ×5 por degrau, contra
  * demanda ×2,5 e população ×4. Evoluir nunca acontece sozinho — é decisão do jogador (§2.5).
  */
-export const DENSIDADES: readonly DensidadeDef[] = [
+export const DENSIDADES_ERA1: readonly DensidadeDef[] = [
   {
     densidade: 1,
     nome: "Aldeia",
@@ -64,7 +49,8 @@ export const DENSIDADES: readonly DensidadeDef[] = [
     demandaKw: 110,
     populacao: 6_400,
     tarifa: 1.5,
-    evolucao: null,
+    // A partir daqui é Era 2 (GDD Parte 2 §4.1): o degrau custa ×25 em ₵ e ×5 em 🔬.
+    evolucao: { creditos: 97_650, pesquisa: 3_000 },
   },
 ];
 

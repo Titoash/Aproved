@@ -3,19 +3,21 @@
  * módulos de `scene/tabuleiro`, recortado ao retângulo do palco. Só lê o store e despacha nada: o input é do DOM.
  */
 import Phaser from "phaser";
-import { ILHAS, OBSTACULOS, SUBESTACAO, type IlhaId } from "../content/era1-arquipelago";
+import { ILHAS, OBSTACULOS, type IlhaId } from "../content/era1-arquipelago";
 import { NIVEIS, type NivelId } from "../content/escalas";
 import { NUCLEO } from "../content/era1-nucleo";
-import { USINAS } from "../content/era1";
+import { USINAS } from "../content/usinas";
 import { BAIRRO } from "../content/cidade-era1";
 import { faixaDeCalor, temperaturaNucleo } from "../sim/calor";
 import { emScram, podeLimparEntulho } from "../sim/cascata";
 import { formatarCreditos, formatarNumero, formatarPorcentagem, formatarPotencia } from "../sim/formatar";
 import { arquipelagoDaEra1 } from "../sim/gerarArquipelago";
 import { potenciaInstaladaW } from "../sim/kardashev";
-import { avaliarCasa, avaliarRemocaoObstaculo, ancoraDoObstaculo, casasDoObstaculo, custoExpedicao, ilhaAberta, rotaDoCabo, temCabo } from "../sim/mundo";
+import { avaliarCasa, avaliarRemocaoObstaculo, ancoraDoObstaculo, ancoraEm, casasDoObstaculo, custoExpedicao, ilhaAberta, rotaDoCabo, temCabo } from "../sim/mundo";
 import { anel, podeColocar, podeRemover } from "../sim/nucleo";
-import { analisar, obstaculoEm } from "../sim/producao";
+import { analisar, ehDeAgua, ladoConstrucao, obstaculoEm } from "../sim/producao";
+import { VARETA } from "../content/era2-nucleo";
+import { fracaoDecaimento } from "../sim/reator";
 import type { GameState } from "../sim/state";
 import { balancoDoEstado } from "../sim/tick";
 import { useGameStore, type FerramentaMundo } from "../store/gameStore";
@@ -68,6 +70,11 @@ if (MEDINDO) {
       for (const k of Object.keys(perf)) delete perf[k];
     },
   };
+}
+
+/** A ferramenta da paleta é uma construção de água (eólica ou subestação offshore)? */
+function ferramentaDeAgua(f: FerramentaMundo): boolean {
+  return f !== "remover" && f !== "desmatar" && ehDeAgua(f);
 }
 
 const easeInOut = (k: number) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
@@ -145,12 +152,32 @@ export class TabuleiroScene extends Phaser.Scene {
         const [x, y] = casaDaGrade(i, nucleo.lado);
         const a = Math.max(1, anel(i, nucleo.lado)) as 1 | 2 | 3;
         if (casa.tipo === "receptor") pecas.push({ x, y, tipo: "receptor", anel: a });
-        else if (casa.tipo === "peca") pecas.push({ x, y, tipo: casa.id, anel: a });
-        else pecas.push({ x, y, tipo: "entulho", anel: a, gratis: podeLimparEntulho(casa, state.tempoMs), desdeMs: casa.desdeMs });
+        else if (casa.tipo === "peca") {
+          const v = casa.vareta;
+          pecas.push({
+            x,
+            y,
+            tipo: casa.id,
+            anel: a,
+            combustivel: v ? v.restanteS / VARETA.combustivelS : undefined,
+            gasta: v ? v.gastaDesdeMs !== null : undefined,
+            decaimento: v && v.gastaDesdeMs !== null ? fracaoDecaimento(state.tempoMs - v.gastaDesdeMs) : undefined,
+          });
+        } else pecas.push({ x, y, tipo: "entulho", anel: a, gratis: podeLimparEntulho(casa, state.tempoMs), desdeMs: casa.desdeMs });
       });
       const T = temperaturaNucleo(nucleo);
       const scram = emScram(nucleo);
-      nucleoCena = { lado: nucleo.lado, pecas, T, scram, consumo: scram ? 0 : clamp01(T / 0.9), rastreamento: state.pesquisados.includes("rastreamentoSolar") };
+      const comTorre = nucleo.grade.some((c) => c?.tipo === "peca" && c.id === "torreResfriamento");
+      nucleoCena = {
+        era: nucleo.era,
+        lado: nucleo.lado,
+        pecas,
+        T,
+        scram,
+        consumo: scram ? 0 : clamp01(T / 0.9),
+        rastreamento: state.pesquisados.includes("rastreamentoSolar"),
+        comTorre,
+      };
       if (loja.casaSobPonteiro !== null && loja.casaSobPonteiro < nucleo.grade.length) {
         const [x, y] = casaDaGrade(loja.casaSobPonteiro, nucleo.lado);
         const valido =
@@ -176,6 +203,7 @@ export class TabuleiroScene extends Phaser.Scene {
         y: Math.floor(i / n),
         tipo: c.tipo,
         nivel: c.nivel,
+        lado: ladoConstrucao(c.tipo),
         semEscoamento: !!u && u.escoadoKw < u.brutoKw - 1e-9,
       });
     }
@@ -212,18 +240,19 @@ export class TabuleiroScene extends Phaser.Scene {
 
     // --- alcance: a subestação sob o ponteiro, ou todas quando a ferramenta é a subestação
     const alcances: AlcanceCena[] = [];
-    const mostrarTodas = loja.ferramentaMundo === "subestacao";
+    const mostrarTodas = loja.ferramentaMundo === "subestacao" || loja.ferramentaMundo === "subestacao138" || loja.ferramentaMundo === "subestacaoOffshore";
     for (const sub of analise.subestacoes) {
       const sob = loja.casaMundoSobPonteiro !== null && this.mesmaCasaOuVizinha(loja.casaMundoSobPonteiro, sub.indice);
       if (!mostrarTodas && !sob) continue;
-      alcances.push({ x: sub.indice % n, y: Math.floor(sub.indice / n), alcance: SUBESTACAO.alcance, cheio: sub.usadoKw >= sub.tetoKw - 1e-9 });
+      alcances.push({ x: sub.indice % n, y: Math.floor(sub.indice / n), alcance: sub.alcance, cheio: sub.usadoKw >= sub.tetoKw - 1e-9 });
     }
 
     // --- callouts
     const callouts: CalloutCena[] = [];
     if (nucleo) {
       const T = temperaturaNucleo(nucleo);
-      callouts.push({ chave: "torre", ancora: "torre", texto: `Torre Solar · ${formatarPorcentagem(T)} · ${faixaDeCalor(T).nome.toLowerCase()}` });
+      const nomeNucleo = nucleo.era === 2 ? "Reator PWR" : "Torre Solar";
+      callouts.push({ chave: "torre", ancora: "torre", texto: `${nomeNucleo} · ${formatarPorcentagem(T)} · ${faixaDeCalor(T).nome.toLowerCase()}` });
       callouts.push({ chave: "grade", ancora: "grade", texto: `Grade ${nucleo.lado}×${nucleo.lado} · ${nucleo.lado * nucleo.lado} casas` });
     }
     const eolicas = analise.contagem.cataVento + analise.contagem.turbinaEolica;
@@ -249,6 +278,8 @@ export class TabuleiroScene extends Phaser.Scene {
       preco: formatarCreditos(custoExpedicao(d.id) ?? 0),
     }));
 
+    // Mar raso realçado quando a ferramenta é offshore: é ali que ela cabe (GDD Parte 2 §3.1).
+    const rasoRealcado = ferramentaDeAgua(loja.ferramentaMundo);
     const primeira = fila.length > 0 && fila[0].fimMs > 0 ? fila[0].indice : null;
     const capacidadeKwh = analise.contagem.bateria * 20;
 
@@ -266,6 +297,7 @@ export class TabuleiroScene extends Phaser.Scene {
       callouts,
       bateriaCarga: capacidadeKwh > 0 ? Math.min(1, state.rede.bateria.kwh / capacidadeKwh) : 0,
       realce,
+      rasoRealcado,
       remocao: primeira === null ? null : { x: primeira % n, y: Math.floor(primeira / n) },
       tempoMs: state.tempoMs,
     };
@@ -281,7 +313,8 @@ export class TabuleiroScene extends Phaser.Scene {
     const n = this.arq.n;
     const x = i % n;
     const y = Math.floor(i / n);
-    const construcao = state.mundo.construcoes[i];
+    const ancora = ancoraEm(state.mundo, i, this.arq);
+    const construcao = ancora === null ? undefined : state.mundo.construcoes[ancora];
     const obstaculo = obstaculoEm(state.mundo, i, this.arq);
     if (ferramenta === "remover") {
       return { x, y, valido: !!construcao, texto: construcao ? "remover (50 % de volta)" : "nada para remover" };
@@ -293,11 +326,15 @@ export class TabuleiroScene extends Phaser.Scene {
     }
     if (construcao) {
       const ilhaId = this.arq.ilhas[this.arq.ilha[i]]?.id;
-      if (construcao.tipo === "subestacao" && ferramenta === "subestacao") return { x, y, valido: true, texto: "melhorar subestação" };
+      if (construcao.tipo === ferramenta && (ferramenta === "subestacao" || ferramenta === "subestacao138" || ferramenta === "subestacaoOffshore")) {
+        return { x, y, valido: true, texto: "melhorar subestação" };
+      }
       return { x, y, valido: false, texto: ilhaId ? "casa ocupada" : null };
     }
     const v = avaliarCasa(state, i, ferramenta, this.arq);
-    return { x, y, valido: v.ok, texto: v.ok ? v.aviso : v.motivo };
+    // Prévia 2×2: as quatro casas acendem juntas (GDD Parte 2 §3.1).
+    const lado = ladoConstrucao(ferramenta as never);
+    return { x, y, valido: v.ok, texto: v.ok ? v.aviso : v.motivo, lado: lado > 1 ? lado : undefined };
   }
 
   private sincronizarCena(state: GameState, loja: ReturnType<typeof useGameStore.getState>) {

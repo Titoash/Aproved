@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ECONOMIA } from "../../content/era1";
-import { DENSIDADES } from "../../content/cidade-era1";
+import { DENSIDADES } from "../../content/cidade";
 import { balancoDoEstado, avancarTicks, tick, TICK_MS } from "../tick";
 import { estadoInicial } from "../state";
 import { estadoLimpo, plantar } from "./ajuda";

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NO_POR_ID } from "../../content/arvore-era1";
+import { NO_POR_ID } from "../../content/arvore";
 import { NUCLEO, PECAS } from "../../content/era1-nucleo";
 import { colocarPeca } from "../acoesNucleo";
 import { pesquisar, podePesquisar } from "../arvore";

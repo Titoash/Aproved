@@ -5,10 +5,12 @@
  *
  * Todos os números vêm de `content/`; aqui só se dobra a lista de nós comprados numa estrutura só.
  */
-import { NO_POR_ID } from "../content/arvore-era1";
+import { NO_POR_ID } from "../content/arvore";
 import { NUCLEO } from "../content/era1-nucleo";
+import { REATOR } from "../content/era2-nucleo";
+import { TERMICA } from "../content/era2";
 import { SUBESTACAO, VIZINHANCA } from "../content/era1-arquipelago";
-import type { GameState, TipoConstrucao, UsinaId } from "./state";
+import type { GameState, PecaId, TipoConstrucao, UsinaId } from "./state";
 
 export interface EfeitosArvore {
   /** Fator de potência por usina. */
@@ -29,11 +31,30 @@ export interface EfeitosArvore {
   receptorCeramico: boolean;
   gradeLado: number;
   desbloqueados: readonly TipoConstrucao[];
+  /* --- Era 2 (GDD Parte 2 §6) --- */
+  /** Calor de cada vareta × este fator (enriquecimento, água pesada). */
+  varetaCalorFator: number;
+  /** Vida de cada vareta × este fator (MOX, água pesada, alta temperatura). */
+  varetaVidaFator: number;
+  /** kW por u consumida pela turbina de alta pressão. */
+  reatorKwPorUnidade: number;
+  /** Teto de todos os cabos submarinos × este fator (Cabo HVDC). */
+  tetoCaboFator: number;
+  /** Combustível das térmicas × este fator (Selo verde cobra mais). */
+  combustivelFator: number;
+  /** Efeito da térmica na tarifa dos bairros a ≤ 2 casas (−0,1; +0,1 com Cogeração). */
+  deltaTarifaTermica: number;
+  /** Energia e potência da bateria de rede × este fator (Rede inteligente). */
+  bateriaRedeFator: number;
+  /** Eólica offshore em mar fundo (Fundação flutuante). */
+  marFundo: boolean;
+  /** Peças do Núcleo liberadas por nós (barra de controle, piscina). */
+  pecasLiberadas: readonly PecaId[];
 }
 
 export function efeitosNeutros(): EfeitosArvore {
   return {
-    potencia: { cataVento: 1, painelSolar: 1, turbinaEolica: 1 },
+    potencia: { cataVento: 1, painelSolar: 1, turbinaEolica: 1, eolicaOffshore: 1, fazendaSolar: 1, termicaGas: 1 },
     esteiraPorVizinho: VIZINHANCA.esteiraPorVizinho,
     alcanceSubestacao: SUBESTACAO.alcance,
     capacidadeBateriaFator: 1,
@@ -47,6 +68,15 @@ export function efeitosNeutros(): EfeitosArvore {
     receptorCeramico: false,
     gradeLado: NUCLEO.ladoInicial,
     desbloqueados: [],
+    varetaCalorFator: 1,
+    varetaVidaFator: 1,
+    reatorKwPorUnidade: REATOR.kwPorUnidade,
+    tetoCaboFator: 1,
+    combustivelFator: 1,
+    deltaTarifaTermica: TERMICA.deltaTarifa,
+    bateriaRedeFator: 1,
+    marFundo: false,
+    pecasLiberadas: [],
   };
 }
 
@@ -54,7 +84,9 @@ export function efeitosNeutros(): EfeitosArvore {
 export function efeitosDos(pesquisados: readonly string[]): EfeitosArvore {
   const e = efeitosNeutros();
   const desbloqueados: TipoConstrucao[] = [];
+  const pecasLiberadas: PecaId[] = [];
   let calorFator = 1;
+  let reatorKwFator = 1;
   for (const id of pesquisados) {
     const no = NO_POR_ID[id];
     if (!no) continue;
@@ -103,11 +135,40 @@ export function efeitosDos(pesquisados: readonly string[]): EfeitosArvore {
         case "desbloqueia":
           desbloqueados.push(ef.construcao);
           break;
+        case "desbloqueiaPeca":
+          pecasLiberadas.push(ef.peca);
+          break;
+        case "varetaCalor":
+          e.varetaCalorFator *= ef.fator;
+          break;
+        case "varetaVida":
+          e.varetaVidaFator *= ef.fator;
+          break;
+        case "reatorKwFator":
+          reatorKwFator *= ef.fator;
+          break;
+        case "tetoCabo":
+          e.tetoCaboFator *= ef.fator;
+          break;
+        case "combustivel":
+          e.combustivelFator *= ef.fator;
+          break;
+        case "vizinhancaTermica":
+          e.deltaTarifaTermica = ef.delta;
+          break;
+        case "bateriaRede":
+          e.bateriaRedeFator *= ef.fator;
+          break;
+        case "marFundo":
+          e.marFundo = true;
+          break;
       }
     }
   }
   e.calorPorEspelho *= calorFator;
+  e.reatorKwPorUnidade *= reatorKwFator;
   e.desbloqueados = desbloqueados;
+  e.pecasLiberadas = pecasLiberadas;
   return e;
 }
 

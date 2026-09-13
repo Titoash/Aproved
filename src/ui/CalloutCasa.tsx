@@ -5,9 +5,11 @@
  *
  * Só lê o sim e despacha ações pelo store: nenhuma regra aqui.
  */
-import { DENSIDADES, LABORATORIO, UNIVERSIDADE } from "../content/cidade-era1";
+import { LABORATORIO, UNIVERSIDADE } from "../content/cidade-era1";
+import { DENSIDADES } from "../content/cidade";
 import { SUBESTACAO } from "../content/era1-arquipelago";
-import { BATERIA, USINAS } from "../content/era1";
+import { BATERIA } from "../content/era1";
+import { USINAS } from "../content/usinas";
 import { avaliarEvolucao, custoEvolucao, densidadeDe } from "../sim/cidade";
 import { formatarCreditos, formatarNumero, formatarPotencia } from "../sim/formatar";
 import { avaliarMelhoriaSubestacao, custoNivelSubestacao, nomeConstrucao, valorRemocao } from "../sim/mundo";

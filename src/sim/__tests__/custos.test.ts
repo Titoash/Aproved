@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { MELHORIA, USINAS } from "../../content/era1";
+import { MELHORIA } from "../../content/era1";
+import { USINAS } from "../../content/usinas";
 import { BAIRRO } from "../../content/cidade-era1";
 import { custoMelhoria, custoUnidade, fatorMelhoria } from "../custos";
 

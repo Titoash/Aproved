@@ -3,13 +3,38 @@
  * obstáculos, comprar a expedição de uma ilha e ligar o cabo submarino. Funções puras: devolvem `null`
  * quando a ação não é possível. Nenhum número aqui — tudo vem de `content/`.
  */
-import { BATERIA, USINAS, type Desbloqueio } from "../content/era1";
+import { BATERIA, type Desbloqueio } from "../content/era1";
+import { USINAS } from "../content/usinas";
+import { BATERIA_REDE, DISTRITO_INDUSTRIAL, INSTITUTO } from "../content/era2";
 import { BAIRRO, LABORATORIO, UNIVERSIDADE } from "../content/cidade-era1";
-import { CABO, OBSTACULOS, SUBESTACAO, ilhaDef, type IlhaId, type TipoObstaculo } from "../content/era1-arquipelago";
+import { CABO, OBSTACULOS, TERRENOS, VIZINHANCA, ilhaDef, type IlhaId, type TipoObstaculo } from "../content/era1-arquipelago";
 import { custoUnidade } from "./custos";
 import { arquipelagoDaEra1 } from "./gerarArquipelago";
 import { naPlataforma, type Arquipelago } from "./arquipelago";
-import { analisar, ehUsina, ilhaDaCasa, obstaculoEm, quantidadeDe, tetoCabo, tetoSubestacao } from "./producao";
+import {
+  ESCOAMENTO,
+  analisar,
+  ancoraEm,
+  casasDaConstrucao,
+  construcaoQueOcupa,
+  ehDeAgua,
+  ehMar,
+  ehMarRaso,
+  ehSubestacao,
+  ehAlto,
+  ehSolar,
+  ehUsina,
+  ehVento,
+  ilhaDaCasa,
+  terrenoDeJogo,
+  ladoConstrucao,
+  obstaculoEm,
+  quantidadeDe,
+  tetoCabo,
+  tetoDeSubestacao,
+  tetoSubestacao,
+} from "./producao";
+import { efeitosDe } from "./efeitos";
 import type { Construcao, GameState, MundoState, TipoConstrucao } from "./state";
 
 export { obstaculoEm };
@@ -25,28 +50,39 @@ export interface CustoDefinicao {
 
 export function definicaoDeCusto(tipo: TipoConstrucao): CustoDefinicao {
   if (ehUsina(tipo)) return USINAS[tipo];
+  if (ehSubestacao(tipo)) return ESCOAMENTO[tipo];
   if (tipo === "bairro") return BAIRRO;
   if (tipo === "bateria") return BATERIA;
+  if (tipo === "bateriaRede") return BATERIA_REDE;
   if (tipo === "laboratorio") return LABORATORIO;
   if (tipo === "universidade") return UNIVERSIDADE;
-  return SUBESTACAO;
+  if (tipo === "distritoIndustrial") return DISTRITO_INDUSTRIAL;
+  return INSTITUTO;
 }
 
 export function nomeConstrucao(tipo: TipoConstrucao): string {
   if (ehUsina(tipo)) return USINAS[tipo].nome;
+  if (ehSubestacao(tipo)) return ESCOAMENTO[tipo].nome;
   if (tipo === "bairro") return BAIRRO.nome;
   if (tipo === "bateria") return BATERIA.nome;
+  if (tipo === "bateriaRede") return BATERIA_REDE.nome;
   if (tipo === "laboratorio") return LABORATORIO.nome;
   if (tipo === "universidade") return UNIVERSIDADE.nome;
-  return SUBESTACAO.nome;
+  if (tipo === "distritoIndustrial") return DISTRITO_INDUSTRIAL.nome;
+  return INSTITUTO.nome;
 }
 
-/** Desbloqueio do tipo: por quantidade de usina já colocada ou por nó da árvore (GDD §8.6). */
+/** Desbloqueio do tipo: por quantidade de usina já colocada ou por nó da árvore (GDD §8.6, Parte 2 §6). */
 export function desbloqueioDe(tipo: TipoConstrucao): Desbloqueio | undefined {
   if (ehUsina(tipo)) return USINAS[tipo].desbloqueio;
   if (tipo === "bateria") return BATERIA.desbloqueio;
+  if (tipo === "bateriaRede") return BATERIA_REDE.desbloqueio;
   if (tipo === "laboratorio") return { no: "laboratorio" };
   if (tipo === "universidade") return { no: "universidade" };
+  if (tipo === "subestacao138") return { no: "subestacaoDe138kV" };
+  if (tipo === "subestacaoOffshore") return { no: "subestacaoOffshore" };
+  if (tipo === "distritoIndustrial") return DISTRITO_INDUSTRIAL.desbloqueio;
+  if (tipo === "institutoPesquisa") return INSTITUTO.desbloqueio;
   return undefined;
 }
 
@@ -64,6 +100,8 @@ export function valorRemocao(state: GameState, tipo: TipoConstrucao): number {
 export function construcaoEm(mundo: MundoState, indice: number): Construcao | null {
   return mundo.construcoes[indice] ?? null;
 }
+
+export { ancoraEm, casasDaConstrucao, construcaoQueOcupa, ladoConstrucao };
 
 export function ilhaAberta(mundo: MundoState, id: IlhaId): boolean {
   return mundo.ilhasAbertas.includes(id);
@@ -127,20 +165,47 @@ const RECUSA = (motivo: string): Avaliacao => ({ ok: false, motivo, aviso: null 
 /**
  * Pode colocar `tipo` na casa? Devolve também o aviso que a cena mostra quando dá, mas rende menos
  * (GDD §2.4: esteira, sombra, escoamento).
+ *
+ * A Era 2 acrescenta duas regras de espaço (GDD Parte 2 §3.1): construção **2×2** precisa das quatro
+ * casas livres e na mesma ilha, e construção **offshore** vai em casa de mar raso (mar fundo só com o
+ * nó "Fundação flutuante"). A casa clicada é sempre a **âncora**, o canto noroeste.
  */
 export function avaliarCasa(state: GameState, indice: number, tipo: TipoConstrucao, arq: Arquipelago = arquipelagoDaEra1()): Avaliacao {
   const n = arq.n;
   if (indice < 0 || indice >= n * n) return RECUSA("Fora do mapa");
-  if (arq.terra[indice] !== 1) return RECUSA("Só se constrói em terra");
-  const x = indice % n;
-  const y = Math.floor(indice / n);
-  if (naPlataforma(arq.plataforma, x, y)) return RECUSA("A plataforma é do Núcleo");
-  if (arq.caminho[indice] === 1) return RECUSA("Caminho da aldeia");
+  const efeitos = efeitosDe(state);
+  const agua = ehDeAgua(tipo);
+  const casas = casasDaConstrucao(indice, tipo, n);
+  const lado = ladoConstrucao(tipo);
+  if (indice % n > n - lado || Math.floor(indice / n) > n - lado) return RECUSA("Não cabe: 2×2 precisa de quatro casas");
+
+  // O chão da âncora antes da ilha: "só se constrói em terra" é mais útil que "ilha fechada" no mar.
+  if (agua && arq.terra[indice] === 1) return RECUSA("Esta vai no mar");
+  if (!agua && arq.terra[indice] !== 1) return RECUSA("Só se constrói em terra");
   const ilha = ilhaDaCasa(indice, arq);
-  if (!ilha || !ilhaAberta(state.mundo, ilha)) return RECUSA("Ilha fechada: faça a expedição");
-  if (state.mundo.construcoes[indice]) return RECUSA("Casa ocupada");
-  const obstaculo = obstaculoEm(state.mundo, indice, arq);
-  if (obstaculo) return RECUSA(removendo(state.mundo, indice) ? "Removendo…" : `${OBSTACULOS[obstaculo].nome}: remova primeiro`);
+  if (!ilha) return RECUSA("Fora de qualquer ilha");
+  if (!ilhaAberta(state.mundo, ilha)) return RECUSA("Ilha fechada: faça a expedição");
+
+  for (const casa of casas) {
+    const x = casa % n;
+    const y = Math.floor(casa / n);
+    if (agua) {
+      if (!ehMar(casa, arq)) return RECUSA("Esta vai no mar");
+      if (!ehMarRaso(casa, arq) && !efeitos.marFundo) return RECUSA("Mar fundo: exige a fundação flutuante");
+    } else {
+      if (arq.terra[casa] !== 1) return RECUSA("Só se constrói em terra");
+      if (naPlataforma(arq.plataforma, x, y)) return RECUSA("A plataforma é do Núcleo");
+      if (arq.caminho[casa] === 1) return RECUSA("Caminho da aldeia");
+      const terreno = terrenoDeJogo(state.mundo, casa, arq);
+      if (terreno && ehUsina(tipo) && USINAS[tipo].terrenosProibidos?.includes(terreno)) {
+        return RECUSA(`${USINAS[tipo].nome} não vai em ${TERRENOS[terreno].nome.toLowerCase()}`);
+      }
+    }
+    if (ilhaDaCasa(casa, arq) !== ilha) return RECUSA("As quatro casas precisam ser da mesma ilha");
+    if (ancoraEm(state.mundo, casa, arq) !== null) return RECUSA("Casa ocupada");
+    const obstaculo = obstaculoEm(state.mundo, casa, arq);
+    if (obstaculo) return RECUSA(removendo(state.mundo, casa) ? "Removendo…" : `${OBSTACULOS[obstaculo].nome}: remova primeiro`);
+  }
   if (state.creditos < custoColocar(state, tipo)) return RECUSA("₵ insuficientes");
   return { ok: true, motivo: null, aviso: avisoDaCasa(state, indice, tipo, arq) };
 }
@@ -149,46 +214,54 @@ export function avaliarCasa(state: GameState, indice: number, tipo: TipoConstruc
 export function avisoDaCasa(state: GameState, indice: number, tipo: TipoConstrucao, arq: Arquipelago = arquipelagoDaEra1()): string | null {
   const n = arq.n;
   const analise = analisar(state);
-  const ilhaIndice = arq.ilha[indice];
-  if (tipo === "subestacao" || tipo === "bateria") return null;
+  const ilha = ilhaDaCasa(indice, arq);
+  if (ehSubestacao(tipo) || tipo === "bateria" || tipo === "bateriaRede") return null;
   if (tipo === "universidade" && analise.universidadesAtivas >= analise.limiteUniversidades) return "sem população para outra";
 
-  const perto = analise.subestacoes.filter(
-    (s) => arq.ilha[s.indice] === ilhaIndice && Math.max(Math.abs((s.indice % n) - (indice % n)), Math.abs(Math.floor(s.indice / n) - Math.floor(indice / n))) <= SUBESTACAO.alcance,
-  );
-  if (perto.length === 0) return "sem escoamento";
-  if (tipo === "bairro" || tipo === "laboratorio" || tipo === "universidade") return null;
+  const casas = casasDaConstrucao(indice, tipo, n);
+  const noAlcance = (s: (typeof analise.subestacoes)[number]): boolean =>
+    ilhaDaCasa(s.indice, arq) === ilha &&
+    casas.some((casa) => Math.max(Math.abs((s.indice % n) - (casa % n)), Math.abs(Math.floor(s.indice / n) - Math.floor(casa / n))) <= s.alcance);
+
+  // O distrito industrial não aceita qualquer subestação: precisa de 138 kV (GDD Parte 2 §4.2).
+  const exigida = tipo === "distritoIndustrial" ? "subestacao138" : null;
+  const perto = analise.subestacoes.filter((s) => noAlcance(s) && (exigida === null || s.tipo === exigida));
+  if (perto.length === 0) return exigida ? "sem subestação de 138 kV" : "sem escoamento";
+  if (tipo === "bairro" || tipo === "laboratorio" || tipo === "universidade" || tipo === "institutoPesquisa" || tipo === "distritoIndustrial") return null;
   if (perto.every((s) => s.usadoKw >= s.tetoKw)) return "subestação no teto";
 
-  const x = indice % n;
-  const y = Math.floor(indice / n);
   const vizinhos: number[] = [];
-  for (const [dx, dy] of [
-    [1, 0],
-    [-1, 0],
-    [0, 1],
-    [0, -1],
-  ]) {
-    const nx = x + dx;
-    const ny = y + dy;
-    if (nx < 0 || ny < 0 || nx >= n || ny >= n) continue;
-    vizinhos.push(ny * n + nx);
+  for (const casa of casas) {
+    const x = casa % n;
+    const y = Math.floor(casa / n);
+    for (const [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ]) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= n || ny >= n) continue;
+      const j = ny * n + nx;
+      if (!casas.includes(j)) vizinhos.push(j);
+    }
   }
-  if (tipo === "painelSolar") {
+  if (ehSolar(tipo)) {
     const altos = vizinhos.filter((j) => {
-      const c = state.mundo.construcoes[j];
-      if (c?.tipo === "turbinaEolica") return true;
+      const c = construcaoQueOcupa(state.mundo, j, arq);
+      if (c && ehAlto(c.tipo)) return true;
       const o = obstaculoEm(state.mundo, j, arq);
       return !!o && !!OBSTACULOS[o].alto;
     }).length;
-    if (altos > 0) return `sombra −${Math.round(Math.min(0.6, altos * 0.3) * 100)} %`;
+    if (altos > 0) return `sombra −${Math.round(Math.min(0.6, altos * VIZINHANCA.sombraPorVizinho) * 100)} %`;
     return null;
   }
   const eolicos = vizinhos.filter((j) => {
-    const c = state.mundo.construcoes[j];
-    return !!c && (c.tipo === "cataVento" || c.tipo === "turbinaEolica");
+    const c = construcaoQueOcupa(state.mundo, j, arq);
+    return !!c && ehVento(c.tipo);
   }).length;
-  if (eolicos > 0) return `esteira −${Math.round(Math.min(0.6, eolicos * 0.2) * 100)} %`;
+  if (eolicos > 0) return `esteira −${Math.round(Math.min(0.6, eolicos * VIZINHANCA.esteiraPorVizinho) * 100)} %`;
   return null;
 }
 
@@ -209,36 +282,45 @@ export function colocar(state: GameState, indice: number, tipo: TipoConstrucao):
   const custo = custoColocar(state, tipo);
   const construcoes = { ...state.mundo.construcoes, [indice]: { tipo, nivel: 0, colocadoEmMs: state.tempoMs } };
   const primeira = quantidadeDe(state, tipo) === 0;
-  const eventos =
-    primeira && (tipo === "bateria" || tipo === "subestacao") ? [...state.eventos, { tipo: "primeiraCompra" as const, item: tipo }] : state.eventos;
+  // A primeira unidade de alguns tipos dispara o card correspondente (GDD §10, Parte 2 §7).
+  const eventos = primeira ? [...state.eventos, { tipo: "primeiraCompra" as const, item: tipo }] : state.eventos;
   return comMundo(state, { ...state.mundo, construcoes }, state.creditos - custo, eventos);
 }
 
-export function remover(state: GameState, indice: number): GameState | null {
-  const c = construcaoEm(state.mundo, indice);
-  if (!c) return null;
+/** Remover devolve 50 %. Tocar em qualquer das quatro casas de uma 2×2 remove a construção inteira. */
+export function remover(state: GameState, indice: number, arq: Arquipelago = arquipelagoDaEra1()): GameState | null {
+  const ancora = ancoraEm(state.mundo, indice, arq);
+  if (ancora === null) return null;
+  const c = state.mundo.construcoes[ancora];
   const valor = valorRemocao(state, c.tipo);
   const construcoes = { ...state.mundo.construcoes };
-  delete construcoes[indice];
+  delete construcoes[ancora];
   return comMundo(state, { ...state.mundo, construcoes }, state.creditos + valor);
 }
 
-/* --- Subestação: nível (GDD §8.5: custo ×3ⁿ, teto ×2ⁿ) --- */
+/* --- Subestações das duas eras: nível (custo ×3ⁿ, teto ×2ⁿ, com nível máximo) --- */
 
-export function custoNivelSubestacao(nivel: number): number {
-  return SUBESTACAO.custoBase * Math.pow(SUBESTACAO.custoNivel, nivel + 1);
+/** Custo do próximo nível de uma subestação do tipo: custo base × 3^(nível + 1) (GDD §8.5). */
+export function custoNivelDe(tipo: keyof typeof ESCOAMENTO, nivel: number): number {
+  const def = ESCOAMENTO[tipo];
+  return def.custoBase * Math.pow(def.custoNivel, nivel + 1);
 }
 
-/** Nível máximo da subestação (ajuste 2 da Sessão 7): 3 → teto 320 kW. */
-export function nivelMaximoSubestacao(): number {
-  return SUBESTACAO.nivelMax;
+export function custoNivelSubestacao(nivel: number): number {
+  return custoNivelDe("subestacao", nivel);
+}
+
+/** Nível máximo da subestação do tipo (ajuste 2 da Sessão 7: a da Era 1 para em 3 → teto 320 kW). */
+export function nivelMaximoSubestacao(tipo: keyof typeof ESCOAMENTO = "subestacao"): number {
+  return ESCOAMENTO[tipo].nivelMax;
 }
 
 export function avaliarMelhoriaSubestacao(state: GameState, indice: number): { ok: boolean; motivo: string | null } {
   const c = construcaoEm(state.mundo, indice);
-  if (!c || c.tipo !== "subestacao") return { ok: false, motivo: "Não é uma subestação" };
-  if (c.nivel >= SUBESTACAO.nivelMax) return { ok: false, motivo: `Nível máximo (${SUBESTACAO.nivelMax + 1}): ponha outra subestação` };
-  if (state.creditos < custoNivelSubestacao(c.nivel)) return { ok: false, motivo: "₵ insuficientes" };
+  if (!c || !ehSubestacao(c.tipo)) return { ok: false, motivo: "Não é uma subestação" };
+  const def = ESCOAMENTO[c.tipo];
+  if (c.nivel >= def.nivelMax) return { ok: false, motivo: `Nível máximo (${def.nivelMax + 1}): ponha outra subestação` };
+  if (state.creditos < custoNivelDe(c.tipo, c.nivel)) return { ok: false, motivo: "₵ insuficientes" };
   return { ok: true, motivo: null };
 }
 
@@ -249,12 +331,14 @@ export function podeMelhorarSubestacao(state: GameState, indice: number): boolea
 export function melhorarSubestacao(state: GameState, indice: number): GameState | null {
   if (!podeMelhorarSubestacao(state, indice)) return null;
   const c = state.mundo.construcoes[indice];
-  const custo = custoNivelSubestacao(c.nivel);
+  if (!ehSubestacao(c.tipo)) return null;
+  const custo = custoNivelDe(c.tipo, c.nivel);
   const construcoes = { ...state.mundo.construcoes, [indice]: { ...c, nivel: c.nivel + 1 } };
   return comMundo(state, { ...state.mundo, construcoes }, state.creditos - custo);
 }
 
 export const tetoDaSubestacao = tetoSubestacao;
+export { tetoDeSubestacao };
 
 /* --- Obstáculos --- */
 

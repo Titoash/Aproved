@@ -11,12 +11,14 @@
  * O objetivo é medir ritmo, não vencer: se o bot fecha a Era 1 em 50–70 minutos, os números de §8.5 e
  * §8.6 estão no lugar.
  */
-import { NOS, NO_POR_ID } from "../src/content/arvore-era1";
-import { CAPITULOS } from "../src/content/capitulos-era1";
-import { DENSIDADES, LABORATORIO, UNIVERSIDADE } from "../src/content/cidade-era1";
+import { NOS, NO_POR_ID } from "../src/content/arvore";
+import { CAPITULOS } from "../src/content/capitulos";
+import { LABORATORIO, UNIVERSIDADE } from "../src/content/cidade-era1";
+import { DENSIDADES } from "../src/content/cidade";
 import { ILHAS, OBSTACULOS } from "../src/content/era1-arquipelago";
 import { NUCLEO, PECAS } from "../src/content/era1-nucleo";
-import { USINAS } from "../src/content/era1";
+import { PECA_POR_ID } from "../src/content/pecas";
+import { USINAS } from "../src/content/usinas";
 import { pesquisar, podePesquisar, proximoNo } from "../src/sim/arvore";
 import { desbloquearNucleo, colocarPeca, podeDesbloquearNucleo } from "../src/sim/acoesNucleo";
 import { indiceCasa, naPlataforma } from "../src/sim/arquipelago";
@@ -154,7 +156,7 @@ function ajustarNucleo(state: GameState): GameState {
   nucleo.grade.forEach((casa, i) => {
     if (!casa && i !== indiceReceptor(nucleo.lado)) vazias.push(i);
   });
-  const primeira = (p: PecaId) => vazias.find((i) => PECAS[p].aneis.includes(Math.max(1, anel(i, nucleo.lado)) as 1 | 2 | 3));
+  const primeira = (p: PecaId) => vazias.find((i) => PECA_POR_ID[p].aneis.includes(Math.max(1, anel(i, nucleo.lado)) as 1 | 2 | 3));
 
   let alvo: PecaId | null = null;
   if (c.turbinas < 2) alvo = "turbina";
@@ -162,7 +164,7 @@ function ajustarNucleo(state: GameState): GameState {
   else if (tEq > 0.95 && state.creditos > PECAS.tanque.custo * 4) alvo = "tanque";
   if (!alvo) return state;
   const casa = primeira(alvo);
-  if (casa === undefined || state.creditos < PECAS[alvo].custo) return state;
+  if (casa === undefined || state.creditos < PECA_POR_ID[alvo].custo) return state;
   return colocarPeca(state, casa, alvo) ?? state;
 }
 

@@ -29,13 +29,13 @@ function saveV6(extra: Record<string, unknown> = {}) {
 }
 
 describe("migração v6 → v7 (GDD §8.5, §8.6, v0.6)", () => {
-  it("a versão é 7", () => {
-    expect(VERSAO_SAVE).toBe(7);
+  it("a versão é 8", () => {
+    expect(VERSAO_SAVE).toBe(8);
   });
 
   it("os cabos viram ilha → nível, começando no nível 0", () => {
     const s = desserializar(JSON.stringify(saveV6()), 2000);
-    expect(s.versao).toBe(7);
+    expect(s.versao).toBe(8);
     expect(s.mundo.cabos).toEqual({ ventania: 0 });
     expect(CABO.tetoKw).toBe(30);
   });
@@ -104,7 +104,7 @@ describe("migração v6 → v7 (GDD §8.5, §8.6, v0.6)", () => {
   });
 
   it("nó desconhecido no save é descartado", () => {
-    const s = desserializar(JSON.stringify({ ...saveV6(), versao: 7, pesquisados: ["laminasDeFibra", "fusaoFria"] }), 2000);
+    const s = desserializar(JSON.stringify({ ...saveV6(), versao: 8, pesquisados: ["laminasDeFibra", "fusaoFria"] }), 2000);
     expect(s.pesquisados).toEqual(["laboratorio", "laminasDeFibra"]);
   });
 });
