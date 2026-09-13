@@ -260,17 +260,21 @@ export const useGameStore = create<GameStore>()((set, get) => {
         return aplicar(mundo.removerObstaculo(state, indice));
       }
       const construcao = mundo.construcaoEm(state.mundo, indice);
+      // Tocar numa construção sempre a seleciona: o callout da cena mostra os números e as ações
+      // (ajuste 5 da Sessão 7). O painel da Cidade continua como segunda via.
+      if (construcao) set({ casaSelecionada: indice });
       if (construcao?.tipo === "bairro") {
-        set({ casaSelecionada: indice });
         // Com o bairro selecionado na paleta, tocar num bairro existente evolui (₵ + 🔬).
         if (ferramentaMundo === "bairro") return get().evoluirBairro(indice);
         return false;
       }
       if (construcao?.tipo === "subestacao" && ferramentaMundo === "subestacao") {
         if (aplicar(mundo.melhorarSubestacao(state, indice))) return true;
-        avisar(indice, "₵ insuficientes para o próximo nível da subestação.");
+        const v = mundo.avaliarMelhoriaSubestacao(state, indice);
+        avisar(indice, v.motivo ?? "₵ insuficientes para o próximo nível da subestação.");
         return false;
       }
+      if (construcao) return false;
       const v = mundo.avaliarCasa(state, indice, ferramentaMundo);
       if (!v.ok) {
         avisar(indice, v.motivo ?? "Não dá para construir aqui.");

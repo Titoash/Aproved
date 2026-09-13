@@ -122,6 +122,9 @@ describe("laboratório e universidade (GDD §8.6)", () => {
     expect(limiteUniversidades(4_000)).toBe(2);
     expect(pesquisaUniversidade(1_000)).toBeCloseTo(UNIVERSIDADE.pesquisaBase, 10);
     expect(pesquisaUniversidade(4_000)).toBeCloseTo(UNIVERSIDADE.pesquisaBase * 2, 10);
+    // ajuste 3 da Sessão 7: a raiz é por **alunos**, população ÷ universidades ativas
+    expect(pesquisaUniversidade(4_000, 4)).toBeCloseTo(UNIVERSIDADE.pesquisaBase, 10);
+    expect(4 * pesquisaUniversidade(16_400, 4)).toBeCloseTo(4 * UNIVERSIDADE.pesquisaBase * Math.sqrt(4.1), 10);
 
     // 1 metrópole = 6 400 habitantes → 3 universidades permitidas
     const base = plantar(plantar(estadoLimpo(0), "bairro", 1), "universidade", 3);
@@ -130,7 +133,9 @@ describe("laboratório e universidade (GDD §8.6)", () => {
     const a = analisar(metropole);
     expect(a.limiteUniversidades).toBe(3);
     expect(a.universidadesAtivas).toBe(3);
-    expect(a.pesquisaPorSegundo).toBeCloseTo(3 * pesquisaUniversidade(6_400), 10);
+    // três universidades dividem os 6 400 habitantes: cada uma rende pela raiz de 2 133 alunos
+    expect(a.pesquisaPorSegundo).toBeCloseTo(3 * pesquisaUniversidade(6_400, 3), 10);
+    expect(a.pesquisaPorSegundo).toBeLessThan(3 * pesquisaUniversidade(6_400, 1));
     expect(a.demandaKw).toBeCloseTo(DENSIDADES[3].demandaKw + 3 * UNIVERSIDADE.consumoKw, 10);
 
     // com uma vila (400 habitantes) nenhuma das três tem alunos: não rendem nem consomem

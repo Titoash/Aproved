@@ -90,13 +90,14 @@ export const LABORATORIO = {
 
 /**
  * Universidade: liberada com 1 000 habitantes, no máximo 1 por 2 000 (GDD §8.6).
- * 🔬/s = `pesquisaBase × √(população ÷ populacaoReferencia)`: mais gente, mais ciência — e com
- * retorno decrescente, que é o que a raiz quer dizer.
+ * 🔬/s = `pesquisaBase × √(alunos ÷ populacaoReferencia)`, e **alunos = população ÷ universidades ativas**
+ * (ajuste 3 da Sessão 7): mais gente, mais ciência — com retorno decrescente, que é o que a raiz quer
+ * dizer, e sem multiplicar a ciência por abrir prédio novo sem gente nova.
  */
 export const UNIVERSIDADE = {
   nome: "Universidade",
   nomePlural: "Universidades",
-  descricao: "🔬 0,5/s pela raiz da população, consumindo 5 kW. Precisa de gente: 1 por 2 000 habitantes.",
+  descricao: "🔬 0,5/s pela raiz dos alunos (população ÷ universidades), consumindo 5 kW. 1 por 2 000 habitantes.",
   custoBase: 400,
   crescimento: 1.5,
   pesquisaBase: 0.5,

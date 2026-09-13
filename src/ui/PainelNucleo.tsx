@@ -10,6 +10,7 @@ import type { NucleoState } from "../sim/state";
 import { potenciaNucleoEfetivaKw } from "../sim/tick";
 import { setPalcoElement } from "../scene/layout";
 import { anexarPalco } from "../scene/tabuleiro/controle";
+import { CalloutCasa } from "./CalloutCasa";
 import { Escada } from "./Escada";
 import { corDaRampaCss } from "../scene/rampa";
 import { useGameStore, type Ferramenta } from "../store/gameStore";
@@ -78,6 +79,7 @@ function Tabuleiro() {
       <Escada />
       <TabuleiroArea />
       <ControlesTabuleiro />
+      <CalloutCasa />
     </div>
   );
 }

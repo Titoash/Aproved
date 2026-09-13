@@ -303,10 +303,20 @@ export function analisarMundo(mundo: MundoState, rede: RedeState, efeitos: Efeit
   // Ciência: laboratório e universidade consomem kW e geram 🔬. A universidade precisa de gente —
   // só valem as que a população sustenta, e sobre cristal rendem +50 % (GDD §8.6, §9).
   const limite = limiteUniversidades(populacao);
-  const porUniversidade = pesquisaUniversidade(populacao);
   const cristais = cristaisDe(mundo);
   let pesquisaPorSegundo = 0;
-  let universidadesAtivas = 0;
+  // Duas passadas: o rendimento de cada universidade depende de quantas estão ativas (os alunos se
+  // dividem entre elas, ajuste 3 da Sessão 7), então primeiro se sabe quantas são.
+  const universidades: number[] = [];
+  for (const i of ciencia) {
+    const c = mundo.construcoes[i];
+    if (c.tipo !== "universidade") continue;
+    if (!temSubestacaoPerto(i, arq.ilha[i])) continue;
+    if (universidades.length >= limite) break;
+    universidades.push(i);
+  }
+  const universidadesAtivas = universidades.length;
+  const porUniversidade = pesquisaUniversidade(populacao, universidadesAtivas);
   for (const i of ciencia) {
     const c = mundo.construcoes[i];
     const ilhaC = arq.ilha[i];
@@ -317,8 +327,7 @@ export function analisarMundo(mundo: MundoState, rede: RedeState, efeitos: Efeit
       demandaPorIlha.set(ilhaC, (demandaPorIlha.get(ilhaC) ?? 0) + LABORATORIO.consumoKw);
       continue;
     }
-    if (universidadesAtivas >= limite) continue;
-    universidadesAtivas++;
+    if (!universidades.includes(i)) continue;
     pesquisaPorSegundo += porUniversidade * bonus;
     demandaPorIlha.set(ilhaC, (demandaPorIlha.get(ilhaC) ?? 0) + UNIVERSIDADE.consumoKw);
   }

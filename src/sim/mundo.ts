@@ -229,9 +229,21 @@ export function custoNivelSubestacao(nivel: number): number {
   return SUBESTACAO.custoBase * Math.pow(SUBESTACAO.custoNivel, nivel + 1);
 }
 
-export function podeMelhorarSubestacao(state: GameState, indice: number): boolean {
+/** Nível máximo da subestação (ajuste 2 da Sessão 7): 3 → teto 320 kW. */
+export function nivelMaximoSubestacao(): number {
+  return SUBESTACAO.nivelMax;
+}
+
+export function avaliarMelhoriaSubestacao(state: GameState, indice: number): { ok: boolean; motivo: string | null } {
   const c = construcaoEm(state.mundo, indice);
-  return !!c && c.tipo === "subestacao" && state.creditos >= custoNivelSubestacao(c.nivel);
+  if (!c || c.tipo !== "subestacao") return { ok: false, motivo: "Não é uma subestação" };
+  if (c.nivel >= SUBESTACAO.nivelMax) return { ok: false, motivo: `Nível máximo (${SUBESTACAO.nivelMax + 1}): ponha outra subestação` };
+  if (state.creditos < custoNivelSubestacao(c.nivel)) return { ok: false, motivo: "₵ insuficientes" };
+  return { ok: true, motivo: null };
+}
+
+export function podeMelhorarSubestacao(state: GameState, indice: number): boolean {
+  return avaliarMelhoriaSubestacao(state, indice).ok;
 }
 
 export function melhorarSubestacao(state: GameState, indice: number): GameState | null {

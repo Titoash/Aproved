@@ -14,6 +14,7 @@ import {
   custoNivelSubestacao,
   ligarCabo,
   melhorarCabo,
+  avaliarMelhoriaSubestacao,
   melhorarSubestacao,
   nivelCabo,
   tetoCabo,
@@ -24,7 +25,7 @@ import {
   removerObstaculo,
   valorRemocao,
 } from "../mundo";
-import { quantidadeDe, temCristal, terrenoDeJogo } from "../producao";
+import { quantidadeDe, temCristal, terrenoDeJogo, tetoSubestacao } from "../producao";
 import { avancarTicks } from "../tick";
 import { estadoLimpo } from "./ajuda";
 
@@ -114,6 +115,24 @@ describe("colocar e remover (GDD §2.1, §7, v0.6)", () => {
     expect(s2.mundo.construcoes[casa].nivel).toBe(1);
     expect(s1.creditos - s2.creditos).toBeCloseTo(SUBESTACAO.custoBase * 3, 10);
     expect(custoNivelSubestacao(1)).toBe(SUBESTACAO.custoBase * 9);
+  });
+
+  it("a subestação para no nível máximo 3 (teto 320 kW), e a segunda volta a ser decisão", () => {
+    // Ajuste 2 da Sessão 7: sem teto de nível, uma subestação melhorada cobria a ilha inteira.
+    expect(SUBESTACAO.nivelMax).toBe(3);
+    let s = estadoLimpo(10_000_000);
+    const casa = casaLivre(0);
+    s = colocar(s, casa, "subestacao")!;
+    for (let nivel = 0; nivel < SUBESTACAO.nivelMax; nivel++) {
+      expect(avaliarMelhoriaSubestacao(s, casa).ok).toBe(true);
+      s = melhorarSubestacao(s, casa)!;
+    }
+    expect(s.mundo.construcoes[casa].nivel).toBe(SUBESTACAO.nivelMax);
+    expect(tetoSubestacao(SUBESTACAO.nivelMax)).toBe(320);
+    const v = avaliarMelhoriaSubestacao(s, casa);
+    expect(v.ok).toBe(false);
+    expect(v.motivo).toContain("Nível máximo");
+    expect(melhorarSubestacao(s, casa)).toBeNull();
   });
 });
 

@@ -140,6 +140,11 @@ export const SUBESTACAO = {
   /** Nível: custo × 3ⁿ, teto × 2ⁿ. */
   custoNivel: 3,
   tetoNivel: 2,
+  /**
+   * Nível máximo (ajuste 2 da Sessão 7): 40 → 80 → 160 → 320 kW. Com o bot instalando ~390 kW, uma
+   * subestação só deixa de bastar e a segunda volta a ser decisão no fim da era (GDD §8.5).
+   */
+  nivelMax: 3,
 } as const;
 
 /**

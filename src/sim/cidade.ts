@@ -74,7 +74,13 @@ export function limiteUniversidades(populacao: number): number {
   return Math.max(1, Math.floor(populacao / UNIVERSIDADE.populacaoPorUnidade));
 }
 
-/** 🔬/s de uma universidade: `0,5 × √(população ÷ 1 000)` (GDD §8.6). */
-export function pesquisaUniversidade(populacao: number): number {
-  return UNIVERSIDADE.pesquisaBase * Math.sqrt(Math.max(0, populacao) / UNIVERSIDADE.populacaoReferencia);
+/**
+ * 🔬/s de **uma** universidade: `0,5 × √(alunos ÷ 1 000)`, com `alunos = população ÷ universidades ativas`
+ * (GDD §8.6, ajuste 3 da Sessão 7). Quatro universidades dividindo 16 400 habitantes rendem 4 🔬/s no
+ * total, não 8: a ciência cresce com gente, não com prédio.
+ */
+export function pesquisaUniversidade(populacao: number, universidades = 1): number {
+  const ativas = Math.max(1, universidades);
+  const alunos = Math.max(0, populacao) / ativas;
+  return UNIVERSIDADE.pesquisaBase * Math.sqrt(alunos / UNIVERSIDADE.populacaoReferencia);
 }

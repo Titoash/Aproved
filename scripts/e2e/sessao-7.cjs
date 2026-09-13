@@ -14,7 +14,9 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const BASE = process.env.URL ?? "http://127.0.0.1:5173/";
-const SAIDA = path.resolve(__dirname, "../../docs/capturas/sessao-7");
+// Regra da Sessão 7 (ajuste 7): rodar um roteiro antigo como regressão **não** pode sobrescrever as
+// capturas da sessão dele. `CAPTURAS=/caminho/fora/do/repo` redireciona a saída.
+const SAIDA = process.env.CAPTURAS ? path.resolve(process.env.CAPTURAS) : path.resolve(__dirname, "../../docs/capturas/sessao-7");
 const ARGS = ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"];
 
 let falhas = 0;
