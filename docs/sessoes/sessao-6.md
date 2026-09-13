@@ -12,6 +12,9 @@ O tabuleiro deixa de ser uma ilha flutuando no espaço e vira um arquipélago no
 - **D · UI.** Paleta única de construção (usinas, vila, bateria, subestação, cabo, ferramentas Remover e Desmatar) no lugar da lista de compra; a lista vira o **extrato** (o que existe, quanto rende, quanto está sem escoamento). Escada de escalas **crescente da esquerda para a direita** no celular e de baixo para cima no desktop, com degraus que crescem de tamanho. HUD com a **nota de ₵** desenhada e o extrato ao tocar. Tooltips das peças do Núcleo com os números e card "As cinco peças" ao desbloquear a torre. Abertura reescrita em torno de espaço ("cada casa é uma decisão").
 - **E · Verificação.** Testes do sim (geração, colocação, esteira, sombra, alcance e teto da subestação, remoção de obstáculos com tempo, expedição, cabo, migração v6, contagens derivadas). Roteiro Playwright nos dois tamanhos: colocar cata-vento em colina e ver +25 %; vizinho eólico tira 20 %; usina fora do alcance mostra "sem escoamento"; desmatar e ver o Bipe; comprar Ventania e ligar cabo; escada crescente; nota de ₵; tooltip da peça. Capturas em `docs/capturas/sessao-6/`; `ESTADO.md`; relatório em `docs/sessoes/sessao-6-relatorio.md`.
 
+## Princípio que vale para tudo (GDD §7)
+Nada acumula sem sumidouro. Nesta sessão: potência fora do alcance ou acima do teto das subestações é desperdiçada e aparece como "sem escoamento" no HUD e na usina; ₵ tem sumidouros novos (colocar, remover, desmatar, expedição, cabo, subestação, níveis de subestação). Se ao fim do roteiro sobrar um recurso que só sobe sem decisão, registre no relatório como defeito.
+
 ## Decisões já tomadas (não reabrir)
 - Bateria continua global. Cascata continua como está. Escada e níveis como na Sessão 5.
 - 8 ilhas com os tamanhos de §8.5; só a principal aberta no início, com ~45 % de obstáculos e uma subestação de nascença ao lado da aldeia.
