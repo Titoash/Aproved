@@ -43,10 +43,6 @@ Base medida antes de começar: `typecheck`, `lint` e **299 testes** verdes em `2
 
 ## O que foi feito
 
-(preenchido ao longo da sessão)
-
-## O que foi feito
-
 Tudo o que a especificação pedia entrou: nada da ordem de corte (Instituto, Bateria de rede, Rede
 inteligente, Selo verde, Distrito industrial) foi cortado. Onze commits, na ordem das partes.
 
@@ -77,7 +73,7 @@ decaimento, a troca e o SCRAM da era. E em `sim/producao.ts`: construções 2×2
 memoizada por identidade do mundo), mar raso colocável (a ilha de cada casa de água sai de uma busca em
 largura a partir da terra, uma vez por arquipélago) e o custo de operação das térmicas.
 
-### Parte G — balanceamento (commit `a3ff81c`)
+### Parte G — balanceamento (commit `f164916`)
 `scripts/simular.ts` ganhou uma segunda fase. A Era 1 acaba **quando dá para construir o Reator** (e não
 num minuto fixo), e a Era 2 roda em seguida.
 
