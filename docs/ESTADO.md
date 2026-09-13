@@ -56,6 +56,8 @@ Atualizado ao fim da **Sessão 7** (cidade com densidade, laboratórios e univer
 6. **Os capítulos não são uma fila travável:** qualquer objetivo já cumprido é pago, mesmo fora de ordem. A interface continua mostrando um por vez.
 
 ## Pendências
+Decisões da gestão sobre estas pendências: `docs/sessoes/sessao-7-ajustes.md` (a Sessão 8 aplica antes da parte A).
+
 - **A Era 1 fecha em ≈ 41 min com jogo perfeito, não em 50–70.** O piso é a Estabilidade (+2,5 pontos/min na zona de ouro = 40 min), e §7 é fórmula que esta sessão não podia mexer. Proposta: ouro 2,5 → ~1,8/min (fecharia em ~55 min). O GDD ganhou a medição em §8.4.
 - **A subestação some como decisão no fim da era:** com alcance 5 (nó) e teto ×2 por nível a ₵ ×3, uma subestação só cobre a ilha inteira. O bot termina 60 minutos com **uma**. Sugestão: limitar o nível, ou o alcance 5 não valer para subestação já melhorada.
 - **A universidade escala rápido demais com a população**: √(pop ÷ 1 000) com uma metrópole (6 400 hab) já dá ×2,5 por universidade. Com três, 🔬 3 000 sai em minutos.
