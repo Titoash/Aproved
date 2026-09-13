@@ -55,6 +55,8 @@ const ZOOM_MIN = 0.12;
 const ZOOM_MAX = 2.6;
 const LIMIAR_ARRASTO_PX = 6;
 const TOQUE_MAX_MS = 250;
+/** Janela do toque duplo, em ms de relógio real. */
+const DUPLO_TOQUE_MS = 300;
 const DURACAO_TRANSICAO_S = 0.9;
 const DURACAO_TRANSICAO_REDUZIDA_S = 0.2;
 
@@ -324,7 +326,7 @@ export class ControleCamera {
     const ponteiros = new Map<number, { x: number; y: number }>();
     let arrasto: Arrasto | null = null;
     let pinch: { d0: number; z0: number; wx: number; wy: number } | null = null;
-    let ultimoToque = { t: -9, x: 0, y: 0 };
+    let ultimoToque = { t: -1e9, x: 0, y: 0 };
     const posLocal = (e: PointerEvent | WheelEvent): [number, number] => {
       const r = el.getBoundingClientRect();
       return [e.clientX - r.left, e.clientY - r.top];
@@ -404,9 +406,11 @@ export class ControleCamera {
       if (arrasto && ponteiros.size === 0) {
         const dur = performance.now() - arrasto.t0;
         if (!arrasto.moveu && dur < TOQUE_MAX_MS) {
-          const ts = this.tempo;
-          if (ts - ultimoToque.t < 0.5 && Math.hypot(x - ultimoToque.x, y - ultimoToque.y) < 20) {
-            ultimoToque = { t: -9, x: 0, y: 0 };
+          // Relógio real, não o da animação: com o quadro lento (software), dois toques deliberados
+          // em casas vizinhas viravam toque duplo e o jogador não conseguia colocar duas peças seguidas.
+          const ts = performance.now();
+          if (ts - ultimoToque.t < DUPLO_TOQUE_MS && Math.hypot(x - ultimoToque.x, y - ultimoToque.y) < 20) {
+            ultimoToque = { t: -1e9, x: 0, y: 0 };
             (ouvintes.toqueDuplo ?? ouvintes.toque)(retorno(x, y));
           } else {
             ultimoToque = { t: ts, x, y };

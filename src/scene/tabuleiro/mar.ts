@@ -76,10 +76,6 @@ function montar(arq: Arquipelago): CacheMar {
 
 const cacheDe = (arq: Arquipelago): CacheMar => caches.get(arq) ?? montar(arq);
 
-export function liberarCacheMar(): void {
-  // WeakMap: nada a liberar explicitamente; a função existe para simetria com o terreno.
-}
-
 /**
  * Mar em coordenadas de mundo: fundo em dois azuis, faixas de água rasa até 3 casas da terra, espuma na borda
  * e ondulação (linhas claras que sobem devagar). Em zoom baixo a ondulação some.
@@ -90,13 +86,30 @@ export function desenharMar(ctx: CanvasRenderingContext2D, arq: Arquipelago, cam
   const reduzido = movimentoReduzido();
   ctx.save();
 
-  // 1. fundo: gradiente vertical entre os dois azuis profundos
-  const g = ctx.createLinearGradient(0, c.y0, 0, c.y1);
+  // 1. fundo: o mar não acaba — cobre o palco inteiro, com gradiente vertical entre os dois azuis
+  const vx0 = -cam.tx / z;
+  const vy0 = -cam.ty / z;
+  const vx1 = (cam.w - cam.tx) / z;
+  const vy1 = (cam.h - cam.ty) / z;
+  const g = ctx.createLinearGradient(0, Math.min(vy0, c.y0), 0, Math.max(vy1, c.y1));
   g.addColorStop(0, P.marFundo2);
   g.addColorStop(0.55, P.marFundo);
   g.addColorStop(1, P.marFundo2);
   ctx.fillStyle = g;
-  ctx.fill(c.pMar);
+  ctx.fillRect(vx0, vy0, vx1 - vx0, vy1 - vy0);
+
+  // 1b. brilho do Sol na água: mancha quente no alto à esquerda (a luz dos sprites vem de lá)
+  const gx = vx0 + (vx1 - vx0) * 0.28;
+  const gy = vy0 + (vy1 - vy0) * 0.16;
+  const gr = (vx1 - vx0) * 0.42;
+  const brilho = ctx.createRadialGradient(gx, gy, 0, gx, gy, gr);
+  brilho.addColorStop(0, alfa(P.sun, 0.16));
+  brilho.addColorStop(0.55, alfa(P.sun, 0.05));
+  brilho.addColorStop(1, alfa(P.sun, 0));
+  ctx.globalCompositeOperation = "lighter";
+  ctx.fillStyle = brilho;
+  ctx.fillRect(vx0, vy0, vx1 - vx0, vy1 - vy0);
+  ctx.globalCompositeOperation = "source-over";
 
   // 2. água rasa: três faixas cada vez mais claras junto à terra
   const tons = [alfa(P.marRaso2, 0.55), alfa(P.marRaso, 0.5), alfa(P.marRaso, 0.28)];
@@ -112,9 +125,9 @@ export function desenharMar(ctx: CanvasRenderingContext2D, arq: Arquipelago, cam
     ctx.strokeStyle = alfa(P.marRaso2, z > 0.6 ? 0.14 : 0.08);
     ctx.lineWidth = 2 / z;
     ctx.beginPath();
-    for (let y = c.y0 + desl; y < c.y1; y += passo) {
-      const largura = (c.x1 - c.x0) / 2;
-      const meio = (c.x0 + c.x1) / 2;
+    for (let y = Math.floor(vy0 / passo) * passo + desl; y < vy1; y += passo) {
+      const largura = vx1 - vx0;
+      const meio = (vx0 + vx1) / 2;
       for (let k = -1; k <= 1; k += 2) {
         const x = meio + k * largura * 0.45;
         ctx.moveTo(x - 26, y);

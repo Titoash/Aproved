@@ -531,6 +531,14 @@ h2 {
   color: var(--coral);
 }
 
+/* O aviso de "sem escoamento" é decisão de jogo (GDD §7): fica visível também no HUD compacto. */
+.hud-sem-escoamento {
+  display: block;
+  color: var(--coral);
+  font-size: var(--t-12);
+  line-height: 1.1;
+}
+
 .hud-extrato {
   position: absolute;
   top: 100%;

@@ -14,6 +14,7 @@ import * as nucleo from "../sim/acoesNucleo";
 import { cardVisto, marcarCardVisto } from "../sim/cards";
 import { comprarMelhoria } from "../sim/melhorias";
 import * as mundo from "../sim/mundo";
+import { analisar as analisarMundo } from "../sim/producao";
 import { calcularOffline, type RelatorioOffline } from "../sim/offline";
 import { carregar, exportarJson, importarJson, INTERVALO_SAVE_MS, limpar, salvar } from "../sim/save";
 import { estadoInicial, type GameState, type MelhoriaId, type PecaId, type TipoConstrucao, type UsinaId } from "../sim/state";
@@ -370,3 +371,22 @@ export const useGameStore = create<GameStore>()((set, get) => {
     },
   };
 });
+
+/* ------------------------------------------------------------------ */
+/* Gancho de desenvolvimento (roteiro de verificação e depuração)       */
+/* ------------------------------------------------------------------ */
+
+declare global {
+  interface Window {
+    __jogo?: {
+      store: typeof useGameStore;
+      analisar: typeof analisarMundo;
+      /** Atalho: análise do estado atual. */
+      analise: () => ReturnType<typeof analisarMundo>;
+    };
+  }
+}
+
+if (import.meta.env.DEV && typeof window !== "undefined") {
+  window.__jogo = { store: useGameStore, analisar: analisarMundo, analise: () => analisarMundo(useGameStore.getState().state) };
+}

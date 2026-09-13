@@ -73,9 +73,11 @@ export function Hud() {
           <span className="hud-ponto" style={{ background: COR_FAIXA[balanco.faixa.id] }} aria-hidden="true" />
           <span className="hud-faixa">{balanco.faixa.nome.toLowerCase()}</span>
         </span>
+        {analise.semEscoamentoKw > 0.001 ? (
+          <span className="hud-sem-escoamento">sem escoamento {formatarPotencia(analise.semEscoamentoKw)}</span>
+        ) : null}
         <span className="hud-rotulo">
           demanda {formatarPotencia(balanco.demandaKw)}
-          {analise.semEscoamentoKw > 0.001 ? <span className="hud-alerta"> · sem escoamento {formatarPotencia(analise.semEscoamentoKw)}</span> : null}
           {balanco.motivoBateria
             ? ` · bateria ${balanco.motivoBateria} ${formatarPotencia(balanco.motivoBateria === "cobrindo" ? balanco.cobertoKw : balanco.absorvidoKw)}`
             : nucleo

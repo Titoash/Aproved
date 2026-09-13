@@ -15,6 +15,7 @@ import { useGameStore, type FerramentaMundo } from "../store/gameStore";
 import { BotaoCompra } from "./BotaoCompra";
 import { Extrato } from "./Extrato";
 import { IconeCadeado, IconeItem } from "./icones";
+import { rolarParaOTabuleiro } from "./rolagem";
 
 function textoBloqueio(state: GameState, desbloqueio: Desbloqueio | undefined): string | null {
   if (desbloqueado(state, desbloqueio)) return null;
@@ -66,7 +67,10 @@ function BotaoPaleta({ item }: { item: ItemPaleta }) {
       className={`paleta-item ${ferramenta === item.id ? "paleta-item--ativa" : ""} ${bloqueio ? "paleta-item--bloqueada" : ""}`}
       disabled={!!bloqueio}
       title={bloqueio ?? item.detalhe}
-      onClick={() => selecionar(item.id)}
+      onClick={() => {
+        selecionar(item.id);
+        rolarParaOTabuleiro();
+      }}
     >
       <IconeItem id={item.id as never} />
       <span className="paleta-nome">{item.nome}</span>
@@ -99,7 +103,10 @@ function Ferramentas() {
           aria-checked={ferramenta === o.id}
           className={`paleta-item ${ferramenta === o.id ? "paleta-item--ativa" : ""}`}
           title={o.detalhe}
-          onClick={() => selecionar(o.id)}
+          onClick={() => {
+            selecionar(o.id);
+            rolarParaOTabuleiro();
+          }}
         >
           <IconeItem id={o.icone} />
           <span className="paleta-nome">{o.nome}</span>
