@@ -61,7 +61,7 @@ Cabo submarino: níveis como hoje (₵ ×3ⁿ, teto ×2ⁿ, base 30 kW). O nó *
 | 5 | **Megacidade** | 400 kW | 25 000 | ×1,7 | ₵ 97 650 + 🔬 3 000 | nó "Megacidade" |
 | 6 | **Arcologia** | 1 500 kW | 100 000 | ×2,0 | ₵ 244 000 + 🔬 15 000 | nó "Arcologia" |
 
-A curva de ₵ continua ×2,5 por degrau, e a partir da densidade 5 ganha um ×10 fixo (a era subiu de escala). A de 🔬 continua ×5. Bairros novos continuam ₵ 40 × 1,25ⁿ: colocar bairro é barato, evoluir é o gasto.
+A curva de ₵ continua ×2,5 por degrau e dá **um salto de escala na entrada da megacidade**: ₵ 1 562 → ₵ 97 650 é ×62,5, ou seja ×2,5 com um ×25 por cima — a era subiu ×100 em potência. Da 5 para a 6 volta ao ×2,5 (₵ 97 650 → ₵ 244 000). A de 🔬 continua ×5 em toda a escada. Bairros novos continuam ₵ 40 × 1,25ⁿ: colocar bairro é barato, evoluir é o gasto. *(Sessão 8: o texto anterior dizia "×10 fixo", que daria ₵ 39 050 e não bate com a tabela; os números da tabela são o contrato e continuam como estavam.)*
 
 ### 4.2 Consumidores e ciência novos
 
@@ -92,7 +92,7 @@ Pesquisa do Núcleo: 🔬/s = kW × **0,01** × multiplicador da faixa (a Era 1 
 ### 5.2 Esgotamento e calor de decaimento
 - Cada vareta tem `combustivelS` (600 s; ×2 com barra vizinha; ×1,5 com o nó MOX). Consome só enquanto o reator está ligado.
 - Ao zerar, a vareta vira **gasta**: continua na casa e injeta **7 % do calor nominal**, caindo pela metade a cada **60 s** (meia-vida). Física: ao parar a fissão, os produtos de fissão seguem decaindo e liberam ≈ 7 % da potência térmica no primeiro instante, ≈ 1 % depois de uma hora.
-- **Trocar** uma vareta gasta custa ₵ 8 000 (o combustível) e só é permitido quando o calor de decaimento dela caiu abaixo de **1 % do nominal** (≈ 3 meias-vidas, 3 min) — **ou na hora, se ela está nas 8 vizinhas de uma Piscina**. Enquanto espera, ocupa a casa.
+- **Trocar** uma vareta gasta custa ₵ 8 000 (o combustível) e só é permitido depois de **3 meias-vidas (180 s)**, quando o decaimento está em 0,875 % do nominal — **ou na hora, se ela está nas 8 vizinhas de uma Piscina**. Enquanto espera, ocupa a casa. *(Sessão 8: o cruzamento exato de 1 % acontece em log₂(7) = 2,81 meias-vidas, 168 s; a regra usa as 3 meias-vidas cheias porque é o número redondo que o teste obrigatório de §5.3 escreve, e já está abaixo do limiar.)*
 - **SCRAM na Era 2** insere as barras: todas as varetas entram em decaimento (7 % com meia-vida de 60 s) por **no mínimo 60 s**; religar leva **30 s**, e as varetas voltam de onde estavam (combustível não some). O calor de decaimento **entra no Vaso**: a torre de resfriamento é o que segura `T` depois de um SCRAM.
 - **Cascata na Era 2** é a mesma (peças sobrecarregadas e adjacentes viram entulho, reconstruir 50 %, limpar grátis após 30 s), com um agravante: varetas viram **entulho quente** (mantêm o decaimento) e o Vaso **não perde `Q`**. Se `T` passar de 100 % de novo, a Cascata repete. O card explica; a Piscina e a torre são a resposta.
 - Nada é comprado offline; **varetas esgotam offline** (o tempo passa no combustível) e o reator roda em modo seguro (×0,7, Parte 1 §7). Térmicas a gás cobram combustível offline ×0,5, como a receita.
@@ -104,19 +104,26 @@ Pesquisa do Núcleo: 🔬/s = kW × **0,01** × multiplicador da faixa (a Era 1 
 | Configuração | Entrada (u/s) | `Q*` (u) | `T*` | Resultado |
 |---|---|---|---|---|
 | 6 varetas (4 no anel 1 + 2 no anel 2), 2 turbinas | 100 | 416,7 | **83 %** | **zona de ouro, 800 kW**, 🔬 10,4/s |
-| 7 varetas (5 + 2), 2 turbinas | 110 | 458,3 | 92 % | alerta |
-| 8 varetas (6 + 2), 2 turbinas | 120 | 500 | 100 % | assintótico: nunca passa, nunca cascateia |
-| 8 varetas + 1 vareta no anel 3 (7×7), 2 turbinas | 125 | 520,8 | 104 % | **Cascata** 5 s depois de passar de 100 % |
+| 7 varetas (4 + 3), 2 turbinas | 110 | 458,3 | 92 % | alerta |
+| 8 varetas (4 + 4), 2 turbinas | 120 | 500 | 100 % | assintótico: nunca passa, nunca cascateia |
+| 8 varetas (4 + 4) + 1 no anel 3 (7×7), 2 turbinas | 125 | 520,8 | 104 % | **Cascata** 5 s depois de passar de 100 % |
 | 6 varetas, 2 turbinas, 1 torre | 100 − 30 | 291,7 | 58 % | normal, 560 kW |
 | 6 varetas compradas juntas, aos 600 s | 7 (decaindo) | 29 | 6 % | frio, **56 kW**: a Rede sente o buraco se o reator era parte grande da oferta |
-| 3 das 6 com uma barra vizinha | 30 + 40 = 70 | 291,7 | 58 % | normal, 560 kW; as 3 duram 1 200 s: **troca escalonada de graça** |
+| 3 das 6 (anel 1) com uma barra vizinha | 30 + 40 = 70 | 291,7 | 58 % | normal, 560 kW; as 3 duram 1 200 s: **troca escalonada de graça** |
 | 6 varetas + Piscina (cap. 750) + 2 turbinas | 100 | 416,7 | 56 % | normal; a piscina compra margem e cobra em pesquisa, como o tanque da Era 1 |
+
+> **Correção da Sessão 8 (produção).** A coluna "Entrada" desta tabela é o contrato e não mudou; a
+> repartição por anel entre parênteses estava errada nas linhas de 7 e 8 varetas (com 20 u/s no anel 1,
+> "5 + 2" daria 120 u/s, não 110). Os números só fecham com **4 varetas no anel 1** — o que o anel
+> permite junto com as 2 turbinas — e o resto no anel 2. Corrigido acima; os testes são estes.
 
 Teste obrigatório da Sessão 8, no espírito da regra 2 do `CLAUDE.md`: "6 varetas + 2 turbinas estabilizam em 83 % e não cascateiam em 120 s; a 9ª vareta dispara a Cascata 5 s depois de `T` passar de 100 %; aos 600 s as 6 esgotam e a potência cai para 56 kW; com Piscina vizinha a troca é imediata, sem ela só após 180 s."
 
 ## 6. Árvore da Era 2 (🔬 gasto; cada nó com uma frase de física de verdade)
 
-Custos na régua ×10 da Era 1 (a árvore da Era 1 somou ≈ 🔬 22 mil; esta soma ≈ 🔬 190 mil, para uma era em que o reator sozinho rende 🔬 10/s). A produção escreve as frases e confere os números.
+Custos na régua ×10 da Era 1 (a árvore da Era 1 somou ≈ 🔬 22 mil; esta soma **🔬 193 mil**). A produção escreveu as frases e conferiu os números.
+
+*(Sessão 8, medido.)* O reator sozinho rende 🔬 10,4/s na zona de ouro — 37 mil por hora, um quinto da árvore. **Quem paga a árvore da Era 2 é a cidade:** com 25 universidades e a população da era, a simulação mede ≈ 🔬 73/s, e o bot compra o caminho todo até a saída em 61 minutos. O reator é a fonte que **não depende de espaço**; as universidades são a que escala.
 
 - **Fissão:** Barra de controle (🔬 500) → Piscina de resfriamento (🔬 2 000) → Enriquecimento a 5 % (varetas +25 % de calor, 🔬 6 000) → Combustível MOX (vida ×1,5, 🔬 9 000) → **Reator 7×7** (🔬 15 000 + ₵ 150 000). Escolha exclusiva no fim (🔬 25 000 cada): Água pesada (varetas duram ×2, −15 % de calor) × Alta temperatura (+30 % de kW por u, vida ×0,7).
 - **Térmica:** Ciclo combinado (térmica +30 %, 🔬 3 000) → Cogeração (bairros a ≤ 2 casas: tarifa +10 % em vez de −10 %, 🔬 8 000) → Selo verde (captura de carbono: tarifa média +5 %, combustível +20 %, 🔬 12 000).
