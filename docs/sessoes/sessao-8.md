@@ -19,12 +19,14 @@ O MVP fecha: Eras 1–2 jogáveis de ponta a ponta. A Era 2 traz o reator PWR co
 Se não couber tudo, a ordem de corte é: Instituto de pesquisa, Bateria de rede, Rede inteligente, Selo verde, Distrito industrial. Nunca cortar 0, A, B, C (offshore e térmica), E, G e H.
 
 ## Checklist
-- [ ] ajustes 2, 3, 5, 6 e 7 da Sessão 7 aplicados, GDD e testes atualizados
-- [ ] transição de era: `construirReator`, desmonte com devolução, Estabilidade zerada, save v8 com migração
-- [ ] reator PWR: peças, esgotamento, decaimento, barra, piscina, torre, SCRAM e Cascata da Era 2; tabela §5.3 em testes
-- [ ] construções 2×2 e mar raso; eólica offshore, fazenda solar, térmica com combustível; 138 kV, offshore, bateria de rede, HVDC
-- [ ] cidade 5–6, distrito industrial, instituto
-- [ ] árvore da Era 2 com frases de física; capítulos da Era 2; Fusão básica como saída com aviso
-- [ ] UI e cena: transição com card, câmera e paleta; reator e varetas desenhados; painel de peça com Trocar; paleta 2×2 e offshore; extrato com combustível
-- [ ] simulação: Era 1 + 60 min de Era 2, números recalibrados na Parte 2
-- [ ] roteiro Playwright verde nos dois tamanhos; roteiros 6 e 7 verdes; capturas; `ESTADO.md`; relatório; `typecheck`, `test`, `lint`, `build`
+- [x] ajustes 2, 3, 5, 6 e 7 da Sessão 7 aplicados, GDD e testes atualizados
+- [x] transição de era: `construirReator`, desmonte com devolução, Estabilidade zerada, save v8 com migração
+- [x] reator PWR: peças, esgotamento, decaimento, barra, piscina, torre, SCRAM e Cascata da Era 2; tabela §5.3 em testes
+- [x] construções 2×2 e mar raso; eólica offshore, fazenda solar, térmica com combustível; 138 kV, offshore, bateria de rede, HVDC
+- [x] cidade 5–6, distrito industrial, instituto
+- [x] árvore da Era 2 com frases de física; capítulos da Era 2; Fusão básica como saída com aviso
+- [x] UI e cena: transição com card, câmera e paleta; reator e varetas desenhados; painel de peça com Trocar; paleta 2×2 e offshore; extrato com combustível
+- [x] simulação: Era 1 + Era 2, números recalibrados na Parte 2 (a Era 2 fecha em 60,9 min)
+- [x] roteiro Playwright verde nos dois tamanhos; roteiros 6 e 7 verdes; capturas; `ESTADO.md`; relatório; `typecheck`, `test`, `lint`, `build`
+
+*(Marcado pela produção ao fim da sessão; o relatório está em `sessao-8-relatorio.md`.)*
