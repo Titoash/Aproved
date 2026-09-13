@@ -14,7 +14,7 @@
  * O único uso de DOM fica em `criarTela` (fallback quando não há `OffscreenCanvas`).
  */
 import type { TipoTerreno } from "../../content/era1-arquipelago";
-import { indiceCasa, naPlataforma, type Arquipelago, type IlhaGerada, type IlhaId, type Plataforma } from "../../sim/arquipelago";
+import { ORDEM_TERRENOS, indiceCasa, naPlataforma, type Arquipelago, type IlhaGerada, type IlhaId, type Plataforma } from "../../sim/arquipelago";
 import { ISO, PALETA, alfa, centro, clarear, desiso, elipse, escurecer, iso, lodDe, misturar, retArred, rnd, ruido, type Camera } from "./base";
 
 // ---------------------------------------------------------------------------------------------
@@ -32,6 +32,14 @@ export const TOM: Record<TipoTerreno, string> = {
   litoral: P.gramaSol,
   rocha: P.gramaEsc,
 };
+/** Tom da casa pelo terreno dela: a decisão de onde construir precisa ser visível (GDD §2.4). */
+export const TOM_CASA: Record<TipoTerreno, string> = {
+  planicie: P.grama,
+  colina: P.gramaVento,
+  litoral: P.areia,
+  rocha: P.rocha3,
+};
+
 /** Fechadas: M(tom, navy2, .6) mantém a matiz roxo-navy da paleta (nada de cinza-chumbo). */
 const bloquear = (tom: string): string => misturar(tom, P.navy2, 0.6);
 const TOM_BLOQUEADO: Record<TipoTerreno, string> = {
@@ -566,16 +574,20 @@ function montarCache(arq: Arquipelago): CacheTerreno {
     const p = pathDePontos(lacos);
     const tonsPerto = new Map<string, Path2D>();
     const tonsLonge = new Map<string, Path2D>();
-    const chaveTom = new Map<number, string>();
+    const chaveTom = new Map<string, string>();
     for (const i of reg.casas) {
       const x = i % n;
       const y = (i / n) | 0;
       if (agua[i] || naPlataforma(pl, x, y)) continue;
       const nivel = Math.round((altura[i] - 0.5) * 6); // −3..3
-      let cor = chaveTom.get(nivel);
+      // O tom vem do terreno DA CASA (GDD §2.4: colina, litoral e planície mudam o que a casa rende),
+      // com a altura só variando o brilho.
+      const terreno = ORDEM_TERRENOS[arq.terreno[i]] ?? reg.terrenoDominante;
+      const chave = `${terreno}:${nivel}`;
+      let cor = chaveTom.get(chave);
       if (!cor) {
-        cor = misturar(TOM[reg.terrenoDominante], nivel > 0 ? "#ffffff" : P.gramaEsc, Math.abs(nivel) * 0.027);
-        chaveTom.set(nivel, cor);
+        cor = misturar(TOM_CASA[terreno], nivel > 0 ? "#ffffff" : P.gramaEsc, Math.abs(nivel) * 0.027);
+        chaveTom.set(chave, cor);
       }
       if (nivel !== 0) losangoEm(pathDe(tonsLonge, cor), x, y, 0, 0);
       const corX = misturar(cor, (x + y) % 2 ? "#000000" : "#ffffff", 0.03);

@@ -35,14 +35,45 @@ export const CARDS_ERA1: Record<string, CardDef> = {
           "Um cata-vento de quintal gera 1 kW. A humanidade inteira, hoje, usa uns 20 trilhões de watts. O Sol despeja no espaço 19 trilhões de vezes isso, o tempo todo, sem cobrar. Este jogo é a distância entre esses dois números. O medidor Kardashev mostra onde você está. Por enquanto, no comecinho.",
       },
       {
-        titulo: "A Torre Solar",
+        titulo: "Cada casa é uma decisão",
         texto:
-          "Espelhos no chão apontam para uma torre. A luz vira calor no Receptor. O calor ferve um fluido que gira uma turbina, e a turbina faz eletricidade. É só isso — e é o suficiente para existirem torres assim de verdade na Espanha e no Marrocos. Na grade: espelho injeta calor, turbina consome calor e gera kW, radiador joga calor fora. Colado na torre, cada espelho vale o dobro.",
+          "Este arquipélago tem 2048 casas de terra em oito ilhas, e você coloca tudo à mão, casa a casa. Onde a coisa fica decide quanto ela rende: colina dá +25 % de vento, litoral +50 %, planície +15 % de sol. Dois cata-ventos colados um no outro se roubam vento — é a esteira, e ela é real: parques eólicos de verdade espaçam as torres por isso. Uma torre alta ao lado de um painel faz sombra. Espaço não sobra: metade da ilha principal nasce com floresta, pedra e pântano, e limpar cada casa custa ₵ e tempo.",
+      },
+      {
+        titulo: "Energia sem fio não vai a lugar nenhum",
+        texto:
+          "Uma usina só vende se tiver uma subestação a até 3 casas, e cada subestação escoa no máximo 40 kW. O que passa disso é desperdiçado: o HUD chama de \"sem escoamento\". As outras ilhas precisam de uma expedição para abrir e de um cabo submarino para mandar energia à rede principal. No meio de tudo fica a plataforma da Torre Solar, o seu Núcleo — é de lá que vem a Pesquisa.",
+      },
+    ],
+  },
+
+  cincoPecas: {
+    id: "cincoPecas",
+    gatilho: "desbloqueio do Núcleo",
+    bipe: { papel: "cientista", expressao: "apontando" },
+    telas: [
+      {
+        titulo: "As cinco peças da Torre",
+        texto:
+          "**Receptor** (fixo no centro): guarda 100 u de calor e é o que derrete. **Heliostato** (₵ 30): espelho que injeta 4 u/s de calor — colado no Receptor vale o dobro do anel de fora. **Turbina a vapor** (₵ 50): só encostada no Receptor; consome 12 % do calor guardado por segundo e devolve 0,8 kW por unidade consumida. **Radiador** (₵ 40): tira 6 u/s, a válvula de escape. **Tanque de sal fundido** (₵ 60): +150 u de capacidade — não esfria nada, só dá espaço.",
       },
       {
         titulo: "A regra de ouro",
         texto:
           "Turbinas rendem mais quando o Receptor está quente. Física de verdade: quanto maior a diferença de temperatura, mais trabalho se tira do mesmo calor — Carnot descobriu isso em 1824. Então o melhor lugar para operar é quente, entre 70 e 90 %, perto do limite. Passou de 100 % por 5 segundos, o Receptor derrete: isso é a Cascata. A marquinha na barra mostra onde a sua configuração vai parar. Mire a marquinha na zona de ouro.",
+      },
+    ],
+  },
+
+  subestacao: {
+    id: "subestacao",
+    gatilho: "primeira subestação colocada",
+    bipe: { papel: "operador", expressao: "apontando" },
+    telas: [
+      {
+        titulo: "A subestação é a torneira.",
+        texto:
+          "Ela recolhe o que as usinas a até 3 casas produzem e manda para a cidade — até 40 kW. Acima disso, a energia não some no fio: ela simplesmente não é gerada, e o jogo mostra \"sem escoamento\" na usina. Redes de verdade têm o mesmo limite: a linha aguenta o que aguenta. Espalhe subestações, ou suba o nível de uma (custo ×3, teto ×2). Bairro também precisa de uma por perto para pedir energia.",
       },
     ],
   },
@@ -97,19 +128,19 @@ export const CARDS_ERA1: Record<string, CardDef> = {
 };
 
 /** Liga um evento do sim ao card que ele dispara (ou a nenhum). É o único lugar com essa tabela. */
-export const CARD_LOCAL: CardDef = {
-  id: "local",
-  gatilho: "primeiro local desbloqueado",
+export const CARD_ILHA: CardDef = {
+  id: "ilha",
+  gatilho: "primeira expedição",
   bipe: { papel: "manutencao", expressao: "apontando" },
   telas: [
     {
-      titulo: "Um local novo",
+      titulo: "Uma ilha nova",
       texto:
-        "A ilha tem 2048 casas, mas usina só cabe onde há vaga: cata-ventos e turbinas eólicas no vento, painéis no sol, vilas e baterias perto dos caminhos. Quando um campo enche, o botão avisa \"sem vaga\" e um local novo abre mais chão. Locais não dão bônus, dão espaço. Usinas de verdade também brigam por terreno: uma fazenda eólica ocupa dez vezes a área de uma térmica para a mesma potência.",
+        "A expedição abre a ilha, mas a energia dela ainda não chega aqui: sem **cabo submarino** ela só alimenta os próprios bairros. O cabo custa ₵ 150 mais ₵ 40 por casa de mar — cabos de verdade custam assim mesmo, por quilômetro. Cada ilha tem o seu terreno: Ventania é colina e pico (vento forte), Solar é planície rasa (nada faz sombra), Bosque é 90 % de árvore para derrubar. Espaço se conquista.",
     },
   ],
 };
-CARDS_ERA1.local = CARD_LOCAL;
+CARDS_ERA1.ilha = CARD_ILHA;
 
 export function cardParaEvento(evento: EventoJogo): string | null {
   switch (evento.tipo) {
@@ -127,6 +158,7 @@ export function cardParaEvento(evento: EventoJogo): string | null {
     case "ilhaAberta":
       return "ilha";
     case "nucleoDesbloqueado":
+      return "cincoPecas";
     case "obstaculoRemovido":
       return null;
   }

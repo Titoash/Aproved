@@ -25,7 +25,9 @@ export function podeDesbloquearNucleo(state: GameState): boolean {
 
 export function desbloquearNucleo(state: GameState): GameState | null {
   if (!podeDesbloquearNucleo(state)) return null;
-  return comNucleo(state, nucleoInicial(), state.creditos - NUCLEO.custoDesbloqueio);
+  const proximo = comNucleo(state, nucleoInicial(), state.creditos - NUCLEO.custoDesbloqueio);
+  // O card "As cinco peças" (GDD §10, v0.6) explica a grade antes da primeira colocação.
+  return { ...proximo, eventos: [...state.eventos, { tipo: "nucleoDesbloqueado" }] };
 }
 
 /* ------------------------------------------------------------------ */

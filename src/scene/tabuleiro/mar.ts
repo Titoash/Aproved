@@ -10,8 +10,8 @@ import { ISO, PALETA, alfa, clarear, escurecer, iso, movimentoReduzido, type Cam
 
 const P = {
   ...PALETA,
-  marFundo: "#123a7a",
-  marFundo2: "#0e2c5e",
+  marFundo: "#1c56b4",
+  marFundo2: "#123f8c",
   marRaso: "#2b8fd6",
   marRaso2: "#4cc9f0",
   espuma: "#dff3ff",
@@ -204,8 +204,8 @@ export function desenharCeu(ctx: CanvasRenderingContext2D, w: number, h: number,
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, w, h);
 
-  // Sol alto à esquerda (a luz de todos os sprites vem de cima-esquerda), com paralaxe fraca.
-  const sx = w * 0.16 + cam.tx * 0.04;
+  // Sol alto, à direita da reserva da escada (a luz dos sprites continua vindo de cima-esquerda).
+  const sx = w * 0.32 + cam.tx * 0.04;
   const sy = h * 0.14 + cam.ty * 0.03;
   const pulso = reduzido ? 0 : Math.sin(t * 0.6) * 2;
   ctx.globalCompositeOperation = "lighter";

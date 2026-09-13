@@ -154,15 +154,20 @@ function SeletorPecas() {
     ...ORDEM_PECAS.map((id) => ({ id, nome: PECAS[id].nome, custo: PECAS[id].custo, descricao: PECAS[id].descricao })),
     { id: "remover", nome: "Remover", custo: null, descricao: "Tira a peça da casa (sem reembolso)." },
   ];
+  const atual = opcoes.find((o) => o.id === ferramenta);
   return (
-    <div className="seletor-pecas" role="radiogroup" aria-label="Peça para colocar">
-      {opcoes.map((o) => (
-        <button key={o.id} type="button" role="radio" aria-checked={ferramenta === o.id} className={`pilula ${ferramenta === o.id ? "pilula--ativa" : ""}`} title={o.descricao} onClick={() => selecionar(o.id)}>
-          <span>{o.nome}</span>
-          {o.custo !== null ? <span className={`pilula-custo ${state.creditos < o.custo ? "pilula-custo--caro" : ""}`}>{formatarCreditos(o.custo)}</span> : null}
-        </button>
-      ))}
-    </div>
+    <>
+      <div className="seletor-pecas" role="radiogroup" aria-label="Peça para colocar">
+        {opcoes.map((o) => (
+          <button key={o.id} type="button" role="radio" aria-checked={ferramenta === o.id} className={`pilula ${ferramenta === o.id ? "pilula--ativa" : ""}`} title={o.descricao} onClick={() => selecionar(o.id)}>
+            <span>{o.nome}</span>
+            {o.custo !== null ? <span className={`pilula-custo ${state.creditos < o.custo ? "pilula-custo--caro" : ""}`}>{formatarCreditos(o.custo)}</span> : null}
+          </button>
+        ))}
+      </div>
+      {/* Tooltip de uma frase com os números da peça selecionada (GDD §10, v0.6). */}
+      {atual ? <p className="seletor-dica">{atual.descricao}</p> : null}
+    </>
   );
 }
 
