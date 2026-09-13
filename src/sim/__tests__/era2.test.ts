@@ -25,9 +25,8 @@ const n = arq.n;
 function prontoParaOReator(creditos = 1e6): GameState {
   const s = estadoLimpo(creditos);
   const nucleo = { ...nucleoInicial(), estabilidade: 100 };
-  const comPecas = { ...s, nucleo, pesquisados: [...s.pesquisados, "fissaoBasica"] };
   // uma torre montada de verdade, para o desmonte ter o que devolver
-  let comGrade = comPecas;
+  let comGrade: GameState = { ...s, nucleo, pesquisados: [...s.pesquisados, "fissaoBasica"] };
   for (const [i, peca] of [[6, "heliostato"], [7, "heliostato"], [11, "turbina"], [13, "turbina"]] as const) {
     comGrade = colocarPeca(comGrade, i, peca) ?? comGrade;
   }
