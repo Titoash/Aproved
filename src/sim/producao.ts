@@ -53,6 +53,29 @@ export function terrenoEm(indice: number, arq: Arquipelago = arquipelagoDaEra1()
   return t === 255 ? null : ORDEM_TERRENOS[t];
 }
 
+/** Casa de rocha com cristal, aberta por uma montanha dinamitada (GDD §8.6, §9). */
+export function temCristal(mundo: MundoState, indice: number): boolean {
+  return cristaisDe(mundo).has(indice);
+}
+
+/** Conjunto das casas de cristal, memoizado por identidade do mundo (o `includes` custa caro no tick). */
+const cristaisCache = new WeakMap<MundoState, Set<number>>();
+
+export function cristaisDe(mundo: MundoState): Set<number> {
+  let conjunto = cristaisCache.get(mundo);
+  if (!conjunto) {
+    conjunto = new Set(mundo.cristais);
+    cristaisCache.set(mundo, conjunto);
+  }
+  return conjunto;
+}
+
+/** Terreno de jogo de uma casa: a montanha dinamitada deixa **rocha** (GDD §8.5, ajuste 2). */
+export function terrenoDeJogo(mundo: MundoState, indice: number, arq: Arquipelago = arquipelagoDaEra1()): TipoTerreno | null {
+  if (temCristal(mundo, indice)) return "rocha";
+  return terrenoEm(indice, arq);
+}
+
 export function ilhaDaCasa(indice: number, arq: Arquipelago = arquipelagoDaEra1()): IlhaId | null {
   const q = arq.ilha[indice];
   return q < 0 ? null : arq.ilhas[q].id;
@@ -156,7 +179,7 @@ export function analisarMundo(mundo: MundoState, rede: RedeState, melhorias: Mel
     if (!ehUsina(c.tipo)) continue;
     const x = i % n;
     const y = Math.floor(i / n);
-    const terreno = terrenoEm(i, arq) ?? "planicie";
+    const terreno = terrenoDeJogo(mundo, i, arq) ?? "planicie";
     const vento = ehVento(c.tipo);
     let eolicosVizinhos = 0;
     let altosVizinhos = 0;

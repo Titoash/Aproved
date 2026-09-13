@@ -165,6 +165,10 @@ function normalizarMundo(bruto: unknown): MundoState {
     ? Array.from(new Set(m.removidos.filter((i): i is number => Number.isInteger(i) && i >= 0 && i < arq.n * arq.n && arq.obstaculos[i] !== 255)))
     : [];
 
+  const cristais = Array.isArray(m.cristais)
+    ? Array.from(new Set(m.cristais.filter((i): i is number => Number.isInteger(i) && i >= 0 && i < arq.n * arq.n && arq.terra[i] === 1)))
+    : [];
+
   const remocoes: RemocaoEmCurso[] = Array.isArray(m.remocoes)
     ? m.remocoes
         .map((bruta) => {
@@ -193,7 +197,7 @@ function normalizarMundo(bruto: unknown): MundoState {
     cabos[chave] = inteiro(valor, 0);
   }
 
-  return { construcoes, removidos, remocoes, ilhasAbertas, cabos };
+  return { construcoes, removidos, remocoes, cristais, ilhasAbertas, cabos };
 }
 
 function normalizarMelhorias(bruto: unknown): Melhorias {
@@ -243,7 +247,7 @@ function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState 
  * v4 → v5: entra `tabuleiro` com as regiões iniciais da ilha (GDD §2.4).
  * v5 → v6: a Rede vira colocação (GDD §2.1, v0.6): as contagens viram construções na ilha principal,
  *          o excedente vira ₵, e `tabuleiro` (regiões/vagas) some — quem manda agora é `mundo`.
- * v6 → v7: o cabo submarino ganha nível (lista de ilhas → ilha: nível).
+ * v6 → v7: o cabo submarino ganha nível (lista de ilhas → ilha: nível) e entram as casas de cristal.
  */
 function migrar(bruto: Record<string, unknown>, agoraMs: number): Record<string, unknown> {
   const versao = bruto.versao;
@@ -293,7 +297,7 @@ function migrar(bruto: Record<string, unknown>, agoraMs: number): Record<string,
     const mundoBruto = objeto(atual.mundo);
     const cabos: Record<string, number> = {};
     if (Array.isArray(mundoBruto.cabos)) for (const id of mundoBruto.cabos) if (typeof id === "string" && id !== "principal") cabos[id] = 0;
-    atual = { ...atual, mundo: { ...mundoBruto, cabos }, versao: 7 };
+    atual = { ...atual, mundo: { ...mundoBruto, cabos, cristais: [] }, versao: 7 };
     v = 7;
   }
   return { ...atual, versao: v };

@@ -23,7 +23,7 @@ import {
   removerObstaculo,
   valorRemocao,
 } from "../mundo";
-import { quantidadeDe } from "../producao";
+import { quantidadeDe, temCristal, terrenoDeJogo } from "../producao";
 import { avancarTicks } from "../tick";
 import { estadoLimpo } from "./ajuda";
 
@@ -150,7 +150,7 @@ describe("obstáculos (GDD §8.5)", () => {
     expect(obstaculoEm(fim.mundo, b)).toBeNull();
   });
 
-  it("a montanha 2×2 sai inteira, custa 🔬 20 e é recusada sem pesquisa", () => {
+  it("a montanha 2×2 sai inteira, exige 🔬 20, devolve 🔬 40 e deixa cristal", () => {
     const ancora = arq.montanhas[0];
     const s0 = estadoLimpo(1000);
     expect(removerObstaculo(s0, ancora)).toBeNull(); // ilha fechada
@@ -161,8 +161,13 @@ describe("obstáculos (GDD §8.5)", () => {
     expect(s1.mundo.remocoes[0].indice).toBe(ancora);
     expect(comCiencia.creditos - s1.creditos).toBe(OBSTACULOS.montanha.custo);
     const fim = avancarTicks(s1, OBSTACULOS.montanha.tempoMs / 100);
-    for (const casa of [ancora, ancora + 1, ancora + n, ancora + n + 1]) expect(obstaculoEm(fim.mundo, casa)).toBeNull();
-    expect(fim.pesquisa).toBe(OBSTACULOS.montanha.pesquisa); // 🔬 é requisito, não gasto
+    for (const casa of [ancora, ancora + 1, ancora + n, ancora + n + 1]) {
+      expect(obstaculoEm(fim.mundo, casa)).toBeNull();
+      // as quatro casas viram rocha com cristal (GDD §8.6, §9)
+      expect(temCristal(fim.mundo, casa)).toBe(true);
+      expect(terrenoDeJogo(fim.mundo, casa)).toBe("rocha");
+    }
+    expect(fim.pesquisa).toBe(comCiencia.pesquisa + OBSTACULOS.montanha.devolvePesquisa!);
   });
 
   it("pico é permanente", () => {

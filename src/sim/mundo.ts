@@ -286,14 +286,18 @@ export function passoRemocoes(state: GameState, arq: Arquipelago = arquipelagoDa
     return { ...state, mundo: { ...state.mundo, remocoes } };
   }
   if (state.tempoMs < atual.fimMs) return state;
+  const def = OBSTACULOS[atual.tipo];
   const casas = casasDoObstaculo(atual.indice, atual.tipo, arq.n);
   const removidos = [...state.mundo.removidos, ...casas.filter((c) => !state.mundo.removidos.includes(c))];
+  // Dinamitar uma montanha descobre cristais: as casas liberadas rendem +50 % em ciência (GDD §8.6, §9).
+  const cristais = def.deixaCristal ? [...state.mundo.cristais, ...casas.filter((c) => !state.mundo.cristais.includes(c))] : state.mundo.cristais;
   const resto = fila.slice(1);
   const remocoes = resto.length > 0 ? [{ ...resto[0], inicioMs: state.tempoMs, fimMs: state.tempoMs + OBSTACULOS[resto[0].tipo].tempoMs }, ...resto.slice(1)] : [];
   return {
     ...state,
-    mundo: { ...state.mundo, removidos, remocoes },
-    eventos: [...state.eventos, { tipo: "obstaculoRemovido", indice: atual.indice }],
+    pesquisa: state.pesquisa + (def.devolvePesquisa ?? 0),
+    mundo: { ...state.mundo, removidos, remocoes, cristais },
+    eventos: [...state.eventos, { tipo: "obstaculoRemovido", indice: atual.indice, cristal: !!def.deixaCristal }],
   };
 }
 

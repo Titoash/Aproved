@@ -31,6 +31,7 @@ import {
   type CalloutCena,
   type Cena,
   type ConstrucaoCena,
+  type CristalCena,
   type EntradaCena,
   type ObstaculoCena,
   type PecaCena,
@@ -198,6 +199,8 @@ export class TabuleiroScene extends Phaser.Scene {
       obstaculos.push({ x: ancora % n, y: Math.floor(ancora / n), tipo, progresso: emRemocao.get(ancora) });
     }
 
+    const cristais: CristalCena[] = state.mundo.cristais.map((i) => ({ x: i % n, y: Math.floor(i / n) }));
+
     // --- cabos: rota de cada ilha aberta (ligada em `sun`, prevista em `muted`)
     const cabos: CaboCena[] = [];
     for (const def of ILHAS) {
@@ -253,6 +256,7 @@ export class TabuleiroScene extends Phaser.Scene {
       abertas: state.mundo.ilhasAbertas,
       construcoes,
       obstaculos,
+      cristais,
       cabos,
       alcances,
       nucleo: nucleoCena,

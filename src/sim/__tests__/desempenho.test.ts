@@ -33,6 +33,7 @@ function mundoCheio(): GameState {
       // nada de obstáculo de pé: todas as casas construíveis
       removidos: Array.from({ length: n * n }, (_, i) => i).filter((i) => arq.obstaculos[i] !== 255),
       remocoes: [],
+      cristais: [],
       ilhasAbertas: ILHAS.map((i) => i.id),
       cabos: Object.fromEntries(ILHAS.slice(1).map((i) => [i.id, 0])),
     },

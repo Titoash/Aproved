@@ -82,6 +82,10 @@ export interface ObstaculoDef {
   pesquisa?: number;
   /** Tempo de remoção, em ms de jogo. */
   tempoMs: number;
+  /** 🔬 devolvidos ao cair (a montanha descobre cristais, GDD §9). */
+  devolvePesquisa?: number;
+  /** As casas liberadas ficam com cristal: laboratório e universidade rendem mais nelas (GDD §8.6). */
+  deixaCristal?: boolean;
   /** Lado em casas (a montanha ocupa 2×2). */
   lado: number;
   /** Não sai nunca (pico). */
@@ -95,11 +99,30 @@ export const OBSTACULOS: Record<TipoObstaculo, ObstaculoDef> = {
   arvore: { id: "arvore", nome: "Árvore", descricao: "Derrubada vira planície — e faz sombra enquanto está de pé.", custo: 8, tempoMs: 3_000, lado: 1, alto: true },
   pedra: { id: "pedra", nome: "Pedra", descricao: "Um matacão. Precisa de máquina.", custo: 25, tempoMs: 8_000, lado: 1 },
   pantano: { id: "pantano", nome: "Pântano", descricao: "Drenar leva tempo e deixa planície.", custo: 60, tempoMs: 10_000, lado: 1 },
-  montanha: { id: "montanha", nome: "Montanha", descricao: "Quatro casas de rocha. Explosivos e engenharia.", custo: 400, pesquisa: 20, tempoMs: 30_000, lado: 2, alto: true },
+  montanha: {
+    id: "montanha",
+    nome: "Montanha",
+    descricao: "Quatro casas de rocha. Explosivos, engenharia — e cristais no meio do entulho.",
+    custo: 400,
+    pesquisa: 20,
+    tempoMs: 30_000,
+    lado: 2,
+    alto: true,
+    devolvePesquisa: 40,
+    deixaCristal: true,
+  },
   pico: { id: "pico", nome: "Pico", descricao: "Permanente. Acelera o vento: +30 % em cada vizinho.", custo: 0, tempoMs: 0, lado: 1, permanente: true, alto: true },
 };
 
 export const ORDEM_OBSTACULOS: readonly TipoObstaculo[] = ["arbusto", "arvore", "pedra", "pantano", "montanha", "pico"];
+
+/** Casa de rocha com cristal, deixada por uma montanha dinamitada (GDD §8.6, §9). */
+export const CRISTAL = {
+  nome: "Cristal",
+  descricao: "Rocha com veios de cristal. Laboratório ou universidade aqui rende +50 %.",
+  /** Bônus de 🔬 de laboratório e universidade sobre cristal. */
+  bonusCiencia: 0.5,
+} as const;
 
 /* ------------------------------------------------------------------ */
 /* Subestação e cabo (GDD §2.4, §8.5)                                  */

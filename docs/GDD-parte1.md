@@ -219,7 +219,7 @@ Estabilidade 100 % + pesquisa "Fissão básica" (🔬 3 000) + ₵ 50 000 → Er
 | Farol | 52 | rocha | ₵ 100 mil | pico, vazio |
 
 Cabo submarino: ₵ 150 + **₵ 120** por casa de mar, entre os dois litorais mais próximos; sem cabo, a ilha só alimenta bairros e subestações dela mesma (a energia que sobra vira "sem escoamento"). O cabo tem **teto próprio de 30 kW**, nos dois sentidos, e **nível** (custo da rota ×3ⁿ, teto ×2ⁿ), como a subestação: ligar a ilha não basta, é preciso dimensionar o cabo. Foi assim que o cabo deixou de ser uma trava (₵ 230–270 contra ₵ 600 a ₵ 100 mil das expedições) e virou decisão contínua (v0.6, Sessão 7).
-Obstáculos: arbusto ₵ 3 (1 s), árvore ₵ 8 (3 s), pedra ₵ 25 (8 s), pântano ₵ 60 (10 s), montanha 2×2 ₵ 400 + 🔬 20 (30 s), pico permanente (vento +30 % nos vizinhos). Subestação ₵ 120 × 1,25ⁿ, alcance 3, teto 40 kW; nível: custo ×3ⁿ, teto ×2. Todos os números são valores iniciais a recalibrar com a simulação de 60 minutos.
+Obstáculos: arbusto ₵ 3 (1 s), árvore ₵ 8 (3 s), pedra ₵ 25 (8 s), pântano ₵ 60 (10 s), montanha 2×2 ₵ 400 + 🔬 20 (30 s) — **dinamitar devolve 🔬 40 e deixa quatro casas de rocha com cristal** (laboratório ou universidade sobre cristal rende +50 %, §8.6) —, pico permanente (vento +30 % nos vizinhos). Subestação ₵ 120 × 1,25ⁿ, alcance 3, teto 40 kW; nível: custo ×3ⁿ, teto ×2. Todos os números são valores iniciais a recalibrar com a simulação de 60 minutos.
 
 ### 8.6 Cidade, laboratório, universidade e árvore da Era 1 (v0.6)
 

@@ -67,6 +67,8 @@ export interface MundoState {
   removidos: number[];
   /** Fila de remoção; a primeira está em curso. */
   remocoes: RemocaoEmCurso[];
+  /** Casas de rocha com cristal, abertas por montanhas dinamitadas (GDD §8.6, §9). */
+  cristais: number[];
   ilhasAbertas: IlhaId[];
   /** Ilhas ligadas à rede principal por cabo submarino → nível do cabo (0 = recém-ligado). */
   cabos: Partial<Record<IlhaId, number>>;
@@ -123,7 +125,7 @@ export type EventoJogo =
   | { tipo: "cascata"; entradaUs: number; saidaUs: number }
   | { tipo: "ilhaAberta"; id: IlhaId }
   | { tipo: "nucleoDesbloqueado" }
-  | { tipo: "obstaculoRemovido"; indice: number };
+  | { tipo: "obstaculoRemovido"; indice: number; cristal: boolean };
 
 export interface GameState {
   versao: number;
@@ -191,7 +193,7 @@ export function mundoInicial(): MundoState {
   const construcoes: Record<number, Construcao> = {};
   for (const i of arq.inicio.aldeia) construcoes[i] = { tipo: "vila", nivel: 0, colocadoEmMs: 0 };
   construcoes[arq.inicio.subestacao] = { tipo: "subestacao", nivel: 0, colocadoEmMs: 0 };
-  return { construcoes, removidos: [], remocoes: [], ilhasAbertas: [...ILHAS_INICIAIS], cabos: {} };
+  return { construcoes, removidos: [], remocoes: [], cristais: [], ilhasAbertas: [...ILHAS_INICIAIS], cabos: {} };
 }
 
 export function estadoInicial(): GameState {

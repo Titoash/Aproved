@@ -89,6 +89,12 @@ export interface ObstaculoCena {
   progresso?: number;
 }
 
+/** Casa de rocha com cristal (GDD §8.6, §9). */
+export interface CristalCena {
+  x: number;
+  y: number;
+}
+
 /** Alcance de subestação a desenhar (ao passar o ponteiro ou com a ferramenta de subestação). */
 export interface AlcanceCena {
   x: number;
@@ -104,6 +110,8 @@ export interface EntradaCena {
   abertas: readonly IlhaId[];
   construcoes: readonly ConstrucaoCena[];
   obstaculos: readonly ObstaculoCena[];
+  /** Casas de rocha com cristal abertas por montanhas dinamitadas (GDD §8.6, §9). */
+  cristais: readonly CristalCena[];
   cabos: readonly CaboCena[];
   alcances: readonly AlcanceCena[];
   /** null = Núcleo ainda bloqueado: plataforma vazia. */
@@ -214,6 +222,8 @@ export interface Cena {
   casaOperador: [number, number];
   obstaculos: Objeto[];
   obstaculosRef: readonly ObstaculoCena[] | null;
+  cristais: Objeto[];
+  cristaisRef: readonly CristalCena[] | null;
   bloqueio: Objeto[];
   rede: Objeto[];
   nucleo: Objeto[];
@@ -387,6 +397,14 @@ const SPRITE_CONSTRUCAO: Record<TipoConstrucao, NomeSprite> = {
   subestacao: "subestacao",
 };
 
+/** Um cristal por casa aberta por montanha dinamitada. */
+function construirCristais(cena: Cena, cristais: readonly CristalCena[]): void {
+  const { arq, semente } = cena;
+  const r = rnd((semente >>> 0) * 181 + 7);
+  cena.cristais = cristais.map((c) => novoObjeto(arq, "cristal", c.x, c.y, { lod: "perto", escala: 0.55 + r() * 0.25, fase: r() }));
+  cena.cristaisRef = cristais;
+}
+
 /** Um sprite por obstáculo de pé. Árvores viram massa de copas em `longe`; a montanha ocupa 2×2. */
 function construirObstaculos(cena: Cena, obstaculos: readonly ObstaculoCena[]): void {
   const { arq, semente } = cena;
@@ -536,7 +554,7 @@ function construirNucleo(cena: Cena, nu: NucleoCena | null): void {
 
 /** Junta os grupos em ordem do pintor (x + y, y, x) e refaz os discos do modo mapa. */
 function montar(cena: Cena): void {
-  const objetos = cena.obstaculos.concat(cena.bloqueio, cena.rede, cena.nucleo, cena.manutencao ? [cena.manutencao] : []);
+  const objetos = cena.obstaculos.concat(cena.cristais, cena.bloqueio, cena.rede, cena.nucleo, cena.manutencao ? [cena.manutencao] : []);
   objetos.sort((a, b) => a.prof - b.prof || a.y - b.y || a.x - b.x);
   cena.objetos = objetos;
   const grupos = new Map<string, number[]>();
@@ -653,6 +671,13 @@ function mesmosObstaculos(a: readonly ObstaculoCena[] | null, b: readonly Obstac
   return true;
 }
 
+function mesmosCristais(a: readonly CristalCena[] | null, b: readonly CristalCena[]): boolean {
+  if (a === b) return true;
+  if (!a || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i].x !== b[i].x || a[i].y !== b[i].y) return false;
+  return true;
+}
+
 function mesmasPlacas(a: readonly PlacaCena[] | null, b: readonly PlacaCena[]): boolean {
   if (a === b) return true;
   if (!a || a.length !== b.length) return false;
@@ -687,6 +712,8 @@ export function criarCena(entrada: EntradaCena): Cena {
     casaOperador,
     obstaculos: [],
     obstaculosRef: null,
+    cristais: [],
+    cristaisRef: null,
     bloqueio: [],
     rede: [],
     nucleo: [],
@@ -753,6 +780,12 @@ export function atualizarCena(cena: Cena, entrada: EntradaCena): void {
     remontar = true;
   } else {
     cena.construcoesRef = entrada.construcoes;
+  }
+  if (!mesmosCristais(cena.cristaisRef, entrada.cristais)) {
+    construirCristais(cena, entrada.cristais);
+    remontar = true;
+  } else {
+    cena.cristaisRef = entrada.cristais;
   }
   if (!mesmosObstaculos(cena.obstaculosRef, entrada.obstaculos)) {
     construirObstaculos(cena, entrada.obstaculos);
