@@ -203,7 +203,7 @@ export class TabuleiroScene extends Phaser.Scene {
     for (const def of ILHAS) {
       if (def.id === "principal" || !ilhaAberta(state.mundo, def.id)) continue;
       const rota = rotaDoCabo(def.id, arq);
-      if (rota) cabos.push({ casas: rota.casas, ligado: temCabo(state.mundo, def.id) });
+      if (rota) cabos.push({ casas: rota.casas, de: rota.de, para: rota.para, ligado: temCabo(state.mundo, def.id) });
     }
 
     // --- alcance: a subestação sob o ponteiro, ou todas quando a ferramenta é a subestação
@@ -338,12 +338,12 @@ export class TabuleiroScene extends Phaser.Scene {
       const tr = tremorCena(this.cena, t);
       const c: Camera = { zoom: cam.zoom, tx: cam.tx + tr[0], ty: cam.ty + tr[1], w, h };
       ctx.setTransform(dpr * c.zoom, 0, 0, dpr * c.zoom, dpr * c.tx, dpr * c.ty);
-      // mar e cabos ficam sob as ilhas
       marcar("mar", () => desenharMar(ctx, this.arq, c, t));
-      marcar("cabos", () => desenharCabos(ctx, this.arq, this.cena!.cabos, c, t));
       marcar("terreno", () =>
         desenharTerreno(ctx, this.arq, c, t, { desbloqueadas: new Set(state.mundo.ilhasAbertas), ladoGrade: state.nucleo?.lado ?? NUCLEO.ladoInicial, chaoDpr, chaoEscalavel }),
       );
+      // o cabo vai por cima do chão: as pontas encostam no litoral e precisam ser vistas
+      marcar("cabos", () => desenharCabos(ctx, this.arq, this.cena!.cabos, c, t));
       marcar("cena", () => desenharCena(ctx, this.cena!, c, t));
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       desenharCallouts(ctx, this.cena, c, this.reservas(w, h));

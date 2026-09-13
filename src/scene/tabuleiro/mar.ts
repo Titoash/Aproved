@@ -149,6 +149,9 @@ export function desenharMar(ctx: CanvasRenderingContext2D, arq: Arquipelago, cam
 export interface CaboCena {
   /** Casas de mar atravessadas. */
   casas: readonly number[];
+  /** Litoral de partida (na ilha) e de chegada (na rede principal). */
+  de: number;
+  para: number;
   ligado: boolean;
 }
 
@@ -161,19 +164,30 @@ export function desenharCabos(ctx: CanvasRenderingContext2D, arq: Arquipelago, c
   ctx.lineCap = "round";
   for (const cabo of cabos) {
     if (cabo.casas.length === 0) continue;
+    // do litoral de partida ao de chegada, passando pelas casas de mar: o cabo precisa ser visto
+    const pontos = [cabo.de, ...cabo.casas, cabo.para].map((casa) => iso((casa % n) + 0.5, Math.floor(casa / n) + 0.5));
     ctx.beginPath();
-    for (let i = 0; i < cabo.casas.length; i++) {
-      const casa = cabo.casas[i];
-      const p = iso((casa % n) + 0.5, Math.floor(casa / n) + 0.5);
-      if (i === 0) ctx.moveTo(p[0], p[1]);
-      else ctx.lineTo(p[0], p[1]);
-    }
+    pontos.forEach((p, i) => (i === 0 ? ctx.moveTo(p[0], p[1]) : ctx.lineTo(p[0], p[1])));
     ctx.setLineDash([10 / z, 8 / z]);
     ctx.lineDashOffset = cabo.ligado ? -((t * 18) % 18) / z : 0;
-    ctx.strokeStyle = cabo.ligado ? alfa(P.sun, 0.9) : alfa(P.muted, 0.5);
-    ctx.lineWidth = (cabo.ligado ? 3 : 2) / z;
+    ctx.strokeStyle = cabo.ligado ? alfa(P.sun, 0.95) : alfa(P.muted, 0.55);
+    // espessura com piso em px de tela: de longe o cabo não some
+    ctx.lineWidth = Math.max(cabo.ligado ? 3 : 2, 2.5 / z);
     ctx.stroke();
     ctx.setLineDash([]);
+    // caixas de conexão nas duas pontas
+    const cor = cabo.ligado ? P.sun : P.muted;
+    for (const p of [pontos[0], pontos[pontos.length - 1]]) {
+      const r = Math.max(4, 5 / z);
+      ctx.fillStyle = cor;
+      ctx.beginPath();
+      ctx.ellipse(p[0], p[1] - r * 0.6, r, r * 0.6, 0, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = alfa(P.navy, 0.6);
+      ctx.beginPath();
+      ctx.ellipse(p[0], p[1] - r * 0.6, r * 0.45, r * 0.28, 0, 0, TAU);
+      ctx.fill();
+    }
   }
   ctx.restore();
 }
