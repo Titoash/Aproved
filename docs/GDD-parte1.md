@@ -1,4 +1,4 @@
-# KARDASHEV (codinome) — Documento de Design v0.4 · Parte 1 de 2
+# KARDASHEV (codinome) — Documento de Design v0.5 · Parte 1 de 2
 
 > Parte 1: conceito, os três sistemas, Cascata, economia, Era 1 completa, direção de arte, arquitetura e roteiro de sessões.
 > Parte 2 (próximo passo): Eras 2–6 detalhadas, prestígio, roteiro dos cards explicativos.
@@ -21,12 +21,25 @@ Você começa com cata-ventos numa colina e termina cercando uma estrela. Um idl
 Lista de usinas com botão de comprar e melhorar. Produz **potência** (kW) de forma passiva. Aqui vive a balança **Oferta × Demanda**. Idle-friendly: roda sozinha, cresce com dinheiro.
 
 ### 2.2 Núcleo (grade) — risco e pesquisa
-Um tabuleiro por era com a usina crítica da época (Torre Solar → Reator de fissão → Tokamak → Anel de antimatéria → Reator de buraco negro → Enxame de Dyson). A **posição importa**: peças trocam calor com vizinhas. Aqui vivem as balanças **Calor** e, a partir da Era 3, **Contenção**. É a **única fonte de Pesquisa** e o único lugar onde a Cascata acontece.
+Uma **plataforma** no centro do tabuleiro da era com a usina crítica da época (Torre Solar → Reator de fissão → Tokamak → Anel de antimatéria → Reator de buraco negro → Enxame de Dyson). A **posição importa**: peças trocam calor com vizinhas. Aqui vivem as balanças **Calor** e, a partir da Era 3, **Contenção**. É a **única fonte de Pesquisa** e o único lugar onde a Cascata acontece.
 
 ### 2.3 Acoplamento entre camadas (o que faz o híbrido valer)
 - O Núcleo gera Pesquisa; Pesquisa desbloqueia usinas da Rede e a próxima era. Sem Núcleo bem operado, a Rede estagna.
 - A partir da Era 3 o Núcleo **consome potência da Rede** para a contenção. Apagão na Rede → contenção cai → Cascata. A balança "tranquila" passa a ter dentes.
 - O Núcleo produz potência que também vai para a Rede (e conta para o medidor Kardashev).
+
+---
+
+### 2.4 Tabuleiro: ilha, regiões e escalas (v0.5)
+As duas camadas moram no **mesmo tabuleiro**: uma ilha isométrica flutuando no espaço, com **2048 casas de terra** (grade de 52×52 casas, forma orgânica por ruído, semente fixa por era: a ilha da Era 1 é a mesma para todo jogador). A plataforma do Núcleo (7×7 casas) fica no centro. Em volta, **regiões**: Campo dos Ventos, Planalto Solar, Vila, Lago, Floresta e locais compráveis (Planície, Colinas).
+
+- **A Rede continua uma lista.** Comprar uma usina na lista a coloca automaticamente numa **vaga** da região certa (cata-ventos e turbinas eólicas no vento, painéis no sol, vilas e baterias na vila). A alocação é determinística pelas contagens: nada de arrastar.
+- **Vagas são o único limite.** Quando as regiões desbloqueadas não têm vaga da categoria, o botão de comprar avisa "sem vaga" e o jogador desbloqueia um local com ₵ (mecânica "novos locais" do Reactor). Locais comprados não dão bônus: só vagas. Estabilidade não muda. Saves antigos com mais usinas do que vagas continuam produzindo; o limite vale só para compras novas.
+- **Escalas.** A ilha é o nível 0 de uma escada que segue os tipos Kardashev: ilha → planeta (Tipo I) → sistema estelar (Tipo II) → galáxia (Tipo III) → universo (Tipo IV) → multiverso (Tipo V). Cada nível é um tabuleiro de uma ideia só (globo com ilhas, órbitas com vagas do enxame, espiral com sistemas, teia com galáxias, bolhas de universos). O jogador navega livremente pela escada; um nível **abre** quando a potência instalada passa da potência do tipo anterior (sistema abre em 10²⁶ W, galáxia em 10³⁶ W, universo em 10⁴⁶ W, multiverso em 10⁵⁰ W). Acima do Sol não há marco físico: Tipos IV e V são **ficção declarada** e aparecem como "especulativo".
+- **Eras × níveis.** Eras 1 e 2 jogam na ilha; a Era 3 abre o planeta (a plataforma no oceano é uma nova ilha, um novo local); Eras 4 a 6 jogam no sistema (órbita, espaço profundo, a estrela). Galáxia, universo e multiverso são pós-jogo: prestígio e Constantes (Parte 2). Enquanto a Parte 2 não chega, esses níveis são navegáveis e mostram a potência que os abre.
+- **Uma câmera só.** A transição de era com zoom cósmico (§6) é a mesma transição da escada: ao mudar de era, a câmera sobe ao nível da era nova.
+- **Cascata acima da ilha** (Parte 2): perde a vaga, nunca o nível.
+- **O que é uma "casa" acima da ilha** (Parte 2): no planeta, uma ilha; no sistema, uma vaga orbital do enxame; na galáxia, um sistema; no universo, uma galáxia; no multiverso, um universo.
 
 ---
 
@@ -115,7 +128,7 @@ Bobinas geram campo e consomem potência da Rede; células de plasma geram press
 | 5 Buraco negro | espaço profundo | Reator Hawking | balança **invertida**: massa baixa demais explode, alta demais rende pouco |
 | 6 Dyson | a estrela | Enxame de coletores | balança de **luz**: cobrir demais a estrela congela as colônias (demanda colapsa) |
 
-**Medidor Kardashev:** `P` = potência **instalada** em watts, `(ofertaUsinasKw + ofertaNucleoKw) × 1000` — instalada, não vendida. Barra em `log10` de 10³ W a 10²⁷ W, com marcos reais: humanidade em 2026 ≈ 2×10¹³ W, Tipo I = 10¹⁶ W, Tipo II = 10²⁶ W, Sol = 3,8×10²⁶ W. Índice `K = (log10 P − 6) ÷ 10` (fórmula de Sagan), mostrado com duas casas quando `K ≥ 0` (a partir de 1 MW); antes disso, "abaixo da escala" e o próximo marco. O jogador vê onde está de verdade.
+**Medidor Kardashev:** `P` = potência **instalada** em watts, `(ofertaUsinasKw + ofertaNucleoKw) × 1000` — instalada, não vendida. Barra em `log10` de 10³ W a 10⁵⁰ W, com marcos reais: humanidade em 2026 ≈ 2×10¹³ W, Tipo I = 10¹⁶ W, Tipo II = 10²⁶ W, Sol = 3,8×10²⁶ W, Tipo III = 10³⁶ W; e marcos especulativos, marcados como tais: Tipo IV = 10⁴⁶ W, Tipo V = 10⁵⁰ W (multiverso). Índice `K = (log10 P − 6) ÷ 10` (fórmula de Sagan), mostrado com duas casas quando `K ≥ 0` (a partir de 1 MW); antes disso, "abaixo da escala" e o próximo marco. Potência até 10²⁴ W usa prefixos SI; acima, notação científica. O jogador vê onde está de verdade. Os tipos também são os degraus da escada de escalas (§2.4).
 
 **Prestígio** ("Nova simulação"): pós-MVP. Depois da Era 6 (ou a partir da Era 4), reiniciar por **Constantes** permanentes. Definido na Parte 2.
 
@@ -150,7 +163,7 @@ Bobinas geram campo e consomem potência da Rede; células de plasma geram press
 
 Melhorias da Rede (lista): **Lâminas de fibra** (₵ 200): cata-vento e turbina eólica +25 %. Compra única; 🔬 é requisito acumulado, não gasto.
 
-### 8.3 Núcleo: Torre Solar (grade 5×5, centro fixo)
+### 8.3 Núcleo: Torre Solar (grade 5×5 na plataforma 7×7 da ilha, centro fixo)
 Desbloqueio: ₵ 100 (tutorial guiado: "construa o receptor").
 
 | Peça | Custo | Função |
@@ -182,6 +195,22 @@ Melhorias do Núcleo: **Rastreamento solar** (₵ 150 + 🔬 30): cada espelho i
 
 ### 8.4 Saída da Era 1
 Estabilidade 100 % + pesquisa "Fissão básica" (🔬 3 000) + ₵ 50 000 → Era 2. (Com o Núcleo em ~16 kW na zona de ouro, 🔬 3 000 leva 20–30 min de operação.) Card explicativo de transição: de kW para MW.
+
+---
+
+### 8.5 Regiões da ilha da Era 1 (v0.5)
+
+| Região | Tipo | Vagas | Preço |
+|---|---|---|---|
+| Núcleo | plataforma 7×7 + faixa de grama | — | — |
+| Campo dos Ventos | vento | 48 (cata-ventos e turbinas eólicas) | inicial |
+| Planalto Solar | sol | 36 (painéis) | inicial |
+| Vila | vila | 32 vilas + 8 baterias | inicial |
+| Lago, Floresta | cenário | — | inicial |
+| Planície | local comprável | 24 vento + 24 sol + 24 vila | ₵ 2,4 mil |
+| Colinas | local comprável | 32 vento + 32 sol + 32 vila | ₵ 6,8 mil |
+
+Vagas por categoria somam 104 de vento, 92 de sol, 88 de vila e 8 de bateria: acima do que a Era 1 compra (a 48ª unidade de uma usina custa ₵ 10,7 mil; a 100ª, ₵ 15 milhões), logo o limite só aparece para quem ignora os níveis das usinas. Preço dos locais na escala de ₵ da metade da era. A Grade 7×7 (§8.3) não é local: é a plataforma inteira.
 
 ---
 
@@ -217,6 +246,8 @@ Estabilidade 100 % + pesquisa "Fissão básica" (🔬 3 000) + ₵ 50 000 → Er
 | `--ion` | `#7CF5FF` | Era 4 |
 | `--void` | `#8A5CFF` | Era 5 |
 | `--gold` | `#FFB703` | Era 6 |
+
+**Ilha-tabuleiro (v0.5):** projeção isométrica 2:1 (casa de 64×32 px no zoom 1); topo em dois tons de grama por altura, penhasco de rocha roxo-azulada com veios e cristais, sombra chapada da ilha no espaço; lago em dois azuis com margem de areia; caminhos de terra clara na vila; regiões bloqueadas dessaturadas com hachura, borda tracejada e placa de preço com cadeado; contornos suavizados (nada de escadinha). Terreno: `grama #72E076`, `grama2 #55D162`, `gramaEsc #35AD60`, `rocha #5B4CB5`, `rocha2 #3E3488`, `aguaFunda #2B8FD6`, `caminho #D6C48E`, `areia #E8D9A3`. Fundo por nível: ilha com o Sol grande no canto superior-esquerdo (luz de cima-esquerda em todos os sprites), planeta azul-profundo, sistema com o Sol dominando, galáxia em `--void`, universo com filamentos `--ion`, multiverso em `--plasma` escuro. De longe (zoom < 0,45) os objetos viram silhuetas; abaixo de 0,22 viram pontos de cor-chave (modo mapa). O Receptor é o único glow forte da ilha em qualquer zoom.
 
 **Rampa de calor** (corpo negro, física de verdade): frio `#3A6FF2` → `#FFD23F` → `#FF7A1A` → branco `#FFFFFF` em 100 %. A cor da peça diz a temperatura sem precisar ler número.
 
@@ -255,9 +286,10 @@ src/
 | 2 | Grade da Torre Solar em Phaser; Calor; zona de ouro; Cascata com entulho e SCRAM; Estabilidade; save | reproduzir os exemplos da seção 8.3 |
 | 3 | Bateria como amortecedor; offline; medidor Kardashev; melhorias nomeadas; input da grade pelo DOM (mobile); hi-DPI | Era 1 completa por dentro |
 | 4 | Passe de arte (tokens, rampa de calor, sombras, glow); 3 cards da Era 1; Grade 7×7; Bipes | jogo bonito e completo até o fim da Era 1 |
-| 5 | Era 2 (fissão: esgotamento e calor de decaimento) e transição de era | MVP: Eras 1–2 |
-| 6 | Era 3 (Contenção + acoplamento com a Rede) | |
-| 7–9 | Eras 4–6, balanceamento, prestígio, som | jogo completo |
+| 5 | Ilha-tabuleiro de 2048 casas (regiões, vagas, locais compráveis), escada de escalas navegável, Kardashev I–V | a Era 1 inteira se joga na ilha |
+| 6 | Era 2 (fissão: esgotamento e calor de decaimento) e transição de era | MVP: Eras 1–2 |
+| 7 | Era 3 (Contenção + acoplamento com a Rede; abre o planeta) | |
+| 8–10 | Eras 4–6 (sistema estelar), balanceamento, prestígio (galáxia em diante), som | jogo completo |
 
 Cada sessão nasce de um `CLAUDE.md` do projeto (escrito no próximo passo) que carrega este documento como contrato.
 
@@ -274,3 +306,4 @@ Cada sessão nasce de um `CLAUDE.md` do projeto (escrito no próximo passo) que 
 *v0.2 — ritmo fixado em ~1 h por era; Era 1 recalibrada.*
 *v0.3 — §8.3 corrigido: 16 kW no exemplo da zona de ouro, h = 6 é assintótico (Cascata só com h = 6,5), Q* derivado das peças; anéis definidos; §4.2 diz que o calor passa de 100 %; §8.4 com 20–30 min. Ver `docs/correcoes-gdd-v0.3.md`.*
 *v0.4 — bateria com ±10 kW por unidade e regra da faixa efetiva (§4.1); offline com regras exatas (§7); medidor Kardashev definido (§6); Lâminas de fibra e Rastreamento solar com efeito (§8.2, §8.3); roteiro reordenado (§12). Ver `docs/correcoes-gdd-v0.4.md`.*
+*v0.5 — tabuleiro vira ilha isométrica de 2048 casas com regiões, vagas e locais compráveis (§2.4, §8.5); escada de escalas ilha → multiverso alinhada aos tipos Kardashev, com marcos até 10⁵⁰ W (§2.4, §6); direção de arte do terreno e dos níveis (§10); roteiro reordenado (§12). Ver `docs/correcoes-gdd-v0.5.md`.*
