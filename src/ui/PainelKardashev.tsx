@@ -22,7 +22,7 @@ export function PainelKardashev() {
               próximo: {proximo.nome} · faltam {formatarPotencia((proximo.watts - w) / 1000)}
             </span>
           ) : (
-            <span className="kardashev-proximo">além do Sol</span>
+            <span className="kardashev-proximo">além do multiverso</span>
           )}
         </div>
       </div>
@@ -31,7 +31,7 @@ export function PainelKardashev() {
         {MARCOS_KARDASHEV.map((m) => (
           <div
             key={m.id}
-            className={`kardashev-marco ${m.auxiliar ? "kardashev-marco--auxiliar" : ""} ${w >= m.watts ? "kardashev-marco--passado" : ""}`}
+            className={`kardashev-marco ${m.auxiliar ? "kardashev-marco--auxiliar" : ""} ${m.especulativo ? "kardashev-marco--especulativo" : ""} ${w >= m.watts ? "kardashev-marco--passado" : ""}`}
             style={{ left: `${posicaoNaBarra(m.watts) * 100}%` }}
             title={`${m.nome}: ${formatarWatts(m.watts)} — ${m.texto}`}
           >

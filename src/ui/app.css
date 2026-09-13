@@ -149,6 +149,7 @@ h2 {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex: 0 1 auto;
   min-height: 0;
   overflow: auto;
   padding: 4px 2px 12px;
@@ -182,6 +183,168 @@ h2 {
 
 .grade-area--7 {
   width: min(100%, 460px);
+}
+
+/* ---------- ilha-tabuleiro (Sessão 5) ---------- */
+
+.coluna-nucleo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+/* O palco da ilha: o Phaser desenha atrás, recortado a `.tabuleiro-area`. */
+.tabuleiro {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 56%;
+  min-height: 320px;
+  border-radius: 16px;
+  border: 1px solid var(--card-borda);
+  overflow: hidden;
+}
+
+.tabuleiro-area {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  pointer-events: auto;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tabuleiro-area:active {
+  cursor: grabbing;
+}
+
+.tabuleiro-controles {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  display: flex;
+  gap: 6px;
+  pointer-events: auto;
+}
+
+.pilula--mini {
+  padding: 6px 12px;
+  font-size: var(--t-14);
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+}
+
+.escada {
+  position: absolute;
+  left: 10px;
+  top: 12px;
+  bottom: 12px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  pointer-events: auto;
+}
+
+.degrau {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 6px 3px 3px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.degrau:hover {
+  color: var(--ink);
+}
+
+.degrau-quadro {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  border: 1px solid var(--card-borda);
+  color: var(--ink);
+}
+
+.degrau--bloqueado .degrau-quadro {
+  color: var(--muted);
+  opacity: 0.75;
+}
+
+.degrau--atual {
+  color: var(--sun);
+}
+
+.degrau--atual .degrau-quadro {
+  background: var(--sun);
+  border-color: var(--sun);
+  color: var(--navy);
+}
+
+.degrau-texto {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+  text-shadow: 0 1px 2px rgba(7, 10, 30, 0.7);
+}
+
+.degrau-rotulo {
+  font-family: var(--fonte-titulo);
+  font-weight: 600;
+  font-size: var(--t-14);
+}
+
+.degrau-tipo {
+  font-size: 11px;
+}
+
+.icone--nivel {
+  width: 18px;
+  height: 18px;
+}
+
+.icone--item {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  align-self: center;
+}
+
+.icone--cadeado {
+  width: 12px;
+  height: 12px;
+  vertical-align: -1px;
+}
+
+.linha-vaga {
+  display: block;
+  color: var(--coral);
+}
+
+.rede-vagas {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: var(--t-12);
+}
+
+.kardashev-marco--especulativo .kardashev-marco-rotulo {
+  opacity: 0.6;
+  font-style: italic;
 }
 
 .nucleo-status {
@@ -885,6 +1048,36 @@ h2 {
 
   .principal {
     display: contents;
+  }
+
+  .coluna-nucleo {
+    display: contents;
+  }
+
+  .tabuleiro {
+    order: 1;
+    flex: none;
+    height: 62vh;
+    min-height: 360px;
+    margin: 0 -14px;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+  }
+
+  .escada {
+    position: static;
+    order: 2;
+    flex-direction: row;
+    justify-content: center;
+    gap: 2px;
+    padding: 8px 6px;
+    background: color-mix(in srgb, var(--navy) 92%, transparent);
+    border-top: 1px solid var(--card-borda);
+  }
+
+  .degrau-texto {
+    display: none;
   }
 
   .palco {
