@@ -34,7 +34,7 @@ function mundoCheio(): GameState {
       removidos: Array.from({ length: n * n }, (_, i) => i).filter((i) => arq.obstaculos[i] !== 255),
       remocoes: [],
       ilhasAbertas: ILHAS.map((i) => i.id),
-      cabos: ILHAS.slice(1).map((i) => i.id),
+      cabos: Object.fromEntries(ILHAS.slice(1).map((i) => [i.id, 0])),
     },
   };
 }

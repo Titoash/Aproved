@@ -186,7 +186,12 @@ function normalizarMundo(bruto: unknown): MundoState {
   const abertas = Array.isArray(m.ilhasAbertas) ? m.ilhasAbertas.filter(ehIlhaId) : [];
   const ilhasAbertas: IlhaId[] = [];
   for (const id of [...base.ilhasAbertas, ...abertas]) if (!ilhasAbertas.includes(id)) ilhasAbertas.push(id);
-  const cabos = Array.isArray(m.cabos) ? Array.from(new Set(m.cabos.filter(ehIlhaId))).filter((id) => id !== "principal") : [];
+  // Cabos: ilha → nível. A migração v6 → v7 já converte a lista antiga; aqui só se sanitiza.
+  const cabos: Partial<Record<IlhaId, number>> = {};
+  for (const [chave, valor] of Object.entries(objeto(m.cabos))) {
+    if (!ehIlhaId(chave) || chave === "principal") continue;
+    cabos[chave] = inteiro(valor, 0);
+  }
 
   return { construcoes, removidos, remocoes, ilhasAbertas, cabos };
 }
@@ -238,6 +243,7 @@ function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState 
  * v4 → v5: entra `tabuleiro` com as regiões iniciais da ilha (GDD §2.4).
  * v5 → v6: a Rede vira colocação (GDD §2.1, v0.6): as contagens viram construções na ilha principal,
  *          o excedente vira ₵, e `tabuleiro` (regiões/vagas) some — quem manda agora é `mundo`.
+ * v6 → v7: o cabo submarino ganha nível (lista de ilhas → ilha: nível).
  */
 function migrar(bruto: Record<string, unknown>, agoraMs: number): Record<string, unknown> {
   const versao = bruto.versao;
@@ -282,6 +288,13 @@ function migrar(bruto: Record<string, unknown>, agoraMs: number): Record<string,
     const { tabuleiro: _tabuleiro, ...resto } = atual;
     atual = { ...resto, rede, mundo, creditos: numero(atual.creditos, 0) + reembolso, versao: 6 };
     v = 6;
+  }
+  if (v === 6) {
+    const mundoBruto = objeto(atual.mundo);
+    const cabos: Record<string, number> = {};
+    if (Array.isArray(mundoBruto.cabos)) for (const id of mundoBruto.cabos) if (typeof id === "string" && id !== "principal") cabos[id] = 0;
+    atual = { ...atual, mundo: { ...mundoBruto, cabos }, versao: 7 };
+    v = 7;
   }
   return { ...atual, versao: v };
 }

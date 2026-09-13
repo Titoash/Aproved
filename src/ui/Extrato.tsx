@@ -87,6 +87,15 @@ export function Extrato() {
         </tbody>
       </table>
 
+      {analise.cabos.map((c) => (
+        <p key={c.ilha} className={`extrato-linha ${c.usadoKw >= c.tetoKw - 1e-9 ? "extrato-linha--alerta" : ""}`}>
+          <span>Cabo · {ilhaDef(c.ilha).nome}</span>
+          <span>
+            {formatarPotencia(c.usadoKw)} de {formatarPotencia(c.tetoKw)}
+            {c.usadoKw >= c.tetoKw - 1e-9 ? " · no teto" : ""}
+          </span>
+        </p>
+      ))}
       {analise.ilhasIsoladas.length > 0 ? (
         <p className="extrato-linha extrato-linha--alerta">
           <span>Sem cabo</span>

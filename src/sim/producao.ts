@@ -10,7 +10,7 @@
  * O resultado é memoizado por identidade de `mundo`/`rede`/`melhorias`: o tick não recalcula à toa.
  */
 import { BATERIA, USINAS, VILA } from "../content/era1";
-import { OBSTACULOS, ORDEM_OBSTACULOS, SUBESTACAO, TERRENOS, VIZINHANCA, type IlhaId, type TipoObstaculo, type TipoTerreno } from "../content/era1-arquipelago";
+import { CABO, OBSTACULOS, ORDEM_OBSTACULOS, SUBESTACAO, TERRENOS, VIZINHANCA, type IlhaId, type TipoObstaculo, type TipoTerreno } from "../content/era1-arquipelago";
 import { ORDEM_TERRENOS, indiceCasa, type Arquipelago } from "./arquipelago";
 import { fatorMelhoria } from "./custos";
 import { arquipelagoDaEra1 } from "./gerarArquipelago";
@@ -78,6 +78,14 @@ export interface UsinaAnalise {
   subestacao: number | null;
 }
 
+export interface CaboAnalise {
+  ilha: IlhaId;
+  nivel: number;
+  tetoKw: number;
+  /** kW que passam pelo cabo neste instante (exportados + importados). */
+  usadoKw: number;
+}
+
 export interface SubestacaoAnalise {
   indice: number;
   nivel: number;
@@ -103,6 +111,8 @@ export interface AnaliseMundo {
   bairrosSemEscoamento: number;
   /** Bairros em ilha sem cabo cuja energia vem só da própria ilha. */
   ilhasIsoladas: IlhaId[];
+  /** Cabos ligados e o quanto de cada teto está em uso (GDD §8.5). */
+  cabos: CaboAnalise[];
 }
 
 
@@ -112,6 +122,11 @@ function contagemVazia(): Record<TipoConstrucao, number> {
 
 export function tetoSubestacao(nivel: number): number {
   return SUBESTACAO.tetoKw * Math.pow(SUBESTACAO.tetoNivel, nivel);
+}
+
+/** Teto de escoamento do cabo submarino, em kW: 30 kW no nível 0, ×2 por nível (GDD §8.5). */
+export function tetoCabo(nivel: number): number {
+  return CABO.tetoKw * Math.pow(CABO.tetoNivel, nivel);
 }
 
 /** Alcance da subestação em casas (Chebyshev). */
@@ -237,10 +252,10 @@ export function analisarMundo(mundo: MundoState, rede: RedeState, melhorias: Mel
     demandaPorIlha.set(ilhaB, (demandaPorIlha.get(ilhaB) ?? 0) + VILA.demandaKw);
   }
 
-  // 4. ilhas sem cabo: só alimentam os próprios bairros; o excedente não tem para onde ir (GDD §8.5)
-  const ligada = (q: number): boolean => q === 0 || mundo.cabos.includes(arq.ilhas[q].id);
+  // 4. cada ilha fora da principal é uma mini-rede: o que sobra (ou falta) só atravessa pelo cabo, e o
+  //    cabo tem teto próprio (GDD §8.5). Sem cabo, o teto é zero: a ilha só alimenta os próprios bairros.
   const ilhasIsoladas: IlhaId[] = [];
-  let ofertaKw = 0;
+  const cabos: CaboAnalise[] = [];
   let brutoKw = 0;
   const escoadoPorIlha = new Map<number, number>();
   for (const u of usinas) {
@@ -248,23 +263,27 @@ export function analisarMundo(mundo: MundoState, rede: RedeState, melhorias: Mel
     const q = arq.ilha[u.indice];
     escoadoPorIlha.set(q, (escoadoPorIlha.get(q) ?? 0) + u.escoadoKw);
   }
-  let demandaEfetiva = 0;
-  for (const [q, kw] of escoadoPorIlha) {
-    if (ligada(q)) ofertaKw += kw;
-  }
-  for (const [q, kw] of demandaPorIlha) {
-    if (ligada(q)) demandaEfetiva += kw;
-  }
+  let ofertaKw = escoadoPorIlha.get(0) ?? 0;
+  let demandaEfetiva = demandaPorIlha.get(0) ?? 0;
   for (let q = 1; q < arq.ilhas.length; q++) {
-    if (ligada(q)) continue;
     const ilhaId = arq.ilhas[q].id;
     if (!mundo.ilhasAbertas.includes(ilhaId)) continue;
     const oferta = escoadoPorIlha.get(q) ?? 0;
     const demanda = demandaPorIlha.get(q) ?? 0;
-    if (oferta > 0 || demanda > 0) ilhasIsoladas.push(ilhaId);
     const local = Math.min(oferta, demanda);
     ofertaKw += local;
     demandaEfetiva += local;
+    const nivel = mundo.cabos[ilhaId];
+    if (nivel === undefined) {
+      if (oferta > local || demanda > local) ilhasIsoladas.push(ilhaId);
+      continue;
+    }
+    const teto = tetoCabo(nivel);
+    const exportado = Math.min(oferta - local, teto);
+    const importado = Math.min(demanda - local, teto);
+    ofertaKw += exportado;
+    demandaEfetiva += importado;
+    cabos.push({ ilha: ilhaId, nivel, tetoKw: teto, usadoKw: exportado + importado });
   }
 
   return {
@@ -278,6 +297,7 @@ export function analisarMundo(mundo: MundoState, rede: RedeState, melhorias: Mel
     demandaKw: demandaEfetiva,
     bairrosSemEscoamento,
     ilhasIsoladas,
+    cabos,
   };
 }
 

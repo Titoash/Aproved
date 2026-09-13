@@ -68,8 +68,8 @@ export interface MundoState {
   /** Fila de remoção; a primeira está em curso. */
   remocoes: RemocaoEmCurso[];
   ilhasAbertas: IlhaId[];
-  /** Ilhas ligadas à rede principal por cabo submarino. */
-  cabos: IlhaId[];
+  /** Ilhas ligadas à rede principal por cabo submarino → nível do cabo (0 = recém-ligado). */
+  cabos: Partial<Record<IlhaId, number>>;
 }
 
 /* ------------------------------------------------------------------ */
@@ -147,7 +147,7 @@ export interface GameState {
 }
 
 /** Versão do formato de save. Incrementar ao mudar a forma do estado. */
-export const VERSAO_SAVE = 6;
+export const VERSAO_SAVE = 7;
 
 export function melhoriasIniciais(): Melhorias {
   return { laminasDeFibra: false, rastreamentoSolar: false, grade7x7: false };
@@ -191,7 +191,7 @@ export function mundoInicial(): MundoState {
   const construcoes: Record<number, Construcao> = {};
   for (const i of arq.inicio.aldeia) construcoes[i] = { tipo: "vila", nivel: 0, colocadoEmMs: 0 };
   construcoes[arq.inicio.subestacao] = { tipo: "subestacao", nivel: 0, colocadoEmMs: 0 };
-  return { construcoes, removidos: [], remocoes: [], ilhasAbertas: [...ILHAS_INICIAIS], cabos: [] };
+  return { construcoes, removidos: [], remocoes: [], ilhasAbertas: [...ILHAS_INICIAIS], cabos: {} };
 }
 
 export function estadoInicial(): GameState {

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { USINAS, VILA } from "../../content/era1";
-import { SUBESTACAO, TERRENOS, VIZINHANCA } from "../../content/era1-arquipelago";
+import { CABO, SUBESTACAO, TERRENOS, VIZINHANCA } from "../../content/era1-arquipelago";
 import { ORDEM_TERRENOS, indiceCasa, naPlataforma, type TipoTerreno } from "../arquipelago";
 import { arquipelagoDaEra1 } from "../gerarArquipelago";
-import { comprarIlha, ligarCabo, obstaculoEm } from "../mundo";
+import { comprarIlha, ligarCabo, melhorarCabo, obstaculoEm } from "../mundo";
 import { analisar, derivarRede } from "../producao";
 import type { Construcao, GameState, TipoConstrucao } from "../state";
 import { balancoDoEstado } from "../tick";
@@ -224,6 +224,31 @@ describe("escoamento por subestação (GDD §2.4, §7)", () => {
     const comCabo = ligarCabo(isolada, "ventania")!;
     expect(analisar(comCabo).ofertaKw).toBeCloseTo(a.brutoKw, 10);
     expect(analisar(comCabo).semEscoamentoKw).toBeCloseTo(0, 10);
+  });
+
+  it("o cabo tem teto próprio: o que passa dele fica sem escoamento, e o nível dobra o teto", () => {
+    // Ventania cheia de turbinas eólicas: muito acima dos 30 kW do cabo de nível 0.
+    const aberta = comprarIlha(estadoLimpo(1e9), "ventania")!;
+    const c = casaDe("planicie", 1);
+    const casas: [number, TipoConstrucao, number?][] = [[c, "subestacao", 6]];
+    let postas = 0;
+    for (let dy = -3; dy <= 3 && postas < 12; dy++) {
+      for (let dx = -3; dx <= 3 && postas < 12; dx++) {
+        const i = c + dy * n + dx;
+        if (i === c || arq.ilha[i] !== 1 || obstaculoEm(aberta.mundo, i) !== null) continue;
+        casas.push([i, "turbinaEolica"]);
+        postas++;
+      }
+    }
+    const ligada = ligarCabo(montar(casas, aberta), "ventania")!;
+    const a = analisar(ligada);
+    expect(a.brutoKw).toBeGreaterThan(CABO.tetoKw);
+    expect(a.ofertaKw).toBeCloseTo(CABO.tetoKw, 10);
+    expect(a.semEscoamentoKw).toBeCloseTo(a.brutoKw - CABO.tetoKw, 10);
+    expect(a.cabos).toEqual([{ ilha: "ventania", nivel: 0, tetoKw: CABO.tetoKw, usadoKw: CABO.tetoKw }]);
+
+    const nivel1 = melhorarCabo(ligada, "ventania")!;
+    expect(analisar(nivel1).ofertaKw).toBeCloseTo(Math.min(a.brutoKw, CABO.tetoKw * CABO.tetoNivel), 10);
   });
 });
 

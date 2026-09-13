@@ -9,9 +9,13 @@ import {
   comprarIlha,
   custoCabo,
   custoColocar,
+  custoNivelCabo,
   custoNivelSubestacao,
   ligarCabo,
+  melhorarCabo,
   melhorarSubestacao,
+  nivelCabo,
+  tetoCabo,
   obstaculoEm,
   passoRemocoes,
   podeColocar,
@@ -180,7 +184,7 @@ describe("expedição e cabo (GDD §8.5)", () => {
     expect(comprarIlha(s1, "farol")).toBeNull(); // ₵ insuficientes
   });
 
-  it("o cabo custa ₵ 150 + ₵ 40 por casa de mar e só depois da expedição", () => {
+  it("o cabo custa ₵ 150 + ₵ 120 por casa de mar e só depois da expedição", () => {
     const s0 = estadoLimpo(1e6);
     expect(ligarCabo(s0, "ventania")).toBeNull();
     const aberta = comprarIlha(s0, "ventania")!;
@@ -188,8 +192,22 @@ describe("expedição e cabo (GDD §8.5)", () => {
     expect(custo).toBeGreaterThanOrEqual(CABO.custoFixo + CABO.custoPorCasa);
     const ligada = ligarCabo(aberta, "ventania")!;
     expect(aberta.creditos - ligada.creditos).toBe(custo);
-    expect(ligada.mundo.cabos).toEqual(["ventania"]);
+    expect(ligada.mundo.cabos).toEqual({ ventania: 0 });
     expect(ligarCabo(ligada, "ventania")).toBeNull();
+  });
+
+  it("o cabo tem nível: custo da rota × 3ⁿ e teto × 2ⁿ (GDD §8.5)", () => {
+    const aberta = comprarIlha(estadoLimpo(1e9), "ventania")!;
+    const ligada = ligarCabo(aberta, "ventania")!;
+    expect(nivelCabo(ligada.mundo, "ventania")).toBe(0);
+    expect(tetoCabo(0)).toBe(CABO.tetoKw);
+    expect(tetoCabo(2)).toBe(CABO.tetoKw * 4);
+    const custo = custoNivelCabo("ventania", 0);
+    expect(custo).toBe(custoCabo("ventania") * CABO.custoNivel);
+    const nivel1 = melhorarCabo(ligada, "ventania")!;
+    expect(ligada.creditos - nivel1.creditos).toBe(custo);
+    expect(nivelCabo(nivel1.mundo, "ventania")).toBe(1);
+    expect(melhorarCabo(estadoLimpo(10), "ventania")).toBeNull(); // sem cabo, sem nível
   });
 
   it("passoRemocoes não muda nada com a fila vazia", () => {

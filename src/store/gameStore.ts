@@ -81,6 +81,7 @@ export interface GameStore {
   desmatar: (indice: number) => boolean;
   comprarIlha: (id: IlhaId) => boolean;
   ligarCabo: (id: IlhaId) => boolean;
+  melhorarCabo: (id: IlhaId) => boolean;
   melhorarSubestacao: (indice: number) => boolean;
   setCasaMundoSobPonteiro: (indice: number | null) => void;
   setIlhaSobPonteiro: (id: IlhaId | null) => void;
@@ -265,6 +266,14 @@ export const useGameStore = create<GameStore>()((set, get) => {
       const proximo = mundo.ligarCabo(get().state, id);
       if (!proximo) {
         avisar(-1, "₵ insuficientes para o cabo submarino.");
+        return false;
+      }
+      return aplicar(proximo);
+    },
+    melhorarCabo(id) {
+      const proximo = mundo.melhorarCabo(get().state, id);
+      if (!proximo) {
+        avisar(-1, "₵ insuficientes para o próximo nível do cabo.");
         return false;
       }
       return aplicar(proximo);

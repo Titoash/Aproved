@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ARQUIPELAGO, ILHAS, OBSTACULOS, ORDEM_OBSTACULOS } from "../../content/era1-arquipelago";
+import { ARQUIPELAGO, CABO, ILHAS, OBSTACULOS, ORDEM_OBSTACULOS } from "../../content/era1-arquipelago";
 import { ORDEM_TERRENOS, indiceCasa, naPlataforma } from "../arquipelago";
 import { arquipelagoDaEra1, gerarArquipelago } from "../gerarArquipelago";
 
@@ -168,7 +168,7 @@ describe("geração do arquipélago (GDD §2.4, §8.5)", () => {
       expect(arq.ilha[rota.para]).toBe(0);
       expect(arq.distBorda[rota.de]).toBe(1);
       expect(arq.distBorda[rota.para]).toBe(1);
-      expect(rota.custo).toBe(150 + 40 * rota.casas.length);
+      expect(rota.custo).toBe(CABO.custoFixo + CABO.custoPorCasa * rota.casas.length);
     }
     expect(arq.rotas[0]).toBeNull();
   });

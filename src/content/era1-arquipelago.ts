@@ -119,11 +119,21 @@ export const SUBESTACAO = {
   tetoNivel: 2,
 } as const;
 
+/**
+ * Cabo submarino (GDD §8.5). Tem **teto próprio de kW**: ligar a ilha não basta, é preciso dimensionar o
+ * cabo. Sem isso o cabo era uma trava (₵ 230–270 contra ₵ 600 a ₵ 100 mil das expedições), e não uma
+ * decisão contínua — pendência 1 da Sessão 6, resolvida pelo item 1 dos ajustes da gestão.
+ */
 export const CABO = {
   nome: "Cabo submarino",
   /** ₵ fixos + ₵ por casa de mar. */
   custoFixo: 150,
-  custoPorCasa: 40,
+  custoPorCasa: 120,
+  /** Quanto o cabo leva entre a ilha e a rede principal, nos dois sentidos. */
+  tetoKw: 30,
+  /** Nível: custo × 3ⁿ sobre o preço da rota, teto × 2ⁿ (como a subestação). */
+  custoNivel: 3,
+  tetoNivel: 2,
 } as const;
 
 /* ------------------------------------------------------------------ */

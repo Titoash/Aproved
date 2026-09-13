@@ -8,7 +8,7 @@ import { CABO, OBSTACULOS, SUBESTACAO, ilhaDef, type IlhaId, type TipoObstaculo 
 import { custoUnidade } from "./custos";
 import { arquipelagoDaEra1 } from "./gerarArquipelago";
 import { naPlataforma, type Arquipelago } from "./arquipelago";
-import { analisar, ehUsina, ilhaDaCasa, obstaculoEm, quantidadeDe, tetoSubestacao } from "./producao";
+import { analisar, ehUsina, ilhaDaCasa, obstaculoEm, quantidadeDe, tetoCabo, tetoSubestacao } from "./producao";
 import type { Construcao, GameState, MundoState, TipoConstrucao } from "./state";
 
 export { obstaculoEm };
@@ -62,8 +62,15 @@ export function ilhaAberta(mundo: MundoState, id: IlhaId): boolean {
 }
 
 export function temCabo(mundo: MundoState, id: IlhaId): boolean {
-  return id === "principal" || mundo.cabos.includes(id);
+  return id === "principal" || mundo.cabos[id] !== undefined;
 }
+
+/** Nível do cabo da ilha (0 = recém-ligado); `null` quando não há cabo. */
+export function nivelCabo(mundo: MundoState, id: IlhaId): number | null {
+  return mundo.cabos[id] ?? null;
+}
+
+export { tetoCabo };
 
 export function removendo(mundo: MundoState, indice: number): boolean {
   return mundo.remocoes.some((r) => r.indice === indice);
@@ -326,5 +333,22 @@ export function podeLigarCabo(state: GameState, id: IlhaId): boolean {
 
 export function ligarCabo(state: GameState, id: IlhaId): GameState | null {
   if (!podeLigarCabo(state, id)) return null;
-  return comMundo(state, { ...state.mundo, cabos: [...state.mundo.cabos, id] }, state.creditos - custoCabo(id));
+  return comMundo(state, { ...state.mundo, cabos: { ...state.mundo.cabos, [id]: 0 } }, state.creditos - custoCabo(id));
+}
+
+/** Nível do cabo: custo da rota × 3^(nível + 1), teto × 2 (GDD §8.5). */
+export function custoNivelCabo(id: IlhaId, nivel: number, arq: Arquipelago = arquipelagoDaEra1()): number {
+  return custoCabo(id, arq) * Math.pow(CABO.custoNivel, nivel + 1);
+}
+
+export function podeMelhorarCabo(state: GameState, id: IlhaId): boolean {
+  const nivel = nivelCabo(state.mundo, id);
+  return nivel !== null && state.creditos >= custoNivelCabo(id, nivel);
+}
+
+export function melhorarCabo(state: GameState, id: IlhaId): GameState | null {
+  const nivel = nivelCabo(state.mundo, id);
+  if (nivel === null || !podeMelhorarCabo(state, id)) return null;
+  const custo = custoNivelCabo(id, nivel);
+  return comMundo(state, { ...state.mundo, cabos: { ...state.mundo.cabos, [id]: nivel + 1 } }, state.creditos - custo);
 }

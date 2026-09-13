@@ -7,7 +7,7 @@ import { CABO, ILHAS, OBSTACULOS, SUBESTACAO, type IlhaId } from "../content/era
 import { custoProximaMelhoria, desbloqueado, podeMelhorarUsina } from "../sim/acoes";
 import { fatorMelhoria } from "../sim/custos";
 import { formatarCreditos, formatarNumero, formatarPotencia } from "../sim/formatar";
-import { custoCabo, custoColocar, custoExpedicao, ilhaAberta, podeComprarIlha, podeLigarCabo, temCabo } from "../sim/mundo";
+import { custoCabo, custoColocar, custoExpedicao, custoNivelCabo, ilhaAberta, nivelCabo, podeComprarIlha, podeLigarCabo, podeMelhorarCabo, temCabo, tetoCabo } from "../sim/mundo";
 import { fatorPotenciaUsina, podeComprarMelhoria } from "../sim/melhorias";
 import { analisar } from "../sim/producao";
 import type { GameState, TipoConstrucao } from "../sim/state";
@@ -163,33 +163,43 @@ function LinhaNivelUsina({ id }: { id: (typeof ORDEM_USINAS)[number] }) {
   );
 }
 
-/** Uma ilha do arquipélago: expedição (₵) e depois o cabo submarino (₵ 150 + ₵ 40 por casa de mar). */
+/**
+ * Uma ilha do arquipélago: expedição (₵), cabo submarino (₵ 150 + ₵ 120 por casa de mar) e o nível do
+ * cabo. O cabo tem teto próprio de kW: ligar não basta, é preciso dimensionar (GDD §8.5).
+ */
 function LinhaIlha({ id }: { id: IlhaId }) {
   const state = useGameStore((s) => s.state);
   const comprarIlha = useGameStore((s) => s.comprarIlha);
   const ligarCabo = useGameStore((s) => s.ligarCabo);
+  const melhorarCabo = useGameStore((s) => s.melhorarCabo);
   const def = ILHAS.find((i) => i.id === id);
   if (!def || def.expedicao === null) return null;
   const aberta = ilhaAberta(state.mundo, id);
   const cabo = temCabo(state.mundo, id);
+  const nivel = nivelCabo(state.mundo, id);
+  const usado = analisar(state).cabos.find((c) => c.ilha === id);
   return (
     <li className={`linha ${cabo ? "linha--comprada" : ""}`}>
       <div className="linha-texto">
         <span className="linha-nome">
           {def.nome}
           {aberta ? <span className="marca-comprado"> ✔ aberta</span> : null}
-          {cabo ? <span className="marca-comprado"> ✔ com cabo</span> : null}
+          {cabo ? <span className="marca-comprado"> ✔ cabo nível {(nivel ?? 0) + 1}</span> : null}
         </span>
         <span className="linha-meta">
-          {def.casas} casas · {def.descricao}
+          {cabo && nivel !== null
+            ? `cabo ${formatarPotencia(usado?.usadoKw ?? 0)} de ${formatarPotencia(tetoCabo(nivel))} · ${def.descricao}`
+            : `${def.casas} casas · ${def.descricao}`}
         </span>
       </div>
       <div className="linha-acoes">
         {!aberta ? (
           <BotaoCompra titulo="Expedição" custo={custoExpedicao(id) ?? 0} creditos={state.creditos} habilitado={podeComprarIlha(state, id)} variante="primario" onClick={() => comprarIlha(id)} />
         ) : !cabo ? (
-          <BotaoCompra titulo="Ligar cabo" custo={custoCabo(id)} creditos={state.creditos} habilitado={podeLigarCabo(state, id)} variante="primario" onClick={() => ligarCabo(id)} />
-        ) : null}
+          <BotaoCompra titulo={`Ligar cabo (${formatarPotencia(tetoCabo(0))})`} custo={custoCabo(id)} creditos={state.creditos} habilitado={podeLigarCabo(state, id)} variante="primario" onClick={() => ligarCabo(id)} />
+        ) : (
+          <BotaoCompra titulo={`Cabo nível ${(nivel ?? 0) + 2} (${formatarPotencia(tetoCabo((nivel ?? 0) + 1))})`} custo={custoNivelCabo(id, nivel ?? 0)} creditos={state.creditos} habilitado={podeMelhorarCabo(state, id)} onClick={() => melhorarCabo(id)} />
+        )}
       </div>
     </li>
   );
@@ -213,7 +223,7 @@ export function PainelRede() {
 
       <h2 className="rede-subtitulo">Ilhas</h2>
       <p className="rede-dica">
-        A expedição abre a ilha; o cabo ({formatarCreditos(CABO.custoFixo)} + {formatarCreditos(CABO.custoPorCasa)} por casa de mar) liga a energia dela à rede principal.
+        A expedição abre a ilha; o cabo ({formatarCreditos(CABO.custoFixo)} + {formatarCreditos(CABO.custoPorCasa)} por casa de mar) leva a energia dela à rede principal — até o teto dele ({formatarPotencia(CABO.tetoKw)}, ×2 por nível).
       </p>
       <ul className="lista">
         {ILHAS.filter((i) => i.expedicao !== null).map((i) => (

@@ -10,9 +10,9 @@ import { estadoLimpo, plantar } from "./ajuda";
 
 const arq = arquipelagoDaEra1();
 
-describe("save v6 (mundo)", () => {
-  it("a versão é 6", () => {
-    expect(VERSAO_SAVE).toBe(6);
+describe("save do mundo", () => {
+  it("a versão é 7", () => {
+    expect(VERSAO_SAVE).toBe(7);
   });
 
   it("ida e volta: construções, obstáculos removidos, fila, ilhas e cabos", () => {
@@ -23,10 +23,10 @@ describe("save v6 (mundo)", () => {
     s = removerObstaculo(s, arvore)!;
     const meio = avancarTicks(s, 5); // fila ainda em curso
     const lido = desserializar(serializar(meio, 1000), 1000);
-    expect(lido.versao).toBe(6);
+    expect(lido.versao).toBe(7);
     expect(lido.mundo.construcoes).toEqual(meio.mundo.construcoes);
     expect(lido.mundo.ilhasAbertas).toEqual(["principal", "ventania"]);
-    expect(lido.mundo.cabos).toEqual(["ventania"]);
+    expect(lido.mundo.cabos).toEqual({ ventania: 0 });
     expect(lido.mundo.remocoes).toEqual(meio.mundo.remocoes);
     const fim = avancarTicks(s, 40);
     const lidoFim = desserializar(serializar(fim, 1000), 1000);
@@ -47,7 +47,7 @@ describe("save v6 (mundo)", () => {
         removidos: [arq.terra.indexOf(0), 12345678],
         remocoes: [{ indice: -1, tipo: "arvore" }],
         ilhasAbertas: ["ventania", "atlantida"],
-        cabos: ["principal", "solar", "nada"],
+        cabos: { principal: 0, solar: 2, nada: 1 },
       },
     };
     const s = desserializar(JSON.stringify(bruto), 1000);
@@ -55,7 +55,7 @@ describe("save v6 (mundo)", () => {
     expect(s.mundo.removidos).toEqual([]);
     expect(s.mundo.remocoes).toEqual([]);
     expect(s.mundo.ilhasAbertas).toEqual(["principal", "ventania"]);
-    expect(s.mundo.cabos).toEqual(["solar"]);
+    expect(s.mundo.cabos).toEqual({ solar: 2 });
   });
 
   it("migra v5 colocando as unidades na principal e reembolsando o que não coube", () => {
@@ -82,7 +82,7 @@ describe("save v6 (mundo)", () => {
       salvoEmMs: 1000,
     };
     const s = desserializar(JSON.stringify(v5), 1000);
-    expect(s.versao).toBe(6);
+    expect(s.versao).toBe(7);
     expect(s.rede.usinas.cataVento.nivel).toBe(1);
     expect(quantidadeDe(s, "cataVento")).toBe(12);
     expect(quantidadeDe(s, "painelSolar")).toBe(4);

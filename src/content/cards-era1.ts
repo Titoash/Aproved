@@ -136,7 +136,7 @@ export const CARD_ILHA: CardDef = {
     {
       titulo: "Uma ilha nova",
       texto:
-        "A expedição abre a ilha, mas a energia dela ainda não chega aqui: sem **cabo submarino** ela só alimenta os próprios bairros. O cabo custa ₵ 150 mais ₵ 40 por casa de mar — cabos de verdade custam assim mesmo, por quilômetro. Cada ilha tem o seu terreno: Ventania é colina e pico (vento forte), Solar é planície rasa (nada faz sombra), Bosque é 90 % de árvore para derrubar. Espaço se conquista.",
+        "A expedição abre a ilha, mas a energia dela ainda não chega aqui: sem **cabo submarino** ela só alimenta os próprios bairros. O cabo custa ₵ 150 mais ₵ 120 por casa de mar e leva no máximo 30 kW — cabos de verdade custam assim mesmo, por quilômetro, e cada um tem a sua ampacidade. Subir o nível do cabo custa ×3 e dobra o teto. Cada ilha tem o seu terreno: Ventania é colina e pico (vento forte), Solar é planície rasa (nada faz sombra), Bosque é 90 % de árvore para derrubar. Espaço se conquista.",
     },
   ],
 };
