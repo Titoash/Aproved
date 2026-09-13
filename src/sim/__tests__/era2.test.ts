@@ -15,6 +15,7 @@ import { efeitosDos } from "../efeitos";
 import { colocarPeca } from "../acoesNucleo";
 import { desserializar, serializar } from "../save";
 import { avancarTicks, balancoDoEstado } from "../tick";
+import { calcularOffline } from "../offline";
 import { nucleoInicial, VERSAO_SAVE, type GameState } from "../state";
 import { estadoLimpo, plantar } from "./ajuda";
 
@@ -262,6 +263,53 @@ describe("escoamento e custo de operação da Era 2 (GDD Parte 2 §3.1, §3.2)",
     expect(custoColocar(s, "bateriaRede")).toBeCloseTo(BATERIA_REDE.custoBase * 1.25, 6);
     const comNo = { ...s, pesquisados: [...s.pesquisados, "redeInteligente"] };
     expect(efeitosDos(comNo.pesquisados).bateriaRedeFator).toBe(2);
+  });
+});
+
+describe("offline na Era 2 (GDD Parte 2 §5.2)", () => {
+  it("as varetas esgotam offline, e a que acaba no meio da ausência é marcada na hora certa", () => {
+    const s = { ...construirReator(prontoParaOReator(1e7))!, creditos: 1e7 };
+    let comVaretas = s;
+    for (const [i, peca] of [[11, "turbinaAlta"], [13, "turbinaAlta"], [6, "vareta"], [7, "vareta"], [8, "vareta"], [16, "vareta"], [0, "vareta"], [4, "vareta"]] as const) {
+      comVaretas = colocarPeca(comVaretas, i, peca) ?? comVaretas;
+    }
+    // meia hora fora: as varetas de 600 s acabam no caminho
+    const salvo = { ...comVaretas, salvoEmMs: 1_000_000 };
+    const { state: voltou, relatorio } = calcularOffline(salvo, 1_000_000 + 30 * 60 * 1000);
+    expect(relatorio.duracaoMs).toBe(30 * 60 * 1000);
+    const varetas = voltou.nucleo!.grade.filter((c) => c?.tipo === "peca" && c.id === "vareta") as { vareta: { restanteS: number; gastaDesdeMs: number | null } }[];
+    expect(varetas.length).toBe(6);
+    for (const v of varetas) {
+      expect(v.vareta.restanteS).toBe(0);
+      expect(v.vareta.gastaDesdeMs).not.toBeNull();
+      // marcada aos 600 s da ausência, não no fim dela
+      expect(v.vareta.gastaDesdeMs! - salvo.tempoMs).toBeCloseTo(600_000, -2);
+    }
+    // o reator rodou em modo seguro e rendeu 🔬 (o estado de teste não tem bairro, então não há venda)
+    expect(relatorio.pesquisa).toBeGreaterThan(0);
+    expect(relatorio.nucleoDesligado).toBe(false);
+  });
+
+  it("a térmica a gás também cobra combustível offline", () => {
+    let s = { ...construirReator(prontoParaOReator(1e7))!, creditos: 1e7 };
+    s = { ...s, pesquisados: [...s.pesquisados, "subestacaoDe138kV"] };
+    const casaTermica = casaPara2x2(s, "termicaGas");
+    s = colocar(s, casaTermica, "termicaGas")!;
+    // uma subestação de 138 kV ao lado, para ela escoar e queimar
+    for (const d of [2, -2, 2 * n, -2 * n]) {
+      const proximo = colocar(s, casaTermica + d, "subestacao138");
+      if (proximo) {
+        s = proximo;
+        break;
+      }
+    }
+    s = plantar(s, "bairro", 1);
+    const custo = analisar(s).custoOperacaoPorSegundo;
+    if (custo === 0) return; // sem escoamento nesta semente: a térmica desligada não queima
+    const salvo = { ...s, salvoEmMs: 1_000_000 };
+    const comTermica = calcularOffline(salvo, 1_000_000 + 60_000).relatorio.creditos;
+    const semTermica = calcularOffline({ ...salvo, mundo: { ...salvo.mundo, construcoes: Object.fromEntries(Object.entries(salvo.mundo.construcoes).filter(([k]) => Number(k) !== casaTermica)) } }, 1_000_000 + 60_000).relatorio.creditos;
+    expect(comTermica).toBeLessThan(semTermica + custo * 60);
   });
 });
 

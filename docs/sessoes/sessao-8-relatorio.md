@@ -78,7 +78,7 @@ largura a partir da terra, uma vez por arquipélago) e o custo de operação das
 num minuto fixo), e a Era 2 roda em seguida.
 
 ### Parte H — verificação
-341 testes, 82 verificações Playwright da Sessão 8 nos dois tamanhos, e os roteiros das Sessões 6 (52) e
+343 testes, 82 verificações Playwright da Sessão 8 nos dois tamanhos, e os roteiros das Sessões 6 (52) e
 7 (76) verdes como regressão, gravando capturas em `/tmp` para não tocar nas pastas delas.
 
 ---
@@ -162,7 +162,7 @@ continua duas ordens de grandeza abaixo do orçamento.
 | | Resultado |
 |---|---|
 | `npm run typecheck` | verde |
-| `npx vitest run` | **341 testes**, 26 arquivos |
+| `npx vitest run` | **343 testes**, 26 arquivos |
 | `npm run lint` | verde |
 | `npm run build` / `npm run build:artifact` | verdes (artefato de 1 768 KB) |
 | `scripts/e2e/sessao-8.cjs` | **82 verificações**, 1280×800 e 390×844 |

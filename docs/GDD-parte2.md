@@ -157,3 +157,4 @@ Os nós da Era 1 continuam valendo (Lâminas, Torre mais alta etc. seguem multip
 ---
 
 *v0.7 — Parte 2 criada com a Era 2 completa (transição, Rede, cidade, Reator PWR, árvore, capítulos, arte, sumidouros) para a Sessão 8.*
+*v0.7.1 — correções da produção da Sessão 8, medidas na simulação das duas eras: repartição por anel da tabela de §5.3 (a coluna "Entrada" não mudou); troca de vareta em 3 meias-vidas cheias (§5.2); curva de ₵ da densidade 5 (§4.1); quem paga a árvore da Era 2 (§6). **Ritmo medido: a Era 2 fecha em 60,9 min** (alvo 50–70), com a receita líquida do bot nunca negativa. Detalhes em `docs/sessoes/sessao-8-relatorio.md`.*
