@@ -91,10 +91,17 @@ function Tabuleiro() {
   );
 }
 
-const TEXTO_DICA = {
-  adicionarEspelhos: "Adicione espelhos: a marca sobe.",
-  tirarEspelho: "Tire um espelho ou ponha um radiador.",
-} as const;
+/** A dica da barra de calor fala a língua da era: espelhos e radiador na 1, varetas e torre na 2. */
+const TEXTO_DICA: Record<1 | 2, Record<"adicionarEspelhos" | "tirarEspelho", string>> = {
+  1: {
+    adicionarEspelhos: "Adicione espelhos: a marca sobe.",
+    tirarEspelho: "Tire um espelho ou ponha um radiador.",
+  },
+  2: {
+    adicionarEspelhos: "Adicione varetas: a marca sobe.",
+    tirarEspelho: "Tire uma vareta ou ponha uma torre de resfriamento.",
+  },
+};
 
 function BarraCalor({ nucleo, efeitos, tempoMs }: { nucleo: NucleoState; efeitos: EfeitosArvore; tempoMs: number }) {
   const t = temperaturaNucleo(nucleo);
@@ -133,9 +140,11 @@ function BarraCalor({ nucleo, efeitos, tempoMs }: { nucleo: NucleoState; efeitos
             ? `acima de 100 %: Cascata em ${formatarSegundos(faltaMs)}`
             : Number.isFinite(qEq)
               ? `equilíbrio Q* = ${formatarCalor(qEq)} (${formatarPorcentagem(tEq)})`
-              : "sem turbinas: o calor só sobe"}
+              : nucleo.era === 2
+                ? "sem turbinas: o calor só sobe"
+                : "sem turbinas: o calor só sobe"}
         </span>
-        {dica ? <span className="barra-dica">{TEXTO_DICA[dica]}</span> : null}
+        {dica ? <span className="barra-dica">{TEXTO_DICA[nucleo.era][dica]}</span> : null}
       </div>
     </div>
   );
