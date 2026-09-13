@@ -35,7 +35,7 @@ As duas camadas moram no **mesmo tabuleiro**: um **arquipélago no mar**, com **
 
 - **Tudo se coloca.** Escolhe-se um prédio na paleta e toca-se numa casa livre. Remover devolve metade do custo. Nada é alocado sozinho.
 - **Espaço é conquistado.** As ilhas nascem ocupadas por floresta, arbustos, pedras, montanhas (2×2) e pântano. Cada obstáculo tem custo em ₵ (montanha também em 🔬) e um tempo de remoção, executado por um Bipe de manutenção. Picos são permanentes e dão vento aos vizinhos. Só a ilha principal está aberta no começo; as demais exigem uma **expedição** (₵) e, para vender energia na rede principal, um **cabo submarino** (₵ por casa de mar) entre dois litorais.
-- **Terreno importa.** Colina: vento +25 %. Litoral: vento +50 %. Planície: sol +15 %. Floresta desmatada vira planície. Água não constrói.
+- **Terreno importa.** Colina: vento +25 %. Litoral: vento +50 %. Planície: sol +15 %. Água não constrói. O chão de uma casa é planície, colina, litoral ou rocha; floresta, pântano, arbusto, pedra, montanha e pico são **obstáculos em cima do chão** — e floresta e pântano nascem sempre sobre planície, então desmatar devolve planície.
 - **Vizinhos importam.** Esteira: cada vizinho eólico ortogonal tira 20 % de um cata-vento ou turbina eólica (mínimo 40 %). Sombra: cada vizinho alto ortogonal (turbina eólica, árvore, montanha, torre) tira 30 % de um painel (mínimo 40 %).
 - **Subestação escoa.** Uma usina só vende se estiver a até 3 casas (distância de Chebyshev) de uma subestação, e cada subestação tem um teto de kW. Usina sem escoamento produz e mostra "sem escoamento". Bairros também precisam de subestação no alcance. A bateria continua global (§4.1).
 - **Escalas.** A escada ilha → planeta (Tipo I) → sistema estelar (Tipo II) → galáxia (Tipo III) → universo (Tipo IV) → multiverso (Tipo V) fica como na v0.5, com a ordem **crescente da esquerda para a direita** (ou de baixo para cima) e degraus que crescem de tamanho. O nível 0 chama-se "Arquipélago". Tipos IV e V são ficção declarada.
@@ -156,7 +156,8 @@ Bobinas geram campo e consomem potência da Rede; células de plasma geram press
 ## 8. Era 1 — Vento e Sol (completa)
 
 ### 8.1 Estado inicial
-₵ 50 · demanda inicial 5 kW (aldeia) · potência 0 · Núcleo bloqueado.
+₵ 50 · a aldeia da ilha principal = **1 bairro de densidade 1** (8 kW de demanda, §8.6) · potência 0 · Núcleo bloqueado.
+A demanda não tem mais valor de base: ela é a soma dos bairros atendidos por subestação (v0.6, Sessão 6).
 
 ### 8.2 Rede
 | Usina | Custo base | Potência | Desbloqueio |
@@ -208,7 +209,7 @@ Estabilidade 100 % + pesquisa "Fissão básica" (🔬 3 000) + ₵ 50 000 → Er
 
 | Ilha | Casas | Terreno dominante | Expedição | Nasce com |
 |---|---|---|---|---|
-| Principal | 640 | planície, colinas ao norte | aberta | Núcleo, aldeia (3 bairros d1), 1 subestação, ~45 % de obstáculos |
+| Principal | 640 | planície, colinas ao norte | aberta | Núcleo, aldeia (1 bairro d1), 1 subestação, ~45 % de obstáculos |
 | Ventania | 320 | colinas e picos | ₵ 600 | pinheiros esparsos, 3 picos |
 | Solar | 300 | planície | ₵ 1,8 mil | arbustos, pedras |
 | Costa | 260 | litoral largo | ₵ 4,5 mil | pântano, árvores |
@@ -217,7 +218,8 @@ Estabilidade 100 % + pesquisa "Fissão básica" (🔬 3 000) + ₵ 50 000 → Er
 | Recife | 96 | litoral | ₵ 45 mil | pedras |
 | Farol | 52 | rocha | ₵ 100 mil | pico, vazio |
 
-Cabo submarino: ₵ 150 + ₵ 40 por casa de mar, entre dois litorais; sem cabo, a ilha só alimenta bairros e subestações dela mesma. Obstáculos: arbusto ₵ 3 (1 s), árvore ₵ 8 (3 s), pedra ₵ 25 (8 s), pântano ₵ 60 (10 s), montanha 2×2 ₵ 400 + 🔬 20 (30 s), pico permanente (vento +30 % nos vizinhos). Subestação ₵ 120 × 1,25ⁿ, alcance 3, teto 40 kW; nível: custo ×3ⁿ, teto ×2. Todos os números são valores iniciais a recalibrar com a simulação de 60 minutos.
+Cabo submarino: ₵ 150 + ₵ 40 por casa de mar, entre os dois litorais mais próximos; sem cabo, a ilha só alimenta bairros e subestações dela mesma (a energia que sobra vira "sem escoamento").
+Como os canais entre as ilhas têm 2 a 3 casas, o cabo sai por ₵ 230–270: hoje ele é uma **trava** (lembrar de ligar), não um custo — recalibrar com a simulação de 60 minutos. Obstáculos: arbusto ₵ 3 (1 s), árvore ₵ 8 (3 s), pedra ₵ 25 (8 s), pântano ₵ 60 (10 s), montanha 2×2 ₵ 400 + 🔬 20 (30 s), pico permanente (vento +30 % nos vizinhos). Subestação ₵ 120 × 1,25ⁿ, alcance 3, teto 40 kW; nível: custo ×3ⁿ, teto ×2. Todos os números são valores iniciais a recalibrar com a simulação de 60 minutos.
 
 ### 8.6 Cidade, laboratório, universidade e árvore da Era 1 (v0.6)
 
@@ -274,7 +276,7 @@ Desbloqueios de usina passam a gastar 🔬: turbina eólica 🔬 40, bateria �
 | `--void` | `#8A5CFF` | Era 5 |
 | `--gold` | `#FFB703` | Era 6 |
 
-**Arquipélago (v0.6):** mar em dois azuis com ondulação lenta, água rasa clara no litoral, espuma na borda; horizonte com céu que escurece para o navy do HUD; cabos submarinos como linhas tracejadas sob a água; obstáculos com silhueta própria (montanha 2×2 com neve, pântano com juncos). **Dinheiro** aparece como uma **nota de ₵** desenhada (retângulo arredondado com a esfera da Torre como marca-d'água) ao lado do valor, e tocar abre o extrato (receita por subestação, despesas). **Peças do Núcleo** têm tooltip de uma frase com os números ("Heliostato: +4 u/s de calor no Receptor; no anel 1 vale o dobro") e um card ao desbloquear a torre explicando as cinco peças. **Escada** crescente: o degrau do arquipélago é o menor, o do multiverso o maior.
+**Arquipélago (v0.6):** mar em dois azuis com ondulação lenta cobrindo o palco inteiro (o mar não acaba: nada de ilha flutuando), água rasa clara no litoral, espuma na borda; o Sol aparece como **brilho quente na água** no alto à esquerda, de onde vem a luz de todos os sprites — a câmera olha de cima, então não há linha de horizonte; cabos submarinos como linhas tracejadas sob a água; obstáculos com silhueta própria (montanha 2×2 com neve, pântano com juncos). **Dinheiro** aparece como uma **nota de ₵** desenhada (retângulo arredondado com a esfera da Torre como marca-d'água) ao lado do valor, e tocar abre o extrato (receita por subestação, despesas). **Peças do Núcleo** têm tooltip de uma frase com os números ("Heliostato: +4 u/s de calor no Receptor; no anel 1 vale o dobro") e um card ao desbloquear a torre explicando as cinco peças. **Escada** crescente: o degrau do arquipélago é o menor, o do multiverso o maior.
 
 **Ilha-tabuleiro (v0.5):** projeção isométrica 2:1 (casa de 64×32 px no zoom 1); topo em dois tons de grama por altura, penhasco de rocha roxo-azulada com veios e cristais, sombra chapada da ilha no espaço; lago em dois azuis com margem de areia; caminhos de terra clara na vila; regiões bloqueadas dessaturadas com hachura, borda tracejada e placa de preço com cadeado; contornos suavizados (nada de escadinha). Terreno: `grama #72E076`, `grama2 #55D162`, `gramaEsc #35AD60`, `rocha #5B4CB5`, `rocha2 #3E3488`, `aguaFunda #2B8FD6`, `caminho #D6C48E`, `areia #E8D9A3`. Fundo por nível: ilha com o Sol grande no canto superior-esquerdo (luz de cima-esquerda em todos os sprites), planeta azul-profundo, sistema com o Sol dominando, galáxia em `--void`, universo com filamentos `--ion`, multiverso em `--plasma` escuro. De longe (zoom < 0,45) os objetos viram silhuetas; abaixo de 0,22 viram pontos de cor-chave (modo mapa). O Receptor é o único glow forte da ilha em qualquer zoom.
 

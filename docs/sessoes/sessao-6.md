@@ -21,12 +21,12 @@ Nada acumula sem sumidouro. Nesta sessão: potência fora do alcance ou acima do
 - Custos de §7/§8.5 são iniciais: se um número não fechar no roteiro, registrar no relatório e propor.
 
 ## Checklist
-- [ ] GDD v0.6 lido; `content/era1-arquipelago.ts` com todos os números
-- [ ] `gerarArquipelago`: 2048 casas exatas em 8 ilhas conexas, terreno e obstáculos determinísticos
-- [ ] estado `mundo`, ações de colocar/remover/obstáculo/ilha/cabo com testes; contagens derivadas
-- [ ] produção por terreno, esteira e sombra; escoamento por subestação com teto
-- [ ] save v6 e migração v5 → v6
-- [ ] cena: mar, ilhas, obstáculos, cabos, alcance, realce com motivo, Bipe removendo
-- [ ] paleta de construção, extrato, escada crescente, nota de ₵, tooltips e card das peças, abertura nova
-- [ ] roteiro Playwright verde nos dois tamanhos; capturas; `ESTADO.md`; relatório
-- [ ] `typecheck`, `test`, `lint`, `build` verdes; branch `claude/sessao-6` empurrado
+- [x] GDD v0.6 lido; `content/era1-arquipelago.ts` com todos os números
+- [x] `gerarArquipelago`: 2048 casas exatas em 8 ilhas conexas, terreno e obstáculos determinísticos
+- [x] estado `mundo`, ações de colocar/remover/obstáculo/ilha/cabo com testes; contagens derivadas
+- [x] produção por terreno, esteira e sombra; escoamento por subestação com teto
+- [x] save v6 e migração v5 → v6
+- [x] cena: mar, ilhas, obstáculos, cabos, alcance, realce com motivo, Bipe removendo
+- [x] paleta de construção, extrato, escada crescente, nota de ₵, tooltips e card das peças, abertura nova
+- [x] roteiro Playwright verde nos dois tamanhos; capturas; `ESTADO.md`; relatório
+- [x] `typecheck`, `test`, `lint`, `build` verdes; branch `claude/sessao-6` empurrado

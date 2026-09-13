@@ -42,6 +42,32 @@ import { desenharFundo, desenharGrao } from "./tabuleiro/fundo";
 import { desenharCabos, desenharMar, type CaboCena } from "./tabuleiro/mar";
 import { desenharMinimapa, desenharTerreno, liberarCacheTerreno } from "./tabuleiro/terreno";
 
+/**
+ * Medição por camada, só em desenvolvimento (`window.__perf`): a média móvel do custo de cada etapa do
+ * quadro. Em produção o `marcar` chama a função e pronto.
+ */
+const perf: Record<string, { ms: number; n: number }> = {};
+const MEDINDO = import.meta.env.DEV && typeof window !== "undefined";
+function marcar(nome: string, fn: () => void): void {
+  if (!MEDINDO) {
+    fn();
+    return;
+  }
+  const t0 = performance.now();
+  fn();
+  const e = (perf[nome] ??= { ms: 0, n: 0 });
+  e.ms += performance.now() - t0;
+  e.n++;
+}
+if (MEDINDO) {
+  (window as unknown as { __perf: unknown }).__perf = {
+    ler: () => Object.fromEntries(Object.entries(perf).map(([k, v]) => [k, v.n ? v.ms / v.n : 0])),
+    zerar: () => {
+      for (const k of Object.keys(perf)) delete perf[k];
+    },
+  };
+}
+
 const easeInOut = (k: number) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
 const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
 
@@ -270,15 +296,9 @@ export class TabuleiroScene extends Phaser.Scene {
 
   private sincronizarCena(state: GameState, loja: ReturnType<typeof useGameStore.getState>) {
     const entrada = this.entrada(state, loja);
-    const chave = [
-      state.mundo.ilhasAbertas.join(","),
-      state.mundo.cabos.join(","),
-      entrada.construcoes.length,
-      entrada.obstaculos.length,
-      state.mundo.removidos.length,
-      state.nucleo ? state.nucleo.lado : "x",
-      state.nucleo ? state.nucleo.grade.map((c) => (c ? c.tipo[0] + ("id" in c ? c.id[0] : "") : "_")).join("") : "",
-    ].join("|");
+    // A cena é montada uma vez; `atualizarCena` refaz só o grupo que mudou (colocar um prédio não
+    // remonta o arquipélago inteiro). Só um mapa diferente justifica recriar.
+    const chave = String(entrada.arq.semente);
     if (!this.cena || chave !== this.chaveEstrutura) {
       this.chaveEstrutura = chave;
       this.cena = criarCena(entrada);
@@ -319,10 +339,12 @@ export class TabuleiroScene extends Phaser.Scene {
       const c: Camera = { zoom: cam.zoom, tx: cam.tx + tr[0], ty: cam.ty + tr[1], w, h };
       ctx.setTransform(dpr * c.zoom, 0, 0, dpr * c.zoom, dpr * c.tx, dpr * c.ty);
       // mar e cabos ficam sob as ilhas
-      desenharMar(ctx, this.arq, c, t);
-      desenharCabos(ctx, this.arq, this.cena.cabos, c, t);
-      desenharTerreno(ctx, this.arq, c, t, { desbloqueadas: new Set(state.mundo.ilhasAbertas), ladoGrade: state.nucleo?.lado ?? NUCLEO.ladoInicial, chaoDpr, chaoEscalavel });
-      desenharCena(ctx, this.cena, c, t);
+      marcar("mar", () => desenharMar(ctx, this.arq, c, t));
+      marcar("cabos", () => desenharCabos(ctx, this.arq, this.cena!.cabos, c, t));
+      marcar("terreno", () =>
+        desenharTerreno(ctx, this.arq, c, t, { desbloqueadas: new Set(state.mundo.ilhasAbertas), ladoGrade: state.nucleo?.lado ?? NUCLEO.ladoInicial, chaoDpr, chaoEscalavel }),
+      );
+      marcar("cena", () => desenharCena(ctx, this.cena!, c, t));
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       desenharCallouts(ctx, this.cena, c, this.reservas(w, h));
     } else {
@@ -348,6 +370,16 @@ export class TabuleiroScene extends Phaser.Scene {
 
   /** Desenha o palco inteiro num canvas próprio (os módulos usam transformações absolutas) e cola no canvas do Phaser. */
   private desenharTudo() {
+    const t0 = MEDINDO ? performance.now() : 0;
+    this.desenharQuadro();
+    if (MEDINDO) {
+      const e = (perf.quadro ??= { ms: 0, n: 0 });
+      e.ms += performance.now() - t0;
+      e.n++;
+    }
+  }
+
+  private desenharQuadro() {
     const rect = this.rect;
     if (!rect || !this.cena) return;
     const renderer = this.game.renderer;

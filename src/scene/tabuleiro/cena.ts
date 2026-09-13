@@ -14,7 +14,7 @@ import type { TipoConstrucao } from "../../sim/state";
 import { PALETA, alfa, centro, clamp01, corRampa, frac, iso, lodDe, movimentoReduzido, retArred, rnd, type Camera } from "./base";
 import { desenharAlcance, type CaboCena } from "./mar";
 import type { Reserva } from "./escalas";
-import { ALTURAS, desenharFeixe, desenharSprite, type EstadoSprite, type Feixe, type NomeSprite, type PapelBipe, type Teto } from "./sprites";
+import { ALTURAS, barraProgresso, desenharFeixe, desenharSprite, type EstadoSprite, type Feixe, type NomeSprite, type PapelBipe, type Teto } from "./sprites";
 import { ELEV_PLAT } from "./terreno";
 
 // ---------------------------------------------------------------------------------------------
@@ -1014,6 +1014,13 @@ export function desenharCena(ctx: CanvasRenderingContext2D, cena: Cena, cam: Cam
     o.estado.lod = lod;
     o.estado.zoom = z;
     desenharSprite(o.nome, ctx, o.cx, o.cy, 1, o.estado, t);
+    // barra de tempo do obstáculo em remoção (o Bipe de manutenção está ao lado)
+    if (perto && o.estado.progresso !== undefined) {
+      ctx.save();
+      ctx.translate(o.cx, o.cy);
+      barraProgresso(ctx, 0, -o.alto - 16, 40, o.estado.progresso);
+      ctx.restore();
+    }
     // marca de "sem escoamento" (GDD §7): um alerta coral pulsando acima da usina
     if (perto && o.estado.semEscoamento) {
       const py = o.cy - o.alto - 10;

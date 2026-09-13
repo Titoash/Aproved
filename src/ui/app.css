@@ -1334,6 +1334,11 @@ h2 {
     display: none;
   }
 
+  .hud-sem-escoamento {
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
   .hud-rotulo {
     display: none;
   }

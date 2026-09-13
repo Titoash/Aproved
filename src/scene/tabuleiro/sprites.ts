@@ -308,7 +308,7 @@ type Ctx = CanvasRenderingContext2D;
 type Ponto = readonly [number, number];
 
 /** Barra de tempo chapada (largura `w`, 0..1) centrada em (x, y): remoção de obstáculo em curso. */
-function barraProgresso(ctx: Ctx, x: number, y: number, w: number, k: number): void {
+export function barraProgresso(ctx: Ctx, x: number, y: number, w: number, k: number): void {
   const h = 5;
   retArred(ctx, x - w / 2, y, w, h, h / 2);
   ctx.fillStyle = A(P.navy, 0.75);
@@ -1259,8 +1259,7 @@ const S: Record<NomeSprite, FnSprite> = {
   },
 
   // Montanha 2×2: maciço de rocha com neve no topo, ocupando quatro casas (o ponto do chão é o canto norte).
-  montanha(ctx, e, _t, longe) {
-    const p = e.progresso;
+  montanha(ctx, _e, _t, longe) {
     if (!longe) sombra(ctx, 32, 16, 44, 22, 6);
     // silhueta: base losangular de 2×2 casas, cume acima do centro
     ctx.fillStyle = P.rocha;
@@ -1298,7 +1297,6 @@ const S: Record<NomeSprite, FnSprite> = {
     ctx.moveTo(0, -62);
     ctx.lineTo(0, 16);
     ctx.stroke();
-    if (p !== undefined) barraProgresso(ctx, 0, -74, 44, p);
   },
 
   // Pico permanente: agulha de rocha alta com brilho de vento em volta.
