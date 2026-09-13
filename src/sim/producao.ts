@@ -9,13 +9,16 @@
  * As contagens da Rede (quantas usinas, quantas vilas, quantas baterias) são **derivadas** daqui.
  * O resultado é memoizado por identidade de `mundo`/`rede`/`melhorias`: o tick não recalcula à toa.
  */
-import { BATERIA, USINAS, VILA } from "../content/era1";
+import { BATERIA, USINAS } from "../content/era1";
+import { CRISTAL } from "../content/era1-arquipelago";
+import { LABORATORIO, UNIVERSIDADE } from "../content/cidade-era1";
 import { CABO, OBSTACULOS, ORDEM_OBSTACULOS, SUBESTACAO, TERRENOS, VIZINHANCA, type IlhaId, type TipoObstaculo, type TipoTerreno } from "../content/era1-arquipelago";
+import { densidadeDe, limiteUniversidades, pesquisaUniversidade } from "./cidade";
 import { ORDEM_TERRENOS, indiceCasa, type Arquipelago } from "./arquipelago";
 import { fatorMelhoria } from "./custos";
+import { efeitosDe, efeitosNeutros, type EfeitosArvore } from "./efeitos";
 import { arquipelagoDaEra1 } from "./gerarArquipelago";
-import { fatorPotenciaUsina } from "./melhorias";
-import type { Construcao, GameState, Melhorias, MundoState, RedeDerivada, RedeState, TipoConstrucao, UsinaId } from "./state";
+import type { Construcao, GameState, MundoState, RedeDerivada, RedeState, TipoConstrucao, UsinaId } from "./state";
 
 const USINAS_VENTO: readonly UsinaId[] = ["cataVento", "turbinaEolica"];
 const VIZINHOS: readonly (readonly [number, number])[] = [
@@ -132,6 +135,16 @@ export interface AnaliseMundo {
   demandaKw: number;
   /** Bairros sem subestação no alcance: não pedem nem pagam. */
   bairrosSemEscoamento: number;
+  /** Habitantes: a soma da população da densidade de cada bairro (GDD §8.6). */
+  populacao: number;
+  /** Tarifa média, ponderada pela demanda dos bairros atendidos (GDD §7, §8.6). */
+  tarifa: number;
+  /** 🔬/s de laboratórios e universidades ligados (o Núcleo entra à parte, no tick). */
+  pesquisaPorSegundo: number;
+  /** Universidades que a população sustenta (1 por 2 000 habitantes). */
+  limiteUniversidades: number;
+  /** Universidades ligadas e dentro do limite. */
+  universidadesAtivas: number;
   /** Bairros em ilha sem cabo cuja energia vem só da própria ilha. */
   ilhasIsoladas: IlhaId[];
   /** Cabos ligados e o quanto de cada teto está em uso (GDD §8.5). */
@@ -140,7 +153,7 @@ export interface AnaliseMundo {
 
 
 function contagemVazia(): Record<TipoConstrucao, number> {
-  return { cataVento: 0, painelSolar: 0, turbinaEolica: 0, vila: 0, bateria: 0, subestacao: 0 };
+  return { cataVento: 0, painelSolar: 0, turbinaEolica: 0, bairro: 0, bateria: 0, subestacao: 0, laboratorio: 0, universidade: 0 };
 }
 
 export function tetoSubestacao(nivel: number): number {
@@ -153,16 +166,19 @@ export function tetoCabo(nivel: number): number {
 }
 
 /** Alcance da subestação em casas (Chebyshev). */
-export const alcanceSubestacao = (): number => SUBESTACAO.alcance;
+export const alcanceSubestacao = (efeitos: EfeitosArvore = efeitosNeutros()): number => efeitos.alcanceSubestacao;
 
 /** Análise completa do mundo. Use `analisar(state)`: esta versão não usa cache. */
-export function analisarMundo(mundo: MundoState, rede: RedeState, melhorias: Melhorias | undefined, arq: Arquipelago = arquipelagoDaEra1()): AnaliseMundo {
+export function analisarMundo(mundo: MundoState, rede: RedeState, efeitos: EfeitosArvore = efeitosNeutros(), arq: Arquipelago = arquipelagoDaEra1()): AnaliseMundo {
   const n = arq.n;
+  const { demandaBairroFator: fatorDemandaBairro, tarifaFator: fatorTarifa } = efeitos;
   const contagem = contagemVazia();
   const usinas: UsinaAnalise[] = [];
   const porCasa = new Map<number, UsinaAnalise>();
   const subestacoes: SubestacaoAnalise[] = [];
   const bairros: number[] = [];
+  /** Laboratórios e universidades, em ordem de casa: o limite de universidades corta as últimas. */
+  const ciencia: number[] = [];
   const casas = Object.keys(mundo.construcoes)
     .map(Number)
     .sort((a, b) => a - b);
@@ -174,7 +190,8 @@ export function analisarMundo(mundo: MundoState, rede: RedeState, melhorias: Mel
   for (const i of casas) {
     const c = mundo.construcoes[i];
     contagem[c.tipo]++;
-    if (c.tipo === "vila") bairros.push(i);
+    if (c.tipo === "bairro") bairros.push(i);
+    if (c.tipo === "laboratorio" || c.tipo === "universidade") ciencia.push(i);
     if (c.tipo === "subestacao") subestacoes.push({ indice: i, nivel: c.nivel, tetoKw: tetoSubestacao(c.nivel), usadoKw: 0 });
     if (!ehUsina(c.tipo)) continue;
     const x = i % n;
@@ -199,10 +216,10 @@ export function analisarMundo(mundo: MundoState, rede: RedeState, melhorias: Mel
       }
     }
     const fatorTerreno = vento ? TERRENOS[terreno].vento : TERRENOS[terreno].sol;
-    const fatorEsteira = vento ? Math.max(VIZINHANCA.esteiraMinima, 1 - VIZINHANCA.esteiraPorVizinho * eolicosVizinhos) : 1;
+    const fatorEsteira = vento ? Math.max(VIZINHANCA.esteiraMinima, 1 - efeitos.esteiraPorVizinho * eolicosVizinhos) : 1;
     const fatorSombra = vento ? 1 : Math.max(VIZINHANCA.sombraMinima, 1 - VIZINHANCA.sombraPorVizinho * altosVizinhos);
     const fatorPico = vento ? 1 + VIZINHANCA.ventoPorPico * picosVizinhos : 1;
-    const base = USINAS[c.tipo].potenciaKw * fatorMelhoria(rede.usinas[c.tipo].nivel) * fatorPotenciaUsina(melhorias, c.tipo);
+    const base = USINAS[c.tipo].potenciaKw * fatorMelhoria(rede.usinas[c.tipo].nivel) * efeitos.potencia[c.tipo];
     const analise: UsinaAnalise = {
       indice: i,
       tipo: c.tipo,
@@ -220,7 +237,7 @@ export function analisarMundo(mundo: MundoState, rede: RedeState, melhorias: Mel
   }
 
   // 2. escoamento: cada subestação varre só as casas do próprio alcance (7×7), não a lista inteira de usinas
-  const alcance = SUBESTACAO.alcance;
+  const alcance = efeitos.alcanceSubestacao;
   for (const sub of subestacoes) {
     const ilhaSub = arq.ilha[sub.indice];
     const sx = sub.indice % n;
@@ -244,8 +261,8 @@ export function analisarMundo(mundo: MundoState, rede: RedeState, melhorias: Mel
     }
   }
 
-  // 3. bairros com subestação no alcance
-  let demandaKw = 0;
+  // 3. quem consome: bairros (por densidade) e a ciência (laboratório, universidade).
+  //    Tudo isso só entra na conta com subestação no alcance — a energia não anda sem fio (GDD §2.4).
   let bairrosSemEscoamento = 0;
   const demandaPorIlha = new Map<number, number>();
   const casasSubestacao = new Set(subestacoes.map((s) => s.indice));
@@ -264,15 +281,46 @@ export function analisarMundo(mundo: MundoState, rede: RedeState, melhorias: Mel
     }
     return false;
   };
+  let populacao = 0;
+  let tarifaPonderada = 0;
+  let demandaBairrosKw = 0;
   for (const b of bairros) {
+    const def = densidadeDe(mundo.construcoes[b]);
+    populacao += def.populacao;
     const ilhaB = arq.ilha[b];
-    const atendido = temSubestacaoPerto(b, ilhaB);
-    if (!atendido) {
+    if (!temSubestacaoPerto(b, ilhaB)) {
       bairrosSemEscoamento++;
       continue;
     }
-    demandaKw += VILA.demandaKw;
-    demandaPorIlha.set(ilhaB, (demandaPorIlha.get(ilhaB) ?? 0) + VILA.demandaKw);
+    const demanda = def.demandaKw * fatorDemandaBairro;
+    demandaBairrosKw += demanda;
+    tarifaPonderada += demanda * def.tarifa;
+    demandaPorIlha.set(ilhaB, (demandaPorIlha.get(ilhaB) ?? 0) + demanda);
+  }
+  // Tarifa média ponderada pela demanda: bairro mais denso pesa mais na conta (GDD §7).
+  const tarifa = (demandaBairrosKw > 0 ? tarifaPonderada / demandaBairrosKw : 1) * fatorTarifa;
+
+  // Ciência: laboratório e universidade consomem kW e geram 🔬. A universidade precisa de gente —
+  // só valem as que a população sustenta, e sobre cristal rendem +50 % (GDD §8.6, §9).
+  const limite = limiteUniversidades(populacao);
+  const porUniversidade = pesquisaUniversidade(populacao);
+  const cristais = cristaisDe(mundo);
+  let pesquisaPorSegundo = 0;
+  let universidadesAtivas = 0;
+  for (const i of ciencia) {
+    const c = mundo.construcoes[i];
+    const ilhaC = arq.ilha[i];
+    if (!temSubestacaoPerto(i, ilhaC)) continue;
+    const bonus = cristais.has(i) ? 1 + CRISTAL.bonusCiencia : 1;
+    if (c.tipo === "laboratorio") {
+      pesquisaPorSegundo += LABORATORIO.pesquisaPorSegundo * bonus;
+      demandaPorIlha.set(ilhaC, (demandaPorIlha.get(ilhaC) ?? 0) + LABORATORIO.consumoKw);
+      continue;
+    }
+    if (universidadesAtivas >= limite) continue;
+    universidadesAtivas++;
+    pesquisaPorSegundo += porUniversidade * bonus;
+    demandaPorIlha.set(ilhaC, (demandaPorIlha.get(ilhaC) ?? 0) + UNIVERSIDADE.consumoKw);
   }
 
   // 4. cada ilha fora da principal é uma mini-rede: o que sobra (ou falta) só atravessa pelo cabo, e o
@@ -319,6 +367,11 @@ export function analisarMundo(mundo: MundoState, rede: RedeState, melhorias: Mel
     semEscoamentoKw: Math.max(0, brutoKw - ofertaKw),
     demandaKw: demandaEfetiva,
     bairrosSemEscoamento,
+    populacao,
+    tarifa,
+    pesquisaPorSegundo,
+    limiteUniversidades: limite,
+    universidadesAtivas,
     ilhasIsoladas,
     cabos,
   };
@@ -329,9 +382,9 @@ export function analisarMundo(mundo: MundoState, rede: RedeState, melhorias: Mel
 /* ------------------------------------------------------------------ */
 
 interface Entrada {
-  /** Só o que muda a produção: os níveis das usinas e as melhorias. A carga da bateria não entra. */
+  /** Só o que muda a produção: os níveis das usinas e os efeitos da árvore. A carga da bateria não entra. */
   niveis: string;
-  melhorias: Melhorias | undefined;
+  efeitos: EfeitosArvore;
   analise: AnaliseMundo;
 }
 
@@ -346,9 +399,10 @@ const niveisDe = (rede: RedeState): string => `${rede.usinas.cataVento.nivel}|${
 export function analisar(state: GameState): AnaliseMundo {
   const pronto = cache.get(state.mundo);
   const niveis = niveisDe(state.rede);
-  if (pronto && pronto.niveis === niveis && pronto.melhorias === state.melhorias) return pronto.analise;
-  const analise = analisarMundo(state.mundo, state.rede, state.melhorias);
-  cache.set(state.mundo, { niveis, melhorias: state.melhorias, analise });
+  const efeitos = efeitosDe(state);
+  if (pronto && pronto.niveis === niveis && pronto.efeitos === efeitos) return pronto.analise;
+  const analise = analisarMundo(state.mundo, state.rede, efeitos);
+  cache.set(state.mundo, { niveis, efeitos, analise });
   return analise;
 }
 
@@ -356,21 +410,21 @@ export function analisar(state: GameState): AnaliseMundo {
 /* Contagens derivadas                                                */
 /* ------------------------------------------------------------------ */
 
-export function capacidadeBateriaKwh(unidades: number): number {
-  return unidades * BATERIA.capacidadeKwh;
+export function capacidadeBateriaKwh(unidades: number, efeitos: EfeitosArvore = efeitosNeutros()): number {
+  return unidades * BATERIA.capacidadeKwh * efeitos.capacidadeBateriaFator;
 }
 
 /** Rede na forma que as fórmulas de §4.1 consomem, com as contagens vindas do mundo. */
 export function derivarRede(state: GameState, analise: AnaliseMundo = analisar(state)): RedeDerivada {
   const unidades = analise.contagem.bateria;
-  const capacidadeKwh = capacidadeBateriaKwh(unidades);
+  const capacidadeKwh = capacidadeBateriaKwh(unidades, efeitosDe(state));
   return {
     usinas: {
       cataVento: { quantidade: analise.contagem.cataVento, nivel: state.rede.usinas.cataVento.nivel },
       painelSolar: { quantidade: analise.contagem.painelSolar, nivel: state.rede.usinas.painelSolar.nivel },
       turbinaEolica: { quantidade: analise.contagem.turbinaEolica, nivel: state.rede.usinas.turbinaEolica.nivel },
     },
-    vilas: analise.contagem.vila,
+    bairros: analise.contagem.bairro,
     bateria: { unidades, capacidadeKwh, kwh: Math.min(state.rede.bateria.kwh, capacidadeKwh) },
   };
 }

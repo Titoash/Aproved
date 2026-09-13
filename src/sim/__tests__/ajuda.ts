@@ -3,7 +3,7 @@
  * `plantar` coloca construções em casas neutras (terreno de fator 1, sem vizinho eólico, sem sombra)
  * e garante subestação no alcance, para que a potência de uma usina seja exatamente a base × nível.
  */
-import { BATERIA } from "../../content/era1";
+import { BATERIA, USINAS } from "../../content/era1";
 import { SUBESTACAO, TERRENOS, type TipoTerreno } from "../../content/era1-arquipelago";
 import { ORDEM_TERRENOS, indiceCasa, naPlataforma } from "../arquipelago";
 import { arquipelagoDaEra1 } from "../gerarArquipelago";
@@ -15,7 +15,7 @@ export interface OpcoesRede {
   painelSolar?: number;
   turbinaEolica?: number;
   nivel?: Partial<Record<UsinaId, number>>;
-  vilas?: number;
+  bairros?: number;
   bateria?: number;
   kwh?: number;
 }
@@ -29,7 +29,7 @@ export function redeDeTeste(op: OpcoesRede = {}): RedeDerivada {
       painelSolar: { quantidade: op.painelSolar ?? 0, nivel: op.nivel?.painelSolar ?? 0 },
       turbinaEolica: { quantidade: op.turbinaEolica ?? 0, nivel: op.nivel?.turbinaEolica ?? 0 },
     },
-    vilas: op.vilas ?? 0,
+    bairros: op.bairros ?? 0,
     bateria: {
       unidades,
       capacidadeKwh: unidades * BATERIA.capacidadeKwh,
@@ -40,8 +40,13 @@ export function redeDeTeste(op: OpcoesRede = {}): RedeDerivada {
 
 const cheb = (n: number, a: number, b: number) => Math.max(Math.abs((a % n) - (b % n)), Math.abs(Math.floor(a / n) - Math.floor(b / n)));
 
-/** Terreno neutro para o tipo: fator 1 tanto para vento quanto para sol. */
-function terrenoNeutro(tipo: TipoConstrucao): TipoTerreno {
+/**
+ * Terreno neutro para o tipo: fator 1 tanto para vento quanto para sol. Só importa para usinas —
+ * bairro, bateria, subestação, laboratório e universidade não olham o terreno, e prender a colina
+ * deixaria casa de menos perto da plataforma.
+ */
+function terrenoNeutro(tipo: TipoConstrucao): TipoTerreno | null {
+  if (!(tipo in USINAS)) return null;
   if (ehVento(tipo)) return "planicie";
   return "colina";
 }
@@ -54,7 +59,8 @@ export function plantar(state: GameState, tipo: TipoConstrucao, quantos: number)
   const arq = arquipelagoDaEra1();
   const n = arq.n;
   const construcoes: Record<number, Construcao> = { ...state.mundo.construcoes };
-  const alvo = ORDEM_TERRENOS.indexOf(terrenoNeutro(tipo));
+  const neutro = terrenoNeutro(tipo);
+  const alvo = neutro === null ? -1 : ORDEM_TERRENOS.indexOf(neutro);
   const meio = arq.plataforma.meio;
 
   const ocupadas = () => Object.keys(construcoes).map(Number);
@@ -65,7 +71,7 @@ export function plantar(state: GameState, tipo: TipoConstrucao, quantos: number)
     .filter((i) => {
       if (arq.obstaculos[i] !== 255 || arq.caminho[i] === 1) return false;
       if (naPlataforma(arq.plataforma, i % n, Math.floor(i / n))) return false;
-      if (arq.terreno[i] !== alvo) return false;
+      if (alvo >= 0 && arq.terreno[i] !== alvo) return false;
       // sem obstáculo alto ou caminho colado
       for (const [dx, dy] of [
         [1, 0],
@@ -116,7 +122,7 @@ export function estadoLimpo(creditos = 1e9): GameState {
 
 /** Estado limpo com `n` bairros atendidos (demanda previsível). */
 export function comBairros(state: GameState, quantos: number): GameState {
-  return plantar(state, "vila", quantos);
+  return plantar(state, "bairro", quantos);
 }
 
 export const fatorTerreno = (t: TipoTerreno) => TERRENOS[t];

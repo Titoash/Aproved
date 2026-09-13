@@ -161,7 +161,7 @@ describe("gameStore — cards explicativos", () => {
     expect(g().colocar(casaLivre(), "bateria")).toBe(true);
     expect(g().cardAberto).toEqual({ id: "bateria", tela: 0 });
     expect(g().pausado).toBe(false);
-    expect(g().comprarMelhoria("rastreamentoSolar")).toBe(true);
+    expect(g().pesquisar("rastreamentoSolar")).toBe(true);
     expect(g().filaCards).toEqual(["rastreamento"]);
     g().avancarCard();
     expect(g().cardAberto).toEqual({ id: "rastreamento", tela: 0 });

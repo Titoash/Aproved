@@ -12,12 +12,13 @@ import type { NivelId } from "../content/escalas";
 import * as acoes from "../sim/acoes";
 import * as nucleo from "../sim/acoesNucleo";
 import { cardVisto, marcarCardVisto } from "../sim/cards";
-import { comprarMelhoria } from "../sim/melhorias";
+import { pesquisar } from "../sim/arvore";
+import { avaliarEvolucao, evoluirBairro } from "../sim/cidade";
 import * as mundo from "../sim/mundo";
 import { analisar as analisarMundo } from "../sim/producao";
 import { calcularOffline, type RelatorioOffline } from "../sim/offline";
 import { carregar, exportarJson, importarJson, INTERVALO_SAVE_MS, limpar, salvar } from "../sim/save";
-import { estadoInicial, type GameState, type MelhoriaId, type PecaId, type TipoConstrucao, type UsinaId } from "../sim/state";
+import { estadoInicial, type GameState, type PecaId, type TipoConstrucao, type UsinaId } from "../sim/state";
 import { avancarTicks } from "../sim/tick";
 
 /** O que o clique numa casa da grade do Núcleo faz. */
@@ -72,7 +73,10 @@ export interface GameStore {
 
   // Rede e mundo
   melhorarUsina: (id: UsinaId) => boolean;
-  comprarMelhoria: (id: MelhoriaId) => boolean;
+  /** Compra um nó da árvore de pesquisa: gasta 🔬 (e ₵, quando o nó cobra). */
+  pesquisar: (id: string) => boolean;
+  /** Evolui um bairro: gasta ₵ + 🔬 e sobe a densidade (GDD §8.6). */
+  evoluirBairro: (indice: number) => boolean;
   selecionarFerramentaMundo: (f: FerramentaMundo) => void;
   /** Aplica a ferramenta da paleta na casa do arquipélago. Devolve `false` e avisa se recusado. */
   agirNoMundo: (indice: number) => boolean;
@@ -204,7 +208,16 @@ export const useGameStore = create<GameStore>()((set, get) => {
     },
 
     melhorarUsina: (id) => aplicar(acoes.melhorarUsina(get().state, id)),
-    comprarMelhoria: (id) => aplicar(comprarMelhoria(get().state, id)),
+    pesquisar: (id) => aplicar(pesquisar(get().state, id)),
+    evoluirBairro(indice) {
+      const proximo = evoluirBairro(get().state, indice);
+      if (!proximo) {
+        const v = avaliarEvolucao(get().state, indice);
+        avisar(indice, v.motivo ?? "Não dá para evoluir este bairro.");
+        return false;
+      }
+      return aplicar(proximo);
+    },
 
     selecionarFerramentaMundo: (f) => set({ ferramentaMundo: f }),
 

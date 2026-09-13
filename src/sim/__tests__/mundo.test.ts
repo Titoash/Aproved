@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { USINAS, VILA } from "../../content/era1";
+import { USINAS } from "../../content/era1";
+import { BAIRRO } from "../../content/cidade-era1";
 import { CABO, OBSTACULOS, SUBESTACAO, ilhaDef } from "../../content/era1-arquipelago";
 import { indiceCasa, naPlataforma } from "../arquipelago";
 import { arquipelagoDaEra1 } from "../gerarArquipelago";
@@ -69,8 +70,8 @@ describe("colocar e remover (GDD §2.1, §7, v0.6)", () => {
     const s1 = colocar(s0, casaLivre(0), "subestacao")!;
     expect(custoColocar(s0, "subestacao")).toBe(SUBESTACAO.custoBase);
     expect(custoColocar(s1, "subestacao")).toBeCloseTo(SUBESTACAO.custoBase * SUBESTACAO.crescimento, 10);
-    const s2 = colocar(s0, casaLivre(0), "vila")!;
-    expect(custoColocar(s2, "vila")).toBeCloseTo(VILA.custoBase * VILA.crescimento, 10);
+    const s2 = colocar(s0, casaLivre(0), "bairro")!;
+    expect(custoColocar(s2, "bairro")).toBeCloseTo(BAIRRO.custoBase * BAIRRO.crescimento, 10);
   });
 
   it("remover devolve metade do que a última unidade custou", () => {

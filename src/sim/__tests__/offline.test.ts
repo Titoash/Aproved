@@ -13,7 +13,7 @@ const H = 60 * 60 * 1000;
 
 /** 8 cata-ventos (8 kW) contra 1 bairro (8 kW) → ouro ×1,25 → ₵ 10/s. */
 function estadoRede() {
-  let s = plantar(plantar(estadoLimpo(100), "vila", 1), "cataVento", 8);
+  let s = plantar(plantar(estadoLimpo(100), "bairro", 1), "cataVento", 8);
   s = { ...s, salvoEmMs: 1_000_000 };
   return s;
 }

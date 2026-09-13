@@ -142,6 +142,76 @@ export const CARD_ILHA: CardDef = {
 };
 CARDS_ERA1.ilha = CARD_ILHA;
 
+
+/* ------------------------------------------------------------------ */
+/* Cidade e árvore (Sessão 7)                                          */
+/* ------------------------------------------------------------------ */
+
+CARDS_ERA1.laboratorio = {
+  id: "laboratorio",
+  gatilho: "primeiro laboratório colocado",
+  bipe: { papel: "cientista", expressao: "neutro" },
+  telas: [
+    {
+      titulo: "A ciência tem endereço.",
+      texto:
+        "O laboratório converte 2 kW em 🔬 0,2 por segundo, sem parar. Não é muito: é o suficiente para o primeiro nó da árvore, antes de a Torre existir. E repare no que ele fez com a sua balança: um laboratório é **demanda**, igual a um bairro. Ciência custa energia — em 2024 os data centers do mundo já consumiam mais eletricidade que países inteiros.",
+    },
+  ],
+};
+
+CARDS_ERA1.arvore = {
+  id: "arvore",
+  gatilho: "primeiro nó pesquisado",
+  bipe: { papel: "cientista", expressao: "apontando" },
+  telas: [
+    {
+      titulo: "🔬 agora se gasta.",
+      texto:
+        "Até agora a Pesquisa só subia e ficava parada num canto do HUD. Ela virou moeda: cada nó da árvore cobra 🔬 e devolve uma melhoria permanente — e uma frase de física de verdade, porque toda melhoria daqui existe no mundo real. Alguns nós se **excluem**: escolher o eixo vertical fecha o horizontal para sempre. Escolha olhando a sua ilha, não a lista.",
+    },
+  ],
+};
+
+CARDS_ERA1.evolucao = {
+  id: "evolucao",
+  gatilho: "primeira evolução de bairro",
+  bipe: { papel: "operador", expressao: "apontando" },
+  telas: [
+    {
+      titulo: "A cidade não cresce sozinha.",
+      texto:
+        "Evoluir um bairro custa ₵ **e** 🔬, e o preço quase dobra a cada degrau. Em troca: mais gente, mais kW pedidos e uma **tarifa maior por kW vendido** — uma vila paga 15 % a mais que uma aldeia, uma metrópole 50 %. Densidade é o que faz uma rede valer a pena: a mesma linha atende muito mais gente por quilômetro. Mais população também é o que libera universidades.",
+    },
+  ],
+};
+
+CARDS_ERA1.universidade = {
+  id: "universidade",
+  gatilho: "primeira universidade colocada",
+  bipe: { papel: "cientista", expressao: "apontando" },
+  telas: [
+    {
+      titulo: "Mais gente, mais ciência — mas pela raiz.",
+      texto:
+        "Uma universidade rende 🔬 0,5/s vezes a **raiz** da população dividida por mil: dobrar a cidade não dobra as descobertas, multiplica por 1,41. É retorno decrescente, e é assim mesmo na vida real. Você pode ter uma universidade a cada 2 000 habitantes — construir mais que isso não adianta: as extras ficam sem alunos.",
+    },
+  ],
+};
+
+CARDS_ERA1.cristal = {
+  id: "cristal",
+  gatilho: "primeira montanha dinamitada",
+  bipe: { papel: "manutencao", expressao: "apontando" },
+  telas: [
+    {
+      titulo: "A montanha caiu e deixou cristais.",
+      texto:
+        "Quatro casas de rocha limpa, com veios de cristal: 🔬 40 na hora e +50 % para qualquer laboratório ou universidade construído aqui. Faz sentido — minas de verdade são laboratórios de geologia, e é escavando que se descobre o que a rocha guarda. A montanha não volta.",
+    },
+  ],
+};
+
 export function cardParaEvento(evento: EventoJogo): string | null {
   switch (evento.tipo) {
     case "primeiroCarregamento":
@@ -150,9 +220,12 @@ export function cardParaEvento(evento: EventoJogo): string | null {
       if (evento.item === "tanque") return "tanque";
       if (evento.item === "bateria") return "bateria";
       if (evento.item === "subestacao") return "subestacao";
+      if (evento.item === "laboratorio") return "laboratorio";
+      if (evento.item === "universidade") return "universidade";
       return null;
-    case "melhoriaComprada":
-      return evento.id === "rastreamentoSolar" ? "rastreamento" : null;
+    case "noPesquisado":
+      if (evento.id === "rastreamentoSolar") return "rastreamento";
+      return "arvore";
     case "cascata":
       return "cascata";
     case "ilhaAberta":
@@ -160,6 +233,10 @@ export function cardParaEvento(evento: EventoJogo): string | null {
     case "nucleoDesbloqueado":
       return "cincoPecas";
     case "obstaculoRemovido":
+      return evento.cristal ? "cristal" : null;
+    case "bairroEvoluido":
+      return "evolucao";
+    case "capituloConcluido":
       return null;
   }
 }

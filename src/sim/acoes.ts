@@ -3,19 +3,20 @@
  * Colocar e remover prédios vive em `sim/mundo.ts` (GDD §2.1, v0.6). Funções puras.
  */
 import { USINAS, type Desbloqueio } from "../content/era1";
+import { pesquisado } from "./arvore";
 import { custoMelhoria } from "./custos";
 import { desbloqueioDe } from "./mundo";
 import { quantidadeDe } from "./producao";
 import type { GameState, TipoConstrucao, UsinaId } from "./state";
 
-/** Desbloqueio por quantidade de usina colocada e/ou por pesquisa acumulada (🔬 é requisito, não gasto). */
+/** Desbloqueio por quantidade de usina colocada e/ou por nó da árvore comprado (GDD §8.6, v0.6). */
 export function desbloqueado(state: GameState, desbloqueio?: Desbloqueio): boolean {
   if (!desbloqueio) return true;
   if (desbloqueio.usina) {
     const [id, quantidade] = desbloqueio.usina;
     if (quantidadeDe(state, id) < quantidade) return false;
   }
-  if (desbloqueio.pesquisa !== undefined && state.pesquisa < desbloqueio.pesquisa) return false;
+  if (desbloqueio.no !== undefined && !pesquisado(state, desbloqueio.no)) return false;
   return true;
 }
 

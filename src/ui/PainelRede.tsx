@@ -2,13 +2,15 @@
  * Painel da Rede (GDD §2.1, v0.6): a lista de compra virou **paleta de construção** — escolhe-se um prédio e
  * toca-se numa casa do arquipélago. Abaixo dela ficam o extrato, as ilhas (expedição e cabo) e as melhorias.
  */
-import { MELHORIAS, ORDEM_MELHORIAS, ORDEM_USINAS, USINAS, VILA, BATERIA, type Desbloqueio } from "../content/era1";
+import { ORDEM_USINAS, USINAS, BATERIA, type Desbloqueio } from "../content/era1";
+import { BAIRRO, DENSIDADES, LABORATORIO, UNIVERSIDADE } from "../content/cidade-era1";
+import { NO_POR_ID } from "../content/arvore-era1";
 import { CABO, ILHAS, OBSTACULOS, SUBESTACAO, type IlhaId } from "../content/era1-arquipelago";
 import { custoProximaMelhoria, desbloqueado, podeMelhorarUsina } from "../sim/acoes";
 import { fatorMelhoria } from "../sim/custos";
 import { formatarCreditos, formatarNumero, formatarPotencia } from "../sim/formatar";
 import { custoCabo, custoColocar, custoExpedicao, custoNivelCabo, ilhaAberta, nivelCabo, podeComprarIlha, podeLigarCabo, podeMelhorarCabo, temCabo, tetoCabo } from "../sim/mundo";
-import { fatorPotenciaUsina, podeComprarMelhoria } from "../sim/melhorias";
+import { efeitosDe } from "../sim/arvore";
 import { analisar } from "../sim/producao";
 import type { GameState, TipoConstrucao } from "../sim/state";
 import { useGameStore, type FerramentaMundo } from "../store/gameStore";
@@ -26,8 +28,9 @@ function textoBloqueio(state: GameState, desbloqueio: Desbloqueio | undefined): 
     const nome = n === 1 ? USINAS[id].nome : USINAS[id].nomePlural;
     if (analise.contagem[id] < n) partes.push(`${n} ${nome.toLowerCase()} (${analise.contagem[id]}/${n})`);
   }
-  if (desbloqueio?.pesquisa !== undefined && state.pesquisa < desbloqueio.pesquisa) {
-    partes.push(`🔬 ${desbloqueio.pesquisa} (${formatarNumero(state.pesquisa, 0)}/${desbloqueio.pesquisa})`);
+  if (desbloqueio?.no !== undefined) {
+    const no = NO_POR_ID[desbloqueio.no];
+    partes.push(`o nó "${no?.nome ?? desbloqueio.no}" da árvore (🔬 ${no?.pesquisa ?? 0})`);
   }
   return `Desbloqueia com ${partes.join(" e ")}`;
 }
@@ -43,12 +46,19 @@ function itensDaPaleta(state: GameState): ItemPaleta[] {
   const itens: ItemPaleta[] = ORDEM_USINAS.map((id) => ({
     id,
     nome: USINAS[id].nome,
-    detalhe: `${formatarPotencia(USINAS[id].potenciaKw * fatorMelhoria(state.rede.usinas[id].nivel) * fatorPotenciaUsina(state.melhorias, id))} por unidade`,
+    detalhe: `${formatarPotencia(USINAS[id].potenciaKw * fatorMelhoria(state.rede.usinas[id].nivel) * efeitosDe(state).potencia[id])} por unidade`,
     desbloqueio: USINAS[id].desbloqueio,
   }));
-  itens.push({ id: "vila", nome: VILA.nome, detalhe: `+${formatarPotencia(VILA.demandaKw)} de demanda` });
-  itens.push({ id: "subestacao", nome: SUBESTACAO.nome, detalhe: `alcance ${SUBESTACAO.alcance} · teto ${formatarPotencia(SUBESTACAO.tetoKw)}` });
+  itens.push({ id: "bairro", nome: BAIRRO.nome, detalhe: `${DENSIDADES[0].nome} · +${formatarPotencia(DENSIDADES[0].demandaKw)} · ${DENSIDADES[0].populacao} hab` });
+  itens.push({ id: "subestacao", nome: SUBESTACAO.nome, detalhe: `alcance ${efeitosDe(state).alcanceSubestacao} · teto ${formatarPotencia(SUBESTACAO.tetoKw)}` });
   itens.push({ id: "bateria", nome: BATERIA.nome, detalhe: `+${BATERIA.capacidadeKwh} kWh · ±${formatarPotencia(BATERIA.potenciaKw)}`, desbloqueio: BATERIA.desbloqueio });
+  itens.push({ id: "laboratorio", nome: LABORATORIO.nome, detalhe: `🔬 ${LABORATORIO.pesquisaPorSegundo}/s · −${formatarPotencia(LABORATORIO.consumoKw)}`, desbloqueio: { no: "laboratorio" } });
+  itens.push({
+    id: "universidade",
+    nome: UNIVERSIDADE.nome,
+    detalhe: `🔬 pela raiz da população · −${formatarPotencia(UNIVERSIDADE.consumoKw)}`,
+    desbloqueio: { no: "universidade" },
+  });
   return itens;
 }
 
@@ -114,30 +124,6 @@ function Ferramentas() {
         </button>
       ))}
     </div>
-  );
-}
-
-function LinhaMelhoria({ id }: { id: (typeof ORDEM_MELHORIAS)[number] }) {
-  const state = useGameStore((s) => s.state);
-  const comprarMelhoria = useGameStore((s) => s.comprarMelhoria);
-  const def = MELHORIAS[id];
-  const comprada = state.melhorias[id];
-  return (
-    <li className={`linha ${comprada ? "linha--comprada" : ""}`}>
-      <IconeItem id={id} />
-      <div className="linha-texto">
-        <span className="linha-nome">
-          {def.nome}
-          {comprada ? <span className="marca-comprado"> ✔ comprada</span> : null}
-        </span>
-        <span className="linha-meta">{def.descricao}</span>
-      </div>
-      {comprada ? null : (
-        <div className="linha-acoes">
-          <BotaoCompra titulo="Comprar" custo={def.custo} creditos={state.creditos} habilitado={podeComprarMelhoria(state, id)} requisito={def.pesquisa !== undefined ? `🔬 ${def.pesquisa}` : undefined} onClick={() => comprarMelhoria(id)} />
-        </div>
-      )}
-    </li>
   );
 }
 
@@ -231,13 +217,11 @@ export function PainelRede() {
         ))}
       </ul>
 
-      <h2 className="rede-subtitulo">Melhorias</h2>
+      <h2 className="rede-subtitulo">Níveis das usinas</h2>
+      <p className="rede-dica">As melhorias nomeadas viraram nós da árvore de pesquisa, e agora custam 🔬.</p>
       <ul className="lista">
         {ORDEM_USINAS.map((id) => (
           <LinhaNivelUsina key={id} id={id} />
-        ))}
-        {ORDEM_MELHORIAS.filter((id) => MELHORIAS[id].camada === "rede").map((id) => (
-          <LinhaMelhoria key={id} id={id} />
         ))}
       </ul>
     </section>

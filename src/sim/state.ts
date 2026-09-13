@@ -1,15 +1,14 @@
 /** Tipos do estado do jogo e estado inicial (GDD §3, §8.1, §8.3, §8.5, §11). */
+import { NOS_INICIAIS } from "../content/arvore-era1";
 import { ECONOMIA } from "../content/era1";
 import { ILHAS_INICIAIS, type IlhaId, type TipoObstaculo } from "../content/era1-arquipelago";
 import { NUCLEO } from "../content/era1-nucleo";
 import { arquipelagoDaEra1 } from "./gerarArquipelago";
 
 export type UsinaId = "cataVento" | "painelSolar" | "turbinaEolica";
-export type MelhoriaId = "laminasDeFibra" | "rastreamentoSolar" | "grade7x7";
-export type Melhorias = Record<MelhoriaId, boolean>;
 
 /** Tudo o que o jogador coloca casa a casa no arquipélago (GDD §2.1, v0.6). */
-export type TipoConstrucao = UsinaId | "vila" | "bateria" | "subestacao";
+export type TipoConstrucao = UsinaId | "bairro" | "bateria" | "subestacao" | "laboratorio" | "universidade";
 
 export interface UsinaEstado {
   quantidade: number;
@@ -35,7 +34,7 @@ export interface RedeState {
 /** Forma derivada, com as contagens do mundo: é o que as fórmulas de §4.1 consomem. */
 export interface RedeDerivada {
   usinas: Record<UsinaId, UsinaEstado>;
-  vilas: number;
+  bairros: number;
   bateria: BateriaEstado;
 }
 
@@ -45,7 +44,7 @@ export interface RedeDerivada {
 
 export interface Construcao {
   tipo: TipoConstrucao;
-  /** Nível da construção. Por enquanto só a subestação evolui (teto ×2ⁿ, custo ×3ⁿ). */
+  /** Nível da construção: subestação (teto ×2ⁿ, custo ×3ⁿ) e bairro (densidade − 1, GDD §8.6). */
   nivel: number;
   colocadoEmMs: number;
 }
@@ -120,26 +119,28 @@ export interface NucleoState {
 /** Eventos de um tick ou de uma ação, para a UI reagir (cards). Limpos a cada tick; não vão para o save. */
 export type EventoJogo =
   | { tipo: "primeiroCarregamento" }
-  | { tipo: "primeiraCompra"; item: PecaId | "bateria" | "subestacao" }
-  | { tipo: "melhoriaComprada"; id: MelhoriaId }
+  | { tipo: "primeiraCompra"; item: PecaId | "bateria" | "subestacao" | "laboratorio" | "universidade" }
   | { tipo: "cascata"; entradaUs: number; saidaUs: number }
   | { tipo: "ilhaAberta"; id: IlhaId }
   | { tipo: "nucleoDesbloqueado" }
-  | { tipo: "obstaculoRemovido"; indice: number; cristal: boolean };
+  | { tipo: "obstaculoRemovido"; indice: number; cristal: boolean }
+  | { tipo: "bairroEvoluido"; indice: number; densidade: number }
+  | { tipo: "noPesquisado"; id: string }
+  | { tipo: "capituloConcluido"; id: string };
 
 export interface GameState {
   versao: number;
   tempoMs: number;
   creditos: number;
-  /** Pesquisa acumulada (🔬). Desbloqueios comparam com este total; nada é gasto (a árvore é a Sessão 7). */
+  /** Saldo de Pesquisa (🔬). É **gasto** na árvore, nas evoluções de bairro e nas montanhas (v0.6). */
   pesquisa: number;
+  /** Nós da árvore já comprados (GDD §8.6). Substituiu as melhorias nomeadas. */
+  pesquisados: string[];
   era: 1;
   rede: RedeState;
   mundo: MundoState;
   /** `null` enquanto o Núcleo não foi desbloqueado. */
   nucleo: NucleoState | null;
-  /** Melhorias nomeadas compradas (GDD §8.2, §8.3). */
-  melhorias: Melhorias;
   /** `Date.now()` do último save; 0 = nunca salvo. Base do cálculo offline (GDD §7). */
   salvoEmMs: number;
   /** Ids dos cards explicativos já mostrados. */
@@ -150,10 +151,6 @@ export interface GameState {
 
 /** Versão do formato de save. Incrementar ao mudar a forma do estado. */
 export const VERSAO_SAVE = 7;
-
-export function melhoriasIniciais(): Melhorias {
-  return { laminasDeFibra: false, rastreamentoSolar: false, grade7x7: false };
-}
 
 /** Índice do Receptor: o centro de uma grade `lado × lado` (lado ímpar). */
 export function indiceReceptor(lado: number): number {
@@ -191,7 +188,7 @@ export function nucleoInicial(): NucleoState {
 export function mundoInicial(): MundoState {
   const arq = arquipelagoDaEra1();
   const construcoes: Record<number, Construcao> = {};
-  for (const i of arq.inicio.aldeia) construcoes[i] = { tipo: "vila", nivel: 0, colocadoEmMs: 0 };
+  for (const i of arq.inicio.aldeia) construcoes[i] = { tipo: "bairro", nivel: 0, colocadoEmMs: 0 };
   construcoes[arq.inicio.subestacao] = { tipo: "subestacao", nivel: 0, colocadoEmMs: 0 };
   return { construcoes, removidos: [], remocoes: [], cristais: [], ilhasAbertas: [...ILHAS_INICIAIS], cabos: {} };
 }
@@ -202,6 +199,7 @@ export function estadoInicial(): GameState {
     tempoMs: 0,
     creditos: ECONOMIA.creditosIniciais,
     pesquisa: 0,
+    pesquisados: [...NOS_INICIAIS],
     era: 1,
     rede: {
       usinas: { cataVento: { nivel: 0 }, painelSolar: { nivel: 0 }, turbinaEolica: { nivel: 0 } },
@@ -209,7 +207,6 @@ export function estadoInicial(): GameState {
     },
     mundo: mundoInicial(),
     nucleo: null,
-    melhorias: melhoriasIniciais(),
     salvoEmMs: 0,
     cardsVistos: [],
     eventos: [],

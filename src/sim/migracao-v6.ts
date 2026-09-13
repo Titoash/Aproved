@@ -6,7 +6,8 @@
  * usinas). O que não couber vira crédito de ₵ com reembolso integral do que aquelas unidades custaram.
  * TypeScript puro e determinístico.
  */
-import { BATERIA, USINAS, VILA } from "../content/era1";
+import { BATERIA, USINAS } from "../content/era1";
+import { BAIRRO } from "../content/cidade-era1";
 import { SUBESTACAO } from "../content/era1-arquipelago";
 import { custoUnidade } from "./custos";
 import { arquipelagoDaEra1 } from "./gerarArquipelago";
@@ -21,10 +22,10 @@ export interface ResultadoMigracao {
   excedentes: Partial<Record<TipoConstrucao, number>>;
 }
 
-const ORDEM: readonly TipoConstrucao[] = ["cataVento", "turbinaEolica", "painelSolar", "vila", "bateria"];
+const ORDEM: readonly TipoConstrucao[] = ["cataVento", "turbinaEolica", "painelSolar", "bairro", "bateria"];
 
 function custoDe(tipo: TipoConstrucao): { custoBase: number; crescimento: number } {
-  if (tipo === "vila") return VILA;
+  if (tipo === "bairro") return BAIRRO;
   if (tipo === "bateria") return BATERIA;
   if (tipo === "subestacao") return SUBESTACAO;
   return USINAS[tipo as UsinaId];

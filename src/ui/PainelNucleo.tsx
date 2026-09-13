@@ -1,11 +1,10 @@
 import { useEffect, useRef } from "react";
-import { MELHORIAS, ORDEM_MELHORIAS } from "../content/era1";
-import { CASCATA, FAIXAS_CALOR, MODO_SEGURO, NUCLEO, ORDEM_PECAS, PECAS, RECEPTOR_CERAMICO } from "../content/era1-nucleo";
-import { podeComprarReceptorCeramico, podeDesbloquearNucleo } from "../sim/acoesNucleo";
+import { CASCATA, FAIXAS_CALOR, MODO_SEGURO, NUCLEO, ORDEM_PECAS, PECAS } from "../content/era1-nucleo";
+import { podeDesbloquearNucleo } from "../sim/acoesNucleo";
 import { dicaDeEquilibrio, faixaDeCalor, pesquisaPorSegundo, temperatura, temperaturaNucleo } from "../sim/calor";
 import { custoReconstrucao, faltaParaLimpezaMs, podeLimparEntulho } from "../sim/cascata";
 import { formatarCalor, formatarCreditos, formatarNumero, formatarPorcentagem, formatarPotencia, formatarSegundos } from "../sim/formatar";
-import { calorPorEspelho, podeComprarMelhoria } from "../sim/melhorias";
+import { efeitosDe, type EfeitosArvore } from "../sim/arvore";
 import { capacidadeU, contar, equilibrioU, espelhosEfetivos } from "../sim/nucleo";
 import type { NucleoState } from "../sim/state";
 import { potenciaNucleoEfetivaKw } from "../sim/tick";
@@ -88,11 +87,11 @@ const TEXTO_DICA = {
   tirarEspelho: "Tire um espelho ou ponha um radiador.",
 } as const;
 
-function BarraCalor({ nucleo, calorEspelho }: { nucleo: NucleoState; calorEspelho: number }) {
+function BarraCalor({ nucleo, efeitos }: { nucleo: NucleoState; efeitos: EfeitosArvore }) {
   const t = temperaturaNucleo(nucleo);
   const faixa = faixaDeCalor(t);
-  const capacidade = capacidadeU(nucleo.grade, nucleo.receptorCeramico);
-  const qEq = equilibrioU(nucleo.grade, calorEspelho);
+  const capacidade = capacidadeU(nucleo.grade, nucleo.receptorCeramico, efeitos);
+  const qEq = equilibrioU(nucleo.grade, efeitos);
   const tEq = temperatura(qEq, capacidade);
   const dica = dicaDeEquilibrio(tEq);
   const escalaMax = 1.2;
@@ -189,22 +188,21 @@ function Operacao({ nucleo }: { nucleo: NucleoState }) {
   const state = useGameStore((s) => s.state);
   const scramManual = useGameStore((s) => s.scramManual);
   const alternarModoSeguro = useGameStore((s) => s.alternarModoSeguro);
-  const comprarReceptorCeramico = useGameStore((s) => s.comprarReceptorCeramico);
-  const comprarMelhoria = useGameStore((s) => s.comprarMelhoria);
   const aviso = useGameStore((s) => s.avisoGrade);
 
-  const potencia = potenciaNucleoEfetivaKw(nucleo);
+  const efeitos = efeitosDe(state);
+  const potencia = potenciaNucleoEfetivaKw(nucleo, efeitos);
   const t = temperaturaNucleo(nucleo);
   const emScram = nucleo.scramRestanteMs > 0;
   const c = contar(nucleo.grade);
-  const calorEspelho = calorPorEspelho(state.melhorias);
+  const calorEspelho = efeitos.calorPorEspelho;
 
   return (
     <div className="palco">
       {emScram ? (
         <p className="nucleo-scram">SCRAM · Núcleo desligado por {formatarSegundos(nucleo.scramRestanteMs)}. Espelhos e turbinas parados; radiadores esfriando.</p>
       ) : null}
-      <BarraCalor nucleo={nucleo} calorEspelho={calorEspelho} />
+      <BarraCalor nucleo={nucleo} efeitos={efeitos} />
       <p className="nucleo-status">
         <span>⚡ Núcleo {formatarPotencia(potencia)}</span>
         <span>🔬 +{formatarNumero(emScram ? 0 : pesquisaPorSegundo(potencia, t), 2)}/s</span>
@@ -224,36 +222,10 @@ function Operacao({ nucleo }: { nucleo: NucleoState }) {
         <button type="button" className={`pilula ${nucleo.modoSeguro ? "pilula--ativa" : ""}`} role="switch" aria-checked={nucleo.modoSeguro} onClick={alternarModoSeguro} title={`SCRAM automático a ${formatarPorcentagem(MODO_SEGURO.limiarT)}, potência ×${formatarNumero(MODO_SEGURO.fatorPotencia, 1)}`}>
           Modo seguro {nucleo.modoSeguro ? "ligado" : "desligado"}
         </button>
-        {ORDEM_MELHORIAS.filter((id) => MELHORIAS[id].camada === "nucleo").map((id) => {
-          const def = MELHORIAS[id];
-          if (state.melhorias[id]) {
-            return (
-              <span key={id} className="marca-comprado">
-                ✔ {def.nome}
-              </span>
-            );
-          }
-          const caro = state.creditos < def.custo || state.pesquisa < (def.pesquisa ?? 0);
-          return (
-            <button key={id} type="button" className="pilula" disabled={!podeComprarMelhoria(state, id)} onClick={() => comprarMelhoria(id)} title={def.descricao}>
-              <span>{def.nome}</span>
-              <span className={`pilula-custo ${caro ? "pilula-custo--caro" : ""}`}>
-                {formatarCreditos(def.custo)}
-                {def.pesquisa !== undefined ? ` · 🔬 ${def.pesquisa}` : ""}
-              </span>
-            </button>
-          );
-        })}
-        {nucleo.receptorCeramico ? (
-          <span className="marca-comprado">✔ {RECEPTOR_CERAMICO.nome}</span>
-        ) : (
-          <button type="button" className="pilula" disabled={!podeComprarReceptorCeramico(state)} onClick={comprarReceptorCeramico} title={RECEPTOR_CERAMICO.descricao}>
-            <span>{RECEPTOR_CERAMICO.nome}</span>
-            <span className={`pilula-custo ${state.creditos < RECEPTOR_CERAMICO.custo || state.pesquisa < RECEPTOR_CERAMICO.pesquisa ? "pilula-custo--caro" : ""}`}>
-              {formatarCreditos(RECEPTOR_CERAMICO.custo)} · 🔬 {RECEPTOR_CERAMICO.pesquisa}
-            </span>
-          </button>
-        )}
+        <p className="nucleo-dica-arvore">
+          As melhorias do Núcleo (Receptor cerâmico, Grade 7×7, níveis de peça) vivem na <strong>árvore de pesquisa</strong>, e
+          agora custam 🔬 de verdade.
+        </p>
       </div>
     </div>
   );

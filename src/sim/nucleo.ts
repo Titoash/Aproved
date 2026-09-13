@@ -3,6 +3,7 @@
  * capacidade, balanço de calor, equilíbrio e potência. Funções puras.
  */
 import { NUCLEO, PECAS, RECEPTOR_CERAMICO } from "../content/era1-nucleo";
+import { efeitosNeutros, type EfeitosArvore } from "./efeitos";
 import { indiceReceptor, ladoDaGrade, type Casa, type PecaId } from "./state";
 
 export type AnelIndice = 0 | 1 | 2 | 3;
@@ -84,11 +85,11 @@ export function espelhosEfetivos(grade: readonly Casa[]): number {
   return espelhosEfetivosDe(contar(grade));
 }
 
-export function capacidadeU(grade: readonly Casa[], receptorCeramico = false): number {
+export function capacidadeU(grade: readonly Casa[], receptorCeramico = false, efeitos: EfeitosArvore = efeitosNeutros()): number {
   const c = contar(grade);
   return (
     NUCLEO.capacidadeReceptorU +
-    c.tanquesAdjacentes * NUCLEO.capacidadeTanqueU +
+    c.tanquesAdjacentes * efeitos.capacidadeTanqueU +
     (receptorCeramico ? RECEPTOR_CERAMICO.capacidadeExtraU : 0)
   );
 }
@@ -96,18 +97,19 @@ export function capacidadeU(grade: readonly Casa[], receptorCeramico = false): n
 /**
  * dQ/dt, em u/s: entrada dos espelhos − dissipação dos radiadores − consumo das turbinas.
  * Em SCRAM os espelhos não injetam e as turbinas não consomem; os radiadores continuam.
- * `calorEspelho` é o calor por espelho do anel 1 (4 u/s; 5 com o Rastreamento solar).
+ * O calor por espelho do anel 1 (4 u/s; 5 com o Rastreamento solar) e a dissipação do radiador vêm
+ * dos efeitos da árvore (GDD §8.6).
  */
 export function balancoDeCalor(
   grade: readonly Casa[],
   calorU: number,
   emScram = false,
-  calorEspelho: number = NUCLEO.calorEspelhoAnel1,
+  efeitos: EfeitosArvore = efeitosNeutros(),
 ): number {
   const c = contar(grade);
   const h = espelhosEfetivosDe(c);
-  const entrada = emScram ? 0 : calorEspelho * h;
-  const dissipacao = NUCLEO.dissipacaoRadiador * c.radiadoresAdjacentes;
+  const entrada = emScram ? 0 : efeitos.calorPorEspelho * h;
+  const dissipacao = efeitos.dissipacaoRadiador * c.radiadoresAdjacentes;
   const consumo = emScram ? 0 : NUCLEO.consumoTurbina * c.turbinas * calorU;
   return entrada - dissipacao - consumo;
 }
@@ -116,18 +118,22 @@ export function balancoDeCalor(
  * Q*: calor em que dQ/dt = 0. Sem turbinas não há consumo proporcional a Q:
  * devolve `Infinity` se o calor só sobe, `0` se só desce ou nada acontece.
  */
-export function equilibrioU(grade: readonly Casa[], calorEspelho: number = NUCLEO.calorEspelhoAnel1): number {
+export function equilibrioU(grade: readonly Casa[], efeitos: EfeitosArvore = efeitosNeutros()): number {
   const c = contar(grade);
   const h = espelhosEfetivosDe(c);
-  const liquido = calorEspelho * h - NUCLEO.dissipacaoRadiador * c.radiadoresAdjacentes;
+  const liquido = efeitos.calorPorEspelho * h - efeitos.dissipacaoRadiador * c.radiadoresAdjacentes;
   if (c.turbinas === 0) return liquido > 0 ? Infinity : 0;
   return Math.max(0, liquido / (NUCLEO.consumoTurbina * c.turbinas));
 }
 
-/** Potência bruta: cada turbina gera `consumoTurbina × Q × kwPorUnidade` kW. */
-export function potenciaNucleoKw(grade: readonly Casa[], calorU: number): number {
+/**
+ * Potência bruta: cada turbina gera `consumoTurbina × Q × kwPorUnidade` kW. O Radiador ativo, quando
+ * pesquisado, desconta o que gasta para soprar ar na aleta (GDD §8.6).
+ */
+export function potenciaNucleoKw(grade: readonly Casa[], calorU: number, efeitos: EfeitosArvore = efeitosNeutros()): number {
   const c = contar(grade);
-  return c.turbinas * NUCLEO.consumoTurbina * Math.max(0, calorU) * NUCLEO.kwPorUnidade;
+  const bruta = c.turbinas * NUCLEO.consumoTurbina * Math.max(0, calorU) * efeitos.turbinaKwPorUnidade;
+  return Math.max(0, bruta - c.radiadoresAdjacentes * efeitos.consumoRadiadorKw);
 }
 
 /**
@@ -142,9 +148,9 @@ export function passoCalor(
   calorU: number,
   dtS: number,
   emScram = false,
-  calorEspelho: number = NUCLEO.calorEspelhoAnel1,
+  efeitos: EfeitosArvore = efeitosNeutros(),
 ): number {
-  return Math.max(0, calorU + balancoDeCalor(grade, calorU, emScram, calorEspelho) * dtS);
+  return Math.max(0, calorU + balancoDeCalor(grade, calorU, emScram, efeitos) * dtS);
 }
 
 /* ------------------------------------------------------------------ */

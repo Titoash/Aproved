@@ -2,7 +2,8 @@
  * Extrato da Rede (GDD §10, v0.6): o que existe, quanto rende e quanto está sem escoamento.
  * Usado no painel e no popover da nota de ₵ no HUD.
  */
-import { ORDEM_USINAS, USINAS, VILA } from "../content/era1";
+import { ORDEM_USINAS, USINAS } from "../content/era1";
+import { BAIRRO, LABORATORIO, UNIVERSIDADE } from "../content/cidade-era1";
 import { ilhaDef, SUBESTACAO } from "../content/era1-arquipelago";
 import { formatarCreditos, formatarNumero, formatarPotencia, formatarTaxa } from "../sim/formatar";
 import { analisar } from "../sim/producao";
@@ -23,6 +24,16 @@ export function Extrato() {
         <span>
           {formatarTaxa(b.receitaPorSegundo)} · {b.faixa.nome.toLowerCase()} ×{formatarNumero(b.multiplicador, 2)}
         </span>
+      </p>
+      <p className="extrato-linha">
+        <span>Cidade</span>
+        <span>
+          👥 {formatarNumero(analise.populacao, 0)} hab · tarifa ×{formatarNumero(analise.tarifa, 2)}
+        </span>
+      </p>
+      <p className="extrato-linha">
+        <span>Ciência</span>
+        <span>🔬 +{formatarNumero(analise.pesquisaPorSegundo, 2)}/s da cidade</span>
       </p>
       <p className="extrato-linha">
         <span>Vendido</span>
@@ -68,12 +79,30 @@ export function Extrato() {
               </tr>
             );
           })}
-          {analise.contagem.vila > 0 ? (
+          {analise.contagem.bairro > 0 ? (
             <tr>
-              <th scope="row">{VILA.nome}</th>
-              <td>{analise.contagem.vila}</td>
+              <th scope="row">{BAIRRO.nomePlural}</th>
+              <td>{analise.contagem.bairro}</td>
               <td>−{formatarPotencia(analise.demandaKw)}</td>
               <td>de demanda</td>
+            </tr>
+          ) : null}
+          {analise.contagem.laboratorio > 0 ? (
+            <tr>
+              <th scope="row">{LABORATORIO.nomePlural}</th>
+              <td>{analise.contagem.laboratorio}</td>
+              <td>−{formatarPotencia(analise.contagem.laboratorio * LABORATORIO.consumoKw)}</td>
+              <td>🔬</td>
+            </tr>
+          ) : null}
+          {analise.contagem.universidade > 0 ? (
+            <tr className={analise.universidadesAtivas < analise.contagem.universidade ? "extrato-alerta" : undefined}>
+              <th scope="row">{UNIVERSIDADE.nomePlural}</th>
+              <td>
+                {analise.universidadesAtivas}/{analise.contagem.universidade}
+              </td>
+              <td>−{formatarPotencia(analise.universidadesAtivas * UNIVERSIDADE.consumoKw)}</td>
+              <td>🔬</td>
             </tr>
           ) : null}
           {analise.contagem.subestacao > 0 ? (

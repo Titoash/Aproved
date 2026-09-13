@@ -7,6 +7,7 @@ import { ILHAS } from "../../content/era1-arquipelago";
 import { naPlataforma } from "../arquipelago";
 import { arquipelagoDaEra1 } from "../gerarArquipelago";
 import { analisarMundo } from "../producao";
+import { efeitosDe } from "../efeitos";
 import { estadoInicial, type Construcao, type GameState, type TipoConstrucao } from "../state";
 import { avancarTicks, tick } from "../tick";
 
@@ -22,7 +23,7 @@ function mundoCheio(): GameState {
     if (arq.terra[i] !== 1) continue;
     if (naPlataforma(arq.plataforma, i % n, Math.floor(i / n))) continue;
     const ciclo = k++ % 7;
-    const tipo: TipoConstrucao = ciclo === 0 ? "subestacao" : ciclo === 1 ? "vila" : ciclo === 2 ? "painelSolar" : ciclo === 3 ? "bateria" : ciclo === 4 ? "turbinaEolica" : "cataVento";
+    const tipo: TipoConstrucao = ciclo === 0 ? "subestacao" : ciclo === 1 ? "bairro" : ciclo === 2 ? "painelSolar" : ciclo === 3 ? "bateria" : ciclo === 4 ? "turbinaEolica" : "cataVento";
     construcoes[i] = { tipo, nivel: 0, colocadoEmMs: 0 };
   }
   return {
@@ -59,7 +60,7 @@ describe("desempenho do tick", () => {
     const cheio = mundoCheio();
     const t0 = performance.now();
     const N = 20;
-    for (let i = 0; i < N; i++) analisarMundo(cheio.mundo, cheio.rede, cheio.melhorias);
+    for (let i = 0; i < N; i++) analisarMundo(cheio.mundo, cheio.rede, efeitosDe(cheio));
     const ms = (performance.now() - t0) / N;
     console.log(`análise completa do mundo: ${ms.toFixed(3)} ms`);
     expect(ms).toBeLessThan(16);

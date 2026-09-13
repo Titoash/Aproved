@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { MELHORIAS } from "../../content/era1";
+import { NO_POR_ID } from "../../content/arvore-era1";
 import { NUCLEO, PECAS } from "../../content/era1-nucleo";
 import { colocarPeca } from "../acoesNucleo";
-import { comprarMelhoria, podeComprarMelhoria } from "../melhorias";
+import { pesquisar, podePesquisar } from "../arvore";
 import { anel, colocar, contar, entulharAnel1, equilibrioU, espelhosEfetivos, expandirGrade, podeColocar } from "../nucleo";
 import { desserializar } from "../save";
 import { estadoInicial, gradeVazia, indiceReceptor, ladoDaGrade, nucleoInicial, VERSAO_SAVE, type Casa, type GameState } from "../state";
@@ -69,25 +69,25 @@ describe("Grade 7×7 (Parte D)", () => {
   });
 
   it("a Grade 7×7 exige ₵ 800 e 🔬 150, é única, exige Núcleo, e depois dela podeColocar aceita o índice 48", () => {
-    expect(MELHORIAS.grade7x7.custo).toBe(800);
-    expect(MELHORIAS.grade7x7.pesquisa).toBe(150);
+    expect(NO_POR_ID.grade7x7.creditos!).toBe(800);
+    expect(NO_POR_ID.grade7x7.pesquisa).toBe(150);
     const semNucleo = { ...estadoInicial(), creditos: 1000, pesquisa: 200 };
-    expect(podeComprarMelhoria(semNucleo, "grade7x7")).toBe(false);
+    expect(podePesquisar(semNucleo, "grade7x7")).toBe(false);
     const s = { ...semNucleo, nucleo: { ...nucleoInicial(), grade: configuracao(5) } };
-    expect(podeComprarMelhoria({ ...s, pesquisa: 100 }, "grade7x7")).toBe(false);
-    expect(podeComprarMelhoria({ ...s, creditos: 700 }, "grade7x7")).toBe(false);
+    expect(podePesquisar({ ...s, pesquisa: 100 }, "grade7x7")).toBe(false);
+    expect(podePesquisar({ ...s, creditos: 700 }, "grade7x7")).toBe(false);
     expect(podeColocar(s.nucleo.grade, 48, "heliostato").ok).toBe(false); // fora do 5×5
-    const s1 = comprarMelhoria(s, "grade7x7")!;
+    const s1 = pesquisar(s, "grade7x7")!;
     expect(s1).not.toBeNull();
     expect(s1.creditos).toBe(200);
-    expect(s1.pesquisa).toBe(200);
+    expect(s1.pesquisa).toBe(50); // 🔬 agora é gasto (v0.6)
     expect(s1.nucleo!.lado).toBe(7);
     expect(s1.nucleo!.grade).toHaveLength(49);
     expect(espelhosEfetivos(s1.nucleo!.grade)).toBe(5);
     expect(podeColocar(s1.nucleo!.grade, 48, "heliostato").ok).toBe(true);
     expect(colocarPeca(s1, 48, "heliostato")!.nucleo!.grade[48]).toEqual({ tipo: "peca", id: "heliostato" });
-    expect(comprarMelhoria({ ...s1, creditos: 5000 }, "grade7x7")).toBeNull();
-    expect(s1.eventos.at(-1)).toEqual({ tipo: "melhoriaComprada", id: "grade7x7" });
+    expect(pesquisar({ ...s1, creditos: 5000 }, "grade7x7")).toBeNull();
+    expect(s1.eventos.at(-1)).toEqual({ tipo: "noPesquisado", id: "grade7x7" });
   });
 
   it("migração v3 → v4 preserva tudo e adiciona lado, ultimaCascata e cardsVistos", () => {
@@ -95,21 +95,22 @@ describe("Grade 7×7 (Parte D)", () => {
     s0.creditos = 1234;
     s0.pesquisa = 77;
     s0.rede.usinas.painelSolar = { nivel: 1 };
-    s0.melhorias.laminasDeFibra = true;
+    s0.pesquisa = 77;
     s0.nucleo = { ...nucleoInicial(), grade: configuracao(5), calorU: 80, estabilidade: 12, cascatas: 2 };
     const v3 = JSON.parse(JSON.stringify(s0));
+    v3.melhorias = { laminasDeFibra: true };
     delete v3.cardsVistos;
     delete v3.eventos;
     delete v3.nucleo.lado;
     delete v3.nucleo.ultimaCascata;
-    delete v3.melhorias.grade7x7;
     v3.versao = 3;
     const s = desserializar(JSON.stringify(v3), 5);
     expect(s.versao).toBe(VERSAO_SAVE);
     expect(s.creditos).toBe(1234);
     expect(s.pesquisa).toBe(77);
     expect(s.rede.usinas.painelSolar).toEqual({ nivel: 1 });
-    expect(s.melhorias).toEqual({ laminasDeFibra: true, rastreamentoSolar: false, grade7x7: false });
+    // 🔬 77 já passava dos limiares antigos (🔬 40 e 🔬 20): os dois nós entram sem cobrar (v6 → v7)
+    expect(s.pesquisados).toEqual(["laboratorio", "laminasDeFibra", "turbinaEolica", "bateria"]);
     expect(s.nucleo!.lado).toBe(5);
     expect(s.nucleo!.grade).toEqual(configuracao(5));
     expect(s.nucleo!.cascatas).toBe(2);

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { USINAS, VILA } from "../../content/era1";
+import { USINAS } from "../../content/era1";
+import { DENSIDADES } from "../../content/cidade-era1";
 import { arquipelagoDaEra1 } from "../gerarArquipelago";
 import { comprarIlha, ligarCabo, removerObstaculo } from "../mundo";
 import { analisar, obstaculoEm, quantidadeDe } from "../producao";
@@ -87,14 +88,14 @@ describe("save do mundo", () => {
     expect(quantidadeDe(s, "cataVento")).toBe(12);
     expect(quantidadeDe(s, "painelSolar")).toBe(4);
     expect(quantidadeDe(s, "turbinaEolica")).toBe(2);
-    expect(quantidadeDe(s, "vila")).toBe(3 + 1); // as do save + a aldeia de nascença
+    expect(quantidadeDe(s, "bairro")).toBe(3 + 1); // as do save + a aldeia de nascença
     expect(quantidadeDe(s, "bateria")).toBe(2);
     expect(s.rede.bateria.kwh).toBe(10);
     expect(s.creditos).toBe(100); // coube tudo: sem reembolso
     // tudo o que foi colocado tem escoamento (a migração completa as subestações)
     const a = analisar(s);
     expect(a.semEscoamentoKw).toBeLessThanOrEqual(a.brutoKw * 0.5);
-    expect(a.demandaKw).toBe(4 * VILA.demandaKw);
+    expect(a.demandaKw).toBe(4 * DENSIDADES[0].demandaKw);
     // as casas são de terra da ilha principal
     for (const chave of Object.keys(s.mundo.construcoes)) {
       expect(arq.ilha[Number(chave)]).toBe(0);

@@ -6,7 +6,7 @@ import { OFFLINE } from "../content/era1";
 import { MODO_SEGURO } from "../content/era1-nucleo";
 import { faixaDeCalor, pesquisaPorSegundo, temperatura } from "./calor";
 import { limitarEstabilidade } from "./estabilidade";
-import { calorPorEspelho } from "./melhorias";
+import { efeitosDe } from "./efeitos";
 import { capacidadeU, equilibrioU, potenciaNucleoKw } from "./nucleo";
 import { analisar, derivarRede } from "./producao";
 import { balancoRede } from "./rede";
@@ -41,10 +41,12 @@ export function calcularOffline(state: GameState, agoraMs: number): { state: Gam
   let tEquilibrio: number | null = null;
   let nucleo = state.nucleo;
 
+  const efeitos = efeitosDe(state);
+  const analise = analisar(state);
+
   if (nucleo) {
-    const calorEspelho = calorPorEspelho(state.melhorias);
-    const capacidade = capacidadeU(nucleo.grade, nucleo.receptorCeramico);
-    const qEquilibrio = equilibrioU(nucleo.grade, calorEspelho);
+    const capacidade = capacidadeU(nucleo.grade, nucleo.receptorCeramico, efeitos);
+    const qEquilibrio = equilibrioU(nucleo.grade, efeitos);
     const tEq = temperatura(qEquilibrio, capacidade);
     tEquilibrio = tEq;
 
@@ -52,7 +54,7 @@ export function calcularOffline(state: GameState, agoraMs: number): { state: Gam
       // Modo seguro obrigatório: a configuração dispararia o SCRAM, então fica desligado o tempo todo.
       nucleoDesligado = true;
     } else {
-      potenciaNucleo = potenciaNucleoKw(nucleo.grade, qEquilibrio) * OFFLINE.fatorNucleo;
+      potenciaNucleo = potenciaNucleoKw(nucleo.grade, qEquilibrio, efeitos) * OFFLINE.fatorNucleo;
       pesquisaPorS = pesquisaPorSegundo(potenciaNucleo, tEq);
       if (potenciaNucleo > 0) estabilidadePorS = (faixaDeCalor(tEq).estabilidadePorMinuto / 60) * OFFLINE.fatorNucleo;
     }
@@ -68,16 +70,17 @@ export function calcularOffline(state: GameState, agoraMs: number): { state: Gam
     };
   }
 
-  const analise = analisar(state);
   const balanco = balancoRede(derivarRede(state, analise), {
     potenciaNucleoKw: potenciaNucleo,
-    melhorias: state.melhorias,
+    efeitos,
     semBateria: true,
     ofertaUsinasKw: analise.ofertaKw,
     demandaKw: analise.demandaKw,
+    tarifa: analise.tarifa,
   });
   const creditos = balanco.receitaPorSegundo * OFFLINE.fatorRede * segundos;
-  const pesquisa = pesquisaPorS * segundos;
+  // Laboratórios e universidades rendem offline com o mesmo fator da Rede (decisão da Sessão 7).
+  const pesquisa = (pesquisaPorS + analise.pesquisaPorSegundo * OFFLINE.fatorRede) * segundos;
   const estabilidade = nucleo && state.nucleo ? nucleo.estabilidade - state.nucleo.estabilidade : 0;
 
   return {

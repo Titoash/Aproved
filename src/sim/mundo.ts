@@ -3,7 +3,8 @@
  * obstáculos, comprar a expedição de uma ilha e ligar o cabo submarino. Funções puras: devolvem `null`
  * quando a ação não é possível. Nenhum número aqui — tudo vem de `content/`.
  */
-import { BATERIA, USINAS, VILA, type Desbloqueio } from "../content/era1";
+import { BATERIA, USINAS, type Desbloqueio } from "../content/era1";
+import { BAIRRO, LABORATORIO, UNIVERSIDADE } from "../content/cidade-era1";
 import { CABO, OBSTACULOS, SUBESTACAO, ilhaDef, type IlhaId, type TipoObstaculo } from "../content/era1-arquipelago";
 import { custoUnidade } from "./custos";
 import { arquipelagoDaEra1 } from "./gerarArquipelago";
@@ -24,21 +25,28 @@ export interface CustoDefinicao {
 
 export function definicaoDeCusto(tipo: TipoConstrucao): CustoDefinicao {
   if (ehUsina(tipo)) return USINAS[tipo];
-  if (tipo === "vila") return VILA;
+  if (tipo === "bairro") return BAIRRO;
   if (tipo === "bateria") return BATERIA;
+  if (tipo === "laboratorio") return LABORATORIO;
+  if (tipo === "universidade") return UNIVERSIDADE;
   return SUBESTACAO;
 }
 
 export function nomeConstrucao(tipo: TipoConstrucao): string {
   if (ehUsina(tipo)) return USINAS[tipo].nome;
-  if (tipo === "vila") return VILA.nome;
+  if (tipo === "bairro") return BAIRRO.nome;
   if (tipo === "bateria") return BATERIA.nome;
+  if (tipo === "laboratorio") return LABORATORIO.nome;
+  if (tipo === "universidade") return UNIVERSIDADE.nome;
   return SUBESTACAO.nome;
 }
 
+/** Desbloqueio do tipo: por quantidade de usina já colocada ou por nó da árvore (GDD §8.6). */
 export function desbloqueioDe(tipo: TipoConstrucao): Desbloqueio | undefined {
   if (ehUsina(tipo)) return USINAS[tipo].desbloqueio;
   if (tipo === "bateria") return BATERIA.desbloqueio;
+  if (tipo === "laboratorio") return { no: "laboratorio" };
+  if (tipo === "universidade") return { no: "universidade" };
   return undefined;
 }
 
@@ -143,12 +151,13 @@ export function avisoDaCasa(state: GameState, indice: number, tipo: TipoConstruc
   const analise = analisar(state);
   const ilhaIndice = arq.ilha[indice];
   if (tipo === "subestacao" || tipo === "bateria") return null;
+  if (tipo === "universidade" && analise.universidadesAtivas >= analise.limiteUniversidades) return "sem população para outra";
 
   const perto = analise.subestacoes.filter(
     (s) => arq.ilha[s.indice] === ilhaIndice && Math.max(Math.abs((s.indice % n) - (indice % n)), Math.abs(Math.floor(s.indice / n) - Math.floor(indice / n))) <= SUBESTACAO.alcance,
   );
   if (perto.length === 0) return "sem escoamento";
-  if (tipo === "vila") return null;
+  if (tipo === "bairro" || tipo === "laboratorio" || tipo === "universidade") return null;
   if (perto.every((s) => s.usadoKw >= s.tetoKw)) return "subestação no teto";
 
   const x = indice % n;

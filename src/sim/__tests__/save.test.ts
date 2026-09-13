@@ -60,13 +60,13 @@ describe("save", () => {
     );
     expect(s.creditos).toBeGreaterThanOrEqual(0);
     // v1 → v6: as contagens viram construções no mundo (GDD §2.1, v0.6).
-    expect(quantidadeDe(s, "vila")).toBe(3); // 2 do save + a aldeia de nascença
+    expect(quantidadeDe(s, "bairro")).toBe(3); // 2 do save + a aldeia de nascença
     expect(quantidadeDe(s, "bateria")).toBe(1);
     expect(s.rede.bateria.kwh).toBe(999);
     expect(s.rede.usinas.cataVento).toEqual({ nivel: 0 });
     expect(s.era).toBe(1);
     expect(s.nucleo).toBeNull();
-    expect(s.melhorias).toEqual({ laminasDeFibra: false, rastreamentoSolar: false, grade7x7: false });
+    expect(s.pesquisados).toEqual(["laboratorio"]);
   });
 });
 
@@ -92,7 +92,7 @@ describe("migração de save", () => {
     expect(s.rede.usinas.cataVento).toEqual({ nivel: 1 });
     expect(quantidadeDe(s, "cataVento")).toBe(7);
     expect(quantidadeDe(s, "painelSolar")).toBe(2);
-    expect(quantidadeDe(s, "vila")).toBe(4); // 3 do save + a aldeia de nascença
+    expect(quantidadeDe(s, "bairro")).toBe(4); // 3 do save + a aldeia de nascença
     expect(s.rede.bateria.kwh).toBe(4);
     expect(s.nucleo).toBeNull();
   });
@@ -121,7 +121,7 @@ describe("migração de save", () => {
 });
 
 describe("migração v2 → v3", () => {
-  it("preserva Rede, Núcleo e créditos; melhorias vazias; salvoEmMs = agora (sem ganho offline)", () => {
+  it("preserva Rede, Núcleo e créditos; árvore só com o nó inicial; salvoEmMs = agora (sem ganho offline)", () => {
     const s0 = estadoInicial();
     s0.creditos = 4321;
     s0.nucleo = { ...nucleoInicial(), calorU: 42, estabilidade: 33 };
@@ -145,10 +145,10 @@ describe("migração v2 → v3", () => {
     expect(s.creditos).toBe(4321);
     expect(s.rede.usinas.cataVento).toEqual({ nivel: 2 });
     expect(quantidadeDe(s, "cataVento")).toBe(9);
-    expect(quantidadeDe(s, "vila")).toBe(3); // 2 colocadas + a aldeia de nascença
+    expect(quantidadeDe(s, "bairro")).toBe(3); // 2 colocadas + a aldeia de nascença
     expect(s.nucleo?.calorU).toBe(42);
     expect(s.nucleo?.estabilidade).toBe(33);
-    expect(s.melhorias).toEqual({ laminasDeFibra: false, rastreamentoSolar: false, grade7x7: false });
+    expect(s.pesquisados).toEqual(["laboratorio"]);
     expect(s.salvoEmMs).toBe(123_456);
   });
 

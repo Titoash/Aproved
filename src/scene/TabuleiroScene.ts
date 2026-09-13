@@ -6,10 +6,11 @@ import Phaser from "phaser";
 import { ILHAS, OBSTACULOS, SUBESTACAO, type IlhaId } from "../content/era1-arquipelago";
 import { NIVEIS, type NivelId } from "../content/escalas";
 import { NUCLEO } from "../content/era1-nucleo";
-import { USINAS, VILA } from "../content/era1";
+import { USINAS } from "../content/era1";
+import { BAIRRO } from "../content/cidade-era1";
 import { faixaDeCalor, temperaturaNucleo } from "../sim/calor";
 import { emScram, podeLimparEntulho } from "../sim/cascata";
-import { formatarCreditos, formatarPorcentagem, formatarPotencia } from "../sim/formatar";
+import { formatarCreditos, formatarNumero, formatarPorcentagem, formatarPotencia } from "../sim/formatar";
 import { arquipelagoDaEra1 } from "../sim/gerarArquipelago";
 import { potenciaInstaladaW } from "../sim/kardashev";
 import { avaliarCasa, avaliarRemocaoObstaculo, ancoraDoObstaculo, casasDoObstaculo, custoExpedicao, ilhaAberta, rotaDoCabo, temCabo } from "../sim/mundo";
@@ -149,7 +150,7 @@ export class TabuleiroScene extends Phaser.Scene {
       });
       const T = temperaturaNucleo(nucleo);
       const scram = emScram(nucleo);
-      nucleoCena = { lado: nucleo.lado, pecas, T, scram, consumo: scram ? 0 : clamp01(T / 0.9), rastreamento: state.melhorias.rastreamentoSolar };
+      nucleoCena = { lado: nucleo.lado, pecas, T, scram, consumo: scram ? 0 : clamp01(T / 0.9), rastreamento: state.pesquisados.includes("rastreamentoSolar") };
       if (loja.casaSobPonteiro !== null && loja.casaSobPonteiro < nucleo.grade.length) {
         const [x, y] = casaDaGrade(loja.casaSobPonteiro, nucleo.lado);
         const valido =
@@ -233,11 +234,12 @@ export class TabuleiroScene extends Phaser.Scene {
       ].filter(Boolean);
       callouts.push({ chave: "vento", ancora: "vento", texto: `Vento · ${partes.join(" + ")} · ${formatarPotencia(analise.brutoKw)}` });
     }
-    if (analise.contagem.vila > 0) {
+    if (analise.contagem.bairro > 0) {
+      const gente = analise.populacao >= 1000 ? `${formatarNumero(analise.populacao / 1000, 1)} mil` : String(analise.populacao);
       callouts.push({
         chave: "vila",
         ancora: "vila",
-        texto: `${VILA.nome} · ${analise.contagem.vila} ${analise.contagem.vila === 1 ? "bairro" : "bairros"} · ${formatarPotencia(b.demandaKw)} de demanda`,
+        texto: `${BAIRRO.nomePlural} · ${analise.contagem.bairro} · ${gente} hab · ${formatarPotencia(b.demandaKw)} de demanda`,
       });
     }
 

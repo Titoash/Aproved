@@ -2,13 +2,13 @@
  * Conteúdo da Era 1 — camada Rede (GDD §7, §8.1, §8.2).
  * Só dados: nenhuma regra aqui. A simulação e a UI leem deste arquivo.
  */
-import type { MelhoriaId, UsinaId } from "../sim/state";
+import type { UsinaId } from "../sim/state";
 
 export interface Desbloqueio {
   /** Desbloqueia ao possuir pelo menos N unidades da usina indicada. */
   usina?: [UsinaId, number];
-  /** Pesquisa (🔬) necessária. Sem efeito na Sessão 1: fica só como campo. */
-  pesquisa?: number;
+  /** Desbloqueia ao comprar este nó da árvore de pesquisa (GDD §8.6, v0.6). */
+  no?: string;
 }
 
 export interface UsinaDef {
@@ -35,8 +35,6 @@ export interface ItemDef {
 /** Parâmetros econômicos globais (GDD §7 e §8.1). */
 export const ECONOMIA = {
   creditosIniciais: 50,
-  /** Demanda da aldeia inicial. */
-  demandaInicialKw: 5,
   /** Preço base da energia na Era 1: ₵ por kW·s (GDD §7). */
   precoBase: 1,
   /**
@@ -83,23 +81,14 @@ export const USINAS: Record<UsinaId, UsinaDef> = {
     custoBase: 120,
     crescimento: 1.15,
     potenciaKw: 6,
-    desbloqueio: { pesquisa: 40 },
+    // O 🔬 40 virou o nó "Turbina eólica" da árvore (GDD §8.6): agora é gasto, não limiar.
+    desbloqueio: { no: "turbinaEolica" },
   },
 };
 
 export const ORDEM_USINAS: readonly UsinaId[] = ["cataVento", "painelSolar", "turbinaEolica"];
 
-/** GDD §8.2: Vila ₵ 40, +8 kW de demanda, custo cresce ×1,25 (GDD §7). */
-export const VILA: ItemDef & { demandaKw: number } = {
-  nome: "Vila",
-  nomePlural: "Vilas",
-  descricao: "Um bairro novo ligado à rede. Aumenta a demanda.",
-  custoBase: 40,
-  crescimento: 1.25,
-  demandaKw: 8,
-};
-
-/** GDD §8.2 e §4.1: Bateria ₵ 80, +20 kWh de capacidade e ±10 kW de carga/descarga por unidade, 🔬 20. */
+/** GDD §8.2 e §4.1: Bateria ₵ 80, +20 kWh de capacidade e ±10 kW de carga/descarga por unidade. */
 export const BATERIA: ItemDef & { capacidadeKwh: number; potenciaKw: number } = {
   nome: "Bateria",
   nomePlural: "Baterias",
@@ -108,59 +97,8 @@ export const BATERIA: ItemDef & { capacidadeKwh: number; potenciaKw: number } = 
   crescimento: 1.15,
   capacidadeKwh: 20,
   potenciaKw: 10,
-  desbloqueio: { pesquisa: 20 },
+  desbloqueio: { no: "bateria" },
 };
-
-/* ------------------------------------------------------------------ */
-/* Melhorias nomeadas (GDD §8.2, §8.3)                                */
-/* ------------------------------------------------------------------ */
-
-export type EfeitoMelhoria =
-  | { tipo: "potenciaUsinas"; usinas: readonly UsinaId[]; fator: number }
-  | { tipo: "calorPorEspelho"; valor: number }
-  | { tipo: "gradeLado"; lado: number };
-
-export interface MelhoriaDef {
-  id: MelhoriaId;
-  nome: string;
-  descricao: string;
-  custo: number;
-  /** 🔬 acumulado exigido (requisito, não gasto). */
-  pesquisa?: number;
-  camada: "rede" | "nucleo";
-  efeito: EfeitoMelhoria;
-}
-
-export const MELHORIAS: Record<MelhoriaId, MelhoriaDef> = {
-  laminasDeFibra: {
-    id: "laminasDeFibra",
-    nome: "Lâminas de fibra",
-    descricao: "Pás mais leves e mais longas: cata-vento e turbina eólica +25 %.",
-    custo: 200,
-    camada: "rede",
-    efeito: { tipo: "potenciaUsinas", usinas: ["cataVento", "turbinaEolica"], fator: 1.25 },
-  },
-  rastreamentoSolar: {
-    id: "rastreamentoSolar",
-    nome: "Rastreamento solar",
-    descricao: "Os espelhos seguem o sol: cada um injeta 5 u/s em vez de 4. Muda o equilíbrio — reajuste a grade.",
-    custo: 150,
-    pesquisa: 30,
-    camada: "nucleo",
-    efeito: { tipo: "calorPorEspelho", valor: 5 },
-  },
-  grade7x7: {
-    id: "grade7x7",
-    nome: "Grade 7×7",
-    descricao: "Abre o anel 3: 24 casas novas, só para espelhos, a 1 u/s cada. O 5×5 é preservado no centro. Use com tanques.",
-    custo: 800,
-    pesquisa: 150,
-    camada: "nucleo",
-    efeito: { tipo: "gradeLado", lado: 7 },
-  },
-};
-
-export const ORDEM_MELHORIAS: readonly MelhoriaId[] = ["laminasDeFibra", "rastreamentoSolar", "grade7x7"];
 
 /* ------------------------------------------------------------------ */
 /* Offline (GDD §7)                                                    */

@@ -2,11 +2,12 @@
  * Balança da Rede (GDD §4.1): potência ofertada, demanda, razão `r`,
  * multiplicador de preço por faixa, bateria e receita.
  */
-import { BATERIA, ECONOMIA, FAIXAS_R, USINAS, VILA, type FaixaR } from "../content/era1";
+import { BATERIA, ECONOMIA, FAIXAS_R, USINAS, type FaixaR } from "../content/era1";
+import { DENSIDADES } from "../content/cidade-era1";
 import { fatorMelhoria } from "./custos";
-import { fatorPotenciaUsina } from "./melhorias";
+import { efeitosNeutros, type EfeitosArvore } from "./efeitos";
 import { TICK_MS } from "./tempo";
-import type { BateriaEstado, Melhorias, RedeDerivada, UsinaEstado, UsinaId } from "./state";
+import type { BateriaEstado, RedeDerivada, UsinaEstado, UsinaId } from "./state";
 
 /* ------------------------------------------------------------------ */
 /* Faixas de r (tabela em content/era1.ts)                            */
@@ -29,21 +30,24 @@ export function multiplicadorPreco(r: number): number {
 /* Oferta e demanda                                                   */
 /* ------------------------------------------------------------------ */
 
-export function potenciaUsina(id: UsinaId, estado: UsinaEstado, melhorias?: Melhorias): number {
-  return USINAS[id].potenciaKw * estado.quantidade * fatorMelhoria(estado.nivel) * fatorPotenciaUsina(melhorias, id);
+export function potenciaUsina(id: UsinaId, estado: UsinaEstado, efeitos: EfeitosArvore = efeitosNeutros()): number {
+  return USINAS[id].potenciaKw * estado.quantidade * fatorMelhoria(estado.nivel) * efeitos.potencia[id];
 }
 
-export function potenciaOfertadaKw(rede: RedeDerivada, melhorias?: Melhorias): number {
+export function potenciaOfertadaKw(rede: RedeDerivada, efeitos: EfeitosArvore = efeitosNeutros()): number {
   let total = 0;
   for (const id of Object.keys(rede.usinas) as UsinaId[]) {
-    total += potenciaUsina(id, rede.usinas[id], melhorias);
+    total += potenciaUsina(id, rede.usinas[id], efeitos);
   }
   return total;
 }
 
-/** Demanda: só os bairros (GDD §2.5, v0.6). Bairro sem subestação no alcance não conta — quem filtra é `producao`. */
+/**
+ * Demanda só pelas contagens, quando o chamador não traz a do mundo: todos os bairros na densidade 1.
+ * O caminho normal é `producao.analisar`, que conhece a densidade de cada bairro (GDD §2.5, §8.6).
+ */
 export function demandaKw(rede: RedeDerivada): number {
-  return rede.vilas * VILA.demandaKw;
+  return rede.bairros * DENSIDADES[0].demandaKw;
 }
 
 export function razaoOfertaDemanda(ofertaKw: number, demanda: number): number {
@@ -51,8 +55,8 @@ export function razaoOfertaDemanda(ofertaKw: number, demanda: number): number {
   return ofertaKw / demanda;
 }
 
-export function capacidadeBateriaKwh(unidades: number): number {
-  return unidades * BATERIA.capacidadeKwh;
+export function capacidadeBateriaKwh(unidades: number, efeitos: EfeitosArvore = efeitosNeutros()): number {
+  return unidades * BATERIA.capacidadeKwh * efeitos.capacidadeBateriaFator;
 }
 
 /** Potência máxima de carga ou descarga, em kW: ±10 kW por unidade (GDD §4.1). */
@@ -119,7 +123,9 @@ export interface OpcoesBalanco {
   potenciaNucleoKw?: number;
   /** Intervalo do tick, em s: limita o que a bateria cobre/absorve por energia. */
   dtS?: number;
-  melhorias?: Melhorias;
+  efeitos?: EfeitosArvore;
+  /** Tarifa média dos bairros atendidos (GDD §7, §8.6): multiplica o preço base. */
+  tarifa?: number;
   /** Offline (GDD §7): a bateria nem carrega nem descarrega. */
   semBateria?: boolean;
   /** Oferta das usinas já escoada pelo mundo (GDD §2.4, v0.6). Sem isto, conta-se pela quantidade. */
@@ -153,6 +159,8 @@ export interface BalancoRede {
   fluxoBateriaKw: number;
   /** Por que a faixa efetiva difere da bruta, quando difere. */
   motivoBateria: "cobrindo" | "absorvendo" | null;
+  /** Tarifa média dos bairros atendidos, aplicada ao preço base (GDD §8.6). */
+  tarifa: number;
   /** Estimativa de receita por segundo real no estado atual. */
   receitaPorSegundo: number;
 }
@@ -164,7 +172,7 @@ const EPSILON_KW = 1e-9;
 export function balancoRede(rede: RedeDerivada, opcoes: OpcoesBalanco = {}): BalancoRede {
   const potenciaNucleoKw = Math.max(0, opcoes.potenciaNucleoKw ?? 0);
   const dtS = opcoes.dtS ?? DT_PADRAO_S;
-  const ofertaUsinasKw = opcoes.ofertaUsinasKw ?? potenciaOfertadaKw(rede, opcoes.melhorias);
+  const ofertaUsinasKw = opcoes.ofertaUsinasKw ?? potenciaOfertadaKw(rede, opcoes.efeitos);
   const ofertaKw = ofertaUsinasKw + potenciaNucleoKw;
   const demanda = opcoes.demandaKw ?? demandaKw(rede);
   const rBruto = razaoOfertaDemanda(ofertaKw, demanda);
@@ -190,8 +198,9 @@ export function balancoRede(rede: RedeDerivada, opcoes: OpcoesBalanco = {}): Bal
   }
 
   const vendidoKw = vendaDiretaKw + cobertoKw;
-  // Receita/s = potência vendida (kW) × preço (₵ por kW·s) × multiplicador da balança (GDD §7).
-  const receitaPorSegundo = vendidoKw * ECONOMIA.precoBase * faixa.multiplicador;
+  // Receita/s = vendido (kW) × preço (₵ por kW·s) × tarifa da cidade × multiplicador da balança (GDD §7).
+  const tarifa = opcoes.tarifa ?? 1;
+  const receitaPorSegundo = vendidoKw * ECONOMIA.precoBase * tarifa * faixa.multiplicador;
 
   return {
     ofertaKw,
@@ -210,6 +219,7 @@ export function balancoRede(rede: RedeDerivada, opcoes: OpcoesBalanco = {}): Bal
     absorvidoKw,
     fluxoBateriaKw: absorvidoKw - cobertoKw,
     motivoBateria,
+    tarifa,
     receitaPorSegundo,
   };
 }
@@ -235,7 +245,7 @@ export function passoRede(rede: RedeDerivada, dtMs: number, opcoes: Omit<OpcoesB
     ? { bateria: rede.bateria, carregadoKwh: 0, descarregadoKwh: 0 }
     : atualizarBateria(rede.bateria, balanco.excedenteKw, balanco.deficitKw, dtS);
   const vendidoKwS = balanco.vendaDiretaKw * dtS + bat.descarregadoKwh / ECONOMIA.kwhPorKwSegundo;
-  const receita = vendidoKwS * ECONOMIA.precoBase * balanco.multiplicador;
+  const receita = vendidoKwS * ECONOMIA.precoBase * balanco.tarifa * balanco.multiplicador;
   return {
     rede: { ...rede, bateria: bat.bateria },
     balanco,

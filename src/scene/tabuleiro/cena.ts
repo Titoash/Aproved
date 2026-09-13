@@ -291,6 +291,8 @@ const ALTO: Partial<Record<NomeSprite, number>> = {
   painelSolar: 30,
   casaVila: 50,
   bateria: 36,
+  laboratorio: 46,
+  universidade: 58,
   arvore: 50,
   pinheiro: 54,
   arbusto: 20,
@@ -316,6 +318,8 @@ const CHAVE: Partial<Record<NomeSprite, string>> = {
   tanque: P.tanque,
   radiador: P.radiadorAleta,
   entulho: P.entulho,
+  laboratorio: P.sky,
+  universidade: P.sun,
 };
 const COR_BIPE: Record<PapelBipe, string> = { operador: P.sky, manutencao: P.leaf, cientista: P.sun };
 const TETOS: Record<Teto, string> = { coral: P.coral, sun: P.sun, sky: P.sky };
@@ -392,9 +396,11 @@ const SPRITE_CONSTRUCAO: Record<TipoConstrucao, NomeSprite> = {
   cataVento: "cataVento",
   turbinaEolica: "turbinaEolica",
   painelSolar: "painelSolar",
-  vila: "casaVila",
+  bairro: "casaVila",
   bateria: "bateria",
   subestacao: "subestacao",
+  laboratorio: "laboratorio",
+  universidade: "universidade",
 };
 
 /** Um cristal por casa aberta por montanha dinamitada. */
@@ -474,9 +480,10 @@ function construirRede(cena: Cena, construcoes: readonly ConstrucaoCena[], carga
         estado.fase = r();
         estado.vel = 0.9;
         break;
-      case "vila":
+      case "bairro":
         estado.teto = CICLO_TETOS[nVila++ % 3];
         estado.variante = Math.floor(r() * 3);
+        estado.densidade = c.nivel + 1;
         break;
       case "bateria":
         estado.carga = carga;

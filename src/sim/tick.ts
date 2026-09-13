@@ -12,7 +12,7 @@ import { faixaDeCalor, pesquisaPorSegundo, temperatura } from "./calor";
 import { aplicarCascata, atualizarCronometro, deveCascatear, emScram, scram } from "./cascata";
 import { passoEstabilidade } from "./estabilidade";
 import { capacidadeU, contar, espelhosEfetivosDe, passoCalor, potenciaNucleoKw } from "./nucleo";
-import { calorPorEspelho } from "./melhorias";
+import { efeitosDe, efeitosNeutros, type EfeitosArvore } from "./efeitos";
 import { passoRemocoes } from "./mundo";
 import { analisar, derivarRede } from "./producao";
 import { balancoRede, passoRede, type BalancoRede } from "./rede";
@@ -22,9 +22,9 @@ import { DT_ACUMULADO_MAX_MS, TICK_MS } from "./tempo";
 export { DT_ACUMULADO_MAX_MS, TICK_MS };
 
 /** Potência que o Núcleo entrega à Rede: 0 em SCRAM, ×0,7 no modo seguro. */
-export function potenciaNucleoEfetivaKw(nucleo: NucleoState | null): number {
+export function potenciaNucleoEfetivaKw(nucleo: NucleoState | null, efeitos: EfeitosArvore = efeitosNeutros()): number {
   if (!nucleo || emScram(nucleo)) return 0;
-  const bruta = potenciaNucleoKw(nucleo.grade, nucleo.calorU);
+  const bruta = potenciaNucleoKw(nucleo.grade, nucleo.calorU, efeitos);
   return nucleo.modoSeguro ? bruta * MODO_SEGURO.fatorPotencia : bruta;
 }
 
@@ -34,12 +34,14 @@ export function potenciaNucleoEfetivaKw(nucleo: NucleoState | null): number {
  */
 export function balancoDoEstado(state: GameState): BalancoRede {
   const analise = analisar(state);
+  const efeitos = efeitosDe(state);
   return balancoRede(derivarRede(state, analise), {
-    potenciaNucleoKw: potenciaNucleoEfetivaKw(state.nucleo),
+    potenciaNucleoKw: potenciaNucleoEfetivaKw(state.nucleo, efeitos),
     dtS: TICK_MS / 1000,
-    melhorias: state.melhorias,
+    efeitos,
     ofertaUsinasKw: analise.ofertaKw,
     demandaKw: analise.demandaKw,
+    tarifa: analise.tarifa,
   });
 }
 
@@ -64,20 +66,20 @@ export function passoNucleo(
   potenciaKw: number,
   dtMs: number,
   tempoMs: number,
-  calorEspelho: number = calorPorEspelho(undefined),
+  efeitos: EfeitosArvore = efeitosNeutros(),
 ): PassoNucleo {
   const dtS = dtMs / 1000;
   const scramAtivo = emScram(nucleo);
 
   // Fluxos do início do tick (o card da Cascata mostra estes números, não os do SCRAM que vem depois).
   const c = contar(nucleo.grade);
-  const entradaUs = scramAtivo ? 0 : calorEspelho * espelhosEfetivosDe(c);
-  const saidaUs = NUCLEO.dissipacaoRadiador * c.radiadoresAdjacentes + (scramAtivo ? 0 : NUCLEO.consumoTurbina * c.turbinas * nucleo.calorU);
+  const entradaUs = scramAtivo ? 0 : efeitos.calorPorEspelho * espelhosEfetivosDe(c);
+  const saidaUs = efeitos.dissipacaoRadiador * c.radiadoresAdjacentes + (scramAtivo ? 0 : NUCLEO.consumoTurbina * c.turbinas * nucleo.calorU);
 
   // 4. calor
-  const capacidade = capacidadeU(nucleo.grade, nucleo.receptorCeramico);
+  const capacidade = capacidadeU(nucleo.grade, nucleo.receptorCeramico, efeitos);
   const tAntes = temperatura(nucleo.calorU, capacidade);
-  const calorU = passoCalor(nucleo.grade, nucleo.calorU, dtS, scramAtivo, calorEspelho);
+  const calorU = passoCalor(nucleo.grade, nucleo.calorU, dtS, scramAtivo, efeitos);
   const t = temperatura(calorU, capacidade);
   const faixa = faixaDeCalor(t);
 
@@ -118,25 +120,28 @@ export function tick(state: GameState, dtMs: number = TICK_MS): GameState {
   // 0. obstáculos em remoção
   const comMundo = passoRemocoes(base);
   const analise = analisar(comMundo);
+  const efeitos = efeitosDe(comMundo);
   const eventos: EventoJogo[] = [...comMundo.eventos];
 
   // 1. potência do Núcleo com o Q do início do tick
-  const potenciaNucleo = potenciaNucleoEfetivaKw(comMundo.nucleo);
+  const potenciaNucleo = potenciaNucleoEfetivaKw(comMundo.nucleo, efeitos);
 
   // 2–3. Rede
   const passo = passoRede(derivarRede(comMundo, analise), dtMs, {
     potenciaNucleoKw: potenciaNucleo,
-    melhorias: comMundo.melhorias,
+    efeitos,
     ofertaUsinasKw: analise.ofertaKw,
     demandaKw: analise.demandaKw,
+    tarifa: analise.tarifa,
   });
   let kwh = passo.rede.bateria.kwh;
-  let pesquisa = comMundo.pesquisa;
+  // Laboratórios e universidades rendem 🔬 junto com o Núcleo (GDD §2.5, §8.6).
+  let pesquisa = comMundo.pesquisa + analise.pesquisaPorSegundo * (dtMs / 1000);
   let nucleo = comMundo.nucleo;
 
   // 4–6. Núcleo
   if (nucleo) {
-    const pn = passoNucleo(nucleo, potenciaNucleo, dtMs, tempoMs, calorPorEspelho(comMundo.melhorias));
+    const pn = passoNucleo(nucleo, potenciaNucleo, dtMs, tempoMs, efeitos);
     nucleo = pn.nucleo;
     pesquisa += pn.pesquisaGanha;
     if (pn.cascatou) {

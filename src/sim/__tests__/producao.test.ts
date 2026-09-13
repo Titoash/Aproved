@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { USINAS, VILA } from "../../content/era1";
+import { USINAS } from "../../content/era1";
+import { DENSIDADES } from "../../content/cidade-era1";
 import { CABO, SUBESTACAO, TERRENOS, VIZINHANCA } from "../../content/era1-arquipelago";
 import { ORDEM_TERRENOS, indiceCasa, naPlataforma, type TipoTerreno } from "../arquipelago";
 import { arquipelagoDaEra1 } from "../gerarArquipelago";
@@ -190,14 +191,14 @@ describe("escoamento por subestação (GDD §2.4, §7)", () => {
 
   it("bairro sem subestação no alcance não pede energia", () => {
     const c = casaDe("planicie");
-    const sozinho = montar([[c, "vila"]]);
+    const sozinho = montar([[c, "bairro"]]);
     expect(analisar(sozinho).demandaKw).toBe(0);
     expect(analisar(sozinho).bairrosSemEscoamento).toBe(1);
     const ligado = montar([
-      [c, "vila"],
+      [c, "bairro"],
       [c + 2, "subestacao"],
     ]);
-    expect(analisar(ligado).demandaKw).toBe(VILA.demandaKw);
+    expect(analisar(ligado).demandaKw).toBe(DENSIDADES[0].demandaKw);
     expect(analisar(ligado).bairrosSemEscoamento).toBe(0);
   });
 
@@ -258,16 +259,16 @@ describe("contagens derivadas", () => {
     const s = montar([
       [c, "cataVento"],
       [c + 2, "cataVento"],
-      [c + 4, "vila"],
+      [c + 4, "bairro"],
       [c + 6, "bateria"],
       [c + 3, "subestacao"],
     ]);
     const rede = derivarRede(s);
     expect(rede.usinas.cataVento.quantidade).toBe(2);
-    expect(rede.vilas).toBe(1);
+    expect(rede.bairros).toBe(1);
     expect(rede.bateria.unidades).toBe(1);
     expect(rede.bateria.capacidadeKwh).toBe(20);
-    expect(balancoDoEstado(s).demandaKw).toBe(VILA.demandaKw);
+    expect(balancoDoEstado(s).demandaKw).toBe(DENSIDADES[0].demandaKw);
   });
 
   it("a análise é memoizada enquanto o mundo não muda", () => {

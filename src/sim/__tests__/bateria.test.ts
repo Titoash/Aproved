@@ -4,9 +4,9 @@ import { absorvivelKw, atualizarBateria, balancoRede, cobrivelKw, passoRede } fr
 import { type BateriaEstado } from "../state";
 import { redeDeTeste } from "./ajuda";
 
-/** Rede derivada com `cataVentos` cata-ventos, `vilas` bairros e a bateria pedida. */
-function rede(cataVentos: number, vilas: number, bateria: Partial<BateriaEstado> & { unidades: number }) {
-  const r = redeDeTeste({ cataVento: cataVentos, vilas, bateria: bateria.unidades, kwh: bateria.kwh ?? 0 });
+/** Rede derivada com `cataVentos` cata-ventos, `bairros` bairros e a bateria pedida. */
+function rede(cataVentos: number, bairros: number, bateria: Partial<BateriaEstado> & { unidades: number }) {
+  const r = redeDeTeste({ cataVento: cataVentos, bairros, bateria: bateria.unidades, kwh: bateria.kwh ?? 0 });
   if (bateria.capacidadeKwh !== undefined) r.bateria.capacidadeKwh = bateria.capacidadeKwh;
   return r;
 }

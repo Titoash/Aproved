@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ECONOMIA, USINAS, VILA } from "../../content/era1";
+import { ECONOMIA, USINAS } from "../../content/era1";
+import { DENSIDADES } from "../../content/cidade-era1";
 import {
   atualizarBateria,
   balancoRede,
@@ -58,8 +59,8 @@ describe("oferta e demanda", () => {
   });
 
   it("cada bairro soma sua demanda e cada usina soma sua potência", () => {
-    const rede = redeDeTeste({ vilas: 2, cataVento: 4, painelSolar: 1, nivel: { painelSolar: 1 } });
-    expect(demandaKw(rede)).toBe(2 * VILA.demandaKw);
+    const rede = redeDeTeste({ bairros: 2, cataVento: 4, painelSolar: 1, nivel: { painelSolar: 1 } });
+    expect(demandaKw(rede)).toBe(2 * DENSIDADES[0].demandaKw);
     expect(potenciaOfertadaKw(rede)).toBeCloseTo(
       4 * USINAS.cataVento.potenciaKw + 1 * USINAS.painelSolar.potenciaKw * 1.5,
       10,
@@ -68,13 +69,13 @@ describe("oferta e demanda", () => {
 
   it("acima de 1,25 × demanda entra em saturação e o preço cai", () => {
     // 14 kW contra 1 bairro de 8 kW
-    const rede = redeDeTeste({ vilas: 1, cataVento: 14 });
+    const rede = redeDeTeste({ bairros: 1, cataVento: 14 });
     const b = balancoRede(rede);
     expect(b.r).toBeCloseTo(1.75, 10);
     expect(b.faixa.id).toBe("saturacao");
     expect(b.multiplicador).toBe(0.75);
-    expect(b.vendaDiretaKw).toBe(VILA.demandaKw);
-    expect(b.excedenteKw).toBe(14 - VILA.demandaKw);
+    expect(b.vendaDiretaKw).toBe(DENSIDADES[0].demandaKw);
+    expect(b.excedenteKw).toBe(14 - DENSIDADES[0].demandaKw);
   });
 });
 

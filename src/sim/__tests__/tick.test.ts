@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { ECONOMIA, VILA } from "../../content/era1";
+import { ECONOMIA } from "../../content/era1";
+import { DENSIDADES } from "../../content/cidade-era1";
 import { balancoDoEstado, avancarTicks, tick, TICK_MS } from "../tick";
 import { estadoInicial } from "../state";
 import { estadoLimpo, plantar } from "./ajuda";
 
 /** Um bairro (8 kW de demanda) e `n` cata-ventos em terreno neutro (1 kW cada), todos com escoamento. */
 function comRede(cataVentos: number, creditos = 0) {
-  return plantar(plantar({ ...estadoLimpo(creditos) }, "vila", 1), "cataVento", cataVentos);
+  return plantar(plantar({ ...estadoLimpo(creditos) }, "bairro", 1), "cataVento", cataVentos);
 }
 
 describe("tick", () => {
@@ -15,7 +16,7 @@ describe("tick", () => {
     // 10 kW ofertados contra 8 kW de demanda: r = 1,25 (faixa neutra, ×1), vende 8 kW.
     const s0 = comRede(10);
     expect(balancoDoEstado(s0).multiplicador).toBe(1);
-    expect(balancoDoEstado(s0).vendaDiretaKw).toBe(VILA.demandaKw);
+    expect(balancoDoEstado(s0).vendaDiretaKw).toBe(DENSIDADES[0].demandaKw);
 
     const s = avancarTicks(s0, 100);
     expect(s.tempoMs).toBe(100 * TICK_MS);

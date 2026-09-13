@@ -3,7 +3,7 @@
  * Salva a cada `INTERVALO_SAVE_MS`, carrega no início, exporta/importa JSON,
  * migra saves de versões anteriores.
  */
-import { MELHORIAS } from "../content/era1";
+import { NOS_INICIAIS, NO_POR_ID } from "../content/arvore-era1";
 import { ILHAS, ORDEM_OBSTACULOS, type IlhaId, type TipoObstaculo } from "../content/era1-arquipelago";
 import { NUCLEO, PECAS } from "../content/era1-nucleo";
 import { arquipelagoDaEra1 } from "./gerarArquipelago";
@@ -14,15 +14,12 @@ import {
   estadoInicial,
   gradeVazia,
   indiceReceptor,
-  melhoriasIniciais,
   mundoInicial,
   nucleoInicial,
   VERSAO_SAVE,
   type Casa,
   type Construcao,
   type GameState,
-  type MelhoriaId,
-  type Melhorias,
   type MundoState,
   type NucleoState,
   type PecaId,
@@ -135,7 +132,7 @@ function normalizarCardsVistos(bruto: unknown): string[] {
   return Array.from(new Set(bruto.filter((x): x is string => typeof x === "string")));
 }
 
-const TIPOS_CONSTRUCAO: readonly TipoConstrucao[] = ["cataVento", "painelSolar", "turbinaEolica", "vila", "bateria", "subestacao"];
+const TIPOS_CONSTRUCAO: readonly TipoConstrucao[] = ["cataVento", "painelSolar", "turbinaEolica", "bairro", "bateria", "subestacao", "laboratorio", "universidade"];
 
 function ehTipoConstrucao(valor: unknown): valor is TipoConstrucao {
   return typeof valor === "string" && TIPOS_CONSTRUCAO.includes(valor as TipoConstrucao);
@@ -200,11 +197,10 @@ function normalizarMundo(bruto: unknown): MundoState {
   return { construcoes, removidos, remocoes, cristais, ilhasAbertas, cabos };
 }
 
-function normalizarMelhorias(bruto: unknown): Melhorias {
-  const base = melhoriasIniciais();
-  const m = objeto(bruto);
-  for (const id of Object.keys(MELHORIAS) as MelhoriaId[]) base[id] = booleano(m[id], false);
-  return base;
+/** Nós pesquisados: só ids conhecidos, sem repetição, e os que nascem prontos sempre presentes. */
+function normalizarPesquisados(bruto: unknown): string[] {
+  const lista = Array.isArray(bruto) ? bruto.filter((x): x is string => typeof x === "string" && x in NO_POR_ID) : [];
+  return Array.from(new Set([...NOS_INICIAIS, ...lista]));
 }
 
 /** Preenche campos ausentes com o estado inicial e sanitiza números. `agoraMs` vira o carimbo de saves sem `salvoEmMs`. */
@@ -231,7 +227,7 @@ function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState 
     era: 1,
     rede,
     nucleo: normalizarNucleo(bruto.nucleo),
-    melhorias: normalizarMelhorias(bruto.melhorias),
+    pesquisados: normalizarPesquisados(bruto.pesquisados),
     salvoEmMs: typeof bruto.salvoEmMs === "number" && bruto.salvoEmMs > 0 ? bruto.salvoEmMs : agoraMs,
     cardsVistos: normalizarCardsVistos(bruto.cardsVistos),
     mundo: normalizarMundo(bruto.mundo),
@@ -247,7 +243,9 @@ function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState 
  * v4 → v5: entra `tabuleiro` com as regiões iniciais da ilha (GDD §2.4).
  * v5 → v6: a Rede vira colocação (GDD §2.1, v0.6): as contagens viram construções na ilha principal,
  *          o excedente vira ₵, e `tabuleiro` (regiões/vagas) some — quem manda agora é `mundo`.
- * v6 → v7: o cabo submarino ganha nível (lista de ilhas → ilha: nível) e entram as casas de cristal.
+ * v6 → v7: o cabo submarino ganha nível (lista de ilhas → ilha: nível), entram as casas de cristal,
+ *          "vila" vira "bairro" com densidade, e as melhorias nomeadas viram nós da árvore — 🔬
+ *          acumulado vira saldo e o que já estava desbloqueado fica desbloqueado sem cobrar.
  */
 function migrar(bruto: Record<string, unknown>, agoraMs: number): Record<string, unknown> {
   const versao = bruto.versao;
@@ -282,7 +280,7 @@ function migrar(bruto: Record<string, unknown>, agoraMs: number): Record<string,
       cataVento: conta("cataVento"),
       turbinaEolica: conta("turbinaEolica"),
       painelSolar: conta("painelSolar"),
-      vila: inteiro(redeBruta.vilas, 0),
+      bairro: inteiro(redeBruta.vilas, 0),
       bateria: inteiro(objeto(redeBruta.bateria).unidades, 0),
     });
     const rede = {
@@ -297,7 +295,29 @@ function migrar(bruto: Record<string, unknown>, agoraMs: number): Record<string,
     const mundoBruto = objeto(atual.mundo);
     const cabos: Record<string, number> = {};
     if (Array.isArray(mundoBruto.cabos)) for (const id of mundoBruto.cabos) if (typeof id === "string" && id !== "principal") cabos[id] = 0;
-    atual = { ...atual, mundo: { ...mundoBruto, cabos, cristais: [] }, versao: 7 };
+    // "vila" virou "bairro" com densidade no `nivel` (GDD §2.5, §8.6): o tipo antigo é a densidade 1.
+    const construcoes: Record<string, unknown> = {};
+    for (const [chave, valor] of Object.entries(objeto(mundoBruto.construcoes))) {
+      const c = objeto(valor);
+      construcoes[chave] = c.tipo === "vila" ? { ...c, tipo: "bairro" } : c;
+    }
+    // 🔬 acumulado vira saldo; o que já estava desbloqueado continua desbloqueado **sem cobrar**.
+    const melhorias = objeto(atual.melhorias);
+    const acumulado = numero(atual.pesquisa, 0);
+    const nucleoBruto = objeto(atual.nucleo);
+    const pesquisados = [...NOS_INICIAIS];
+    const marcar = (id: string) => {
+      if (!pesquisados.includes(id)) pesquisados.push(id);
+    };
+    if (melhorias.laminasDeFibra === true) marcar("laminasDeFibra");
+    if (melhorias.rastreamentoSolar === true) marcar("rastreamentoSolar");
+    if (melhorias.grade7x7 === true) marcar("grade7x7");
+    if (atual.nucleo && nucleoBruto.receptorCeramico === true) marcar("receptorCeramico");
+    // Limiares antigos (🔬 40 turbina eólica, 🔬 20 bateria) que já tinham sido alcançados.
+    if (acumulado >= 40) marcar("turbinaEolica");
+    if (acumulado >= 20) marcar("bateria");
+    const { melhorias: _melhorias, ...resto } = atual;
+    atual = { ...resto, mundo: { ...mundoBruto, construcoes, cabos, cristais: [] }, pesquisados, versao: 7 };
     v = 7;
   }
   return { ...atual, versao: v };

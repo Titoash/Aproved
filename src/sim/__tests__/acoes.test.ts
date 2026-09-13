@@ -4,6 +4,8 @@ import { custoProximaMelhoria, desbloqueado, melhorarUsina, tipoDisponivel } fro
 import { custoMelhoria } from "../custos";
 import { derivarRede } from "../producao";
 import { potenciaOfertadaKw } from "../rede";
+import { pesquisar } from "../arvore";
+import { NO_POR_ID } from "../../content/arvore-era1";
 import { estadoLimpo, plantar } from "./ajuda";
 
 describe("ações da Rede (desbloqueios e níveis)", () => {
@@ -17,17 +19,21 @@ describe("ações da Rede (desbloqueios e níveis)", () => {
     expect(tipoDisponivel(s1, "painelSolar")).toBe(true);
   });
 
-  it("desbloqueio por pesquisa compara com o 🔬 acumulado, sem gastar", () => {
+  it("desbloqueio por nó da árvore: só libera com o nó comprado, e o nó gasta 🔬 (v0.6)", () => {
     const s = estadoLimpo();
-    expect(USINAS.turbinaEolica.desbloqueio?.pesquisa).toBe(40);
+    expect(USINAS.turbinaEolica.desbloqueio?.no).toBe("turbinaEolica");
+    expect(BATERIA.desbloqueio?.no).toBe("bateria");
     expect(tipoDisponivel(s, "turbinaEolica")).toBe(false);
     expect(tipoDisponivel(s, "bateria")).toBe(false);
-    const s1 = { ...s, pesquisa: BATERIA.desbloqueio!.pesquisa! };
-    expect(tipoDisponivel(s1, "bateria")).toBe(true);
-    expect(tipoDisponivel(s1, "turbinaEolica")).toBe(false);
-    const s2 = { ...s, pesquisa: 40 };
-    expect(tipoDisponivel(s2, "turbinaEolica")).toBe(true);
-    expect(s2.pesquisa).toBe(40);
+
+    const comCiencia = { ...s, pesquisa: 100 };
+    const comBateria = pesquisar(comCiencia, "bateria")!;
+    expect(tipoDisponivel(comBateria, "bateria")).toBe(true);
+    expect(tipoDisponivel(comBateria, "turbinaEolica")).toBe(false);
+    expect(comBateria.pesquisa).toBe(100 - NO_POR_ID.bateria.pesquisa); // 🔬 é gasto, não limiar
+
+    const comTurbina = pesquisar(comBateria, "turbinaEolica")!;
+    expect(tipoDisponivel(comTurbina, "turbinaEolica")).toBe(true);
   });
 
   it("melhorar exige ao menos uma unidade colocada e sobe o nível", () => {

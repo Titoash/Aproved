@@ -1,9 +1,9 @@
 /** Ícones vetoriais próprios (GDD §10: nada de terceiros, nada de emoji nos ícones). */
 import type { NivelId } from "../content/escalas";
 import type { TipoObstaculo } from "../content/era1-arquipelago";
-import type { MelhoriaId, TipoConstrucao } from "../sim/state";
+import type { TipoConstrucao } from "../sim/state";
 
-export type ItemIcone = TipoConstrucao | MelhoriaId | TipoObstaculo | "remover";
+export type ItemIcone = TipoConstrucao | TipoObstaculo | "remover" | "pesquisa";
 
 export function IconeItem({ id }: { id: ItemIcone }) {
   switch (id) {
@@ -44,7 +44,7 @@ export function IconeItem({ id }: { id: ItemIcone }) {
           <circle cx="10" cy="6.5" r="1.8" fill="#ffd23f" />
         </svg>
       );
-    case "vila":
+    case "bairro":
       return (
         <svg className="icone icone--item" viewBox="0 0 20 20" aria-hidden="true">
           <path d="M4 9h6v9H4Z" fill="#f3e7c9" />
@@ -137,30 +137,39 @@ export function IconeItem({ id }: { id: ItemIcone }) {
           <rect x="11.2" y="7" width="2.4" height="6" rx=".8" fill="#6be585" opacity=".3" />
         </svg>
       );
-    case "laminasDeFibra":
+    case "laboratorio":
       return (
         <svg className="icone icone--item" viewBox="0 0 20 20" aria-hidden="true">
-          <circle cx="10" cy="10" r="9" fill="#4cc9f0" opacity=".35" />
-          <path d="M3.5 17C3.5 9 8.5 3 16.5 3c0 8-5 13-13 14Z" fill="#f7f9ff" />
-          <path d="M3.5 17 12 8.5" stroke="#b9bfe8" strokeWidth="1.4" strokeLinecap="round" />
+          <rect x="3" y="8" width="14" height="10" rx="1.5" fill="#e7ecff" />
+          <path d="M3 8a7 4 0 0 1 14 0Z" fill="#c9cfff" />
+          <rect x="5.5" y="11" width="3" height="3" fill="#4cc9f0" />
+          <rect x="11.5" y="11" width="3" height="3" fill="#ffd23f" />
+          <path d="M9.2 2.2h1.6v4l-1.6-.6Z" fill="#4cc9f0" />
         </svg>
       );
-    case "rastreamentoSolar":
+    case "universidade":
       return (
         <svg className="icone icone--item" viewBox="0 0 20 20" aria-hidden="true">
-          <circle cx="15" cy="5" r="3" fill="#ffd23f" />
-          <rect x="9" y="12" width="2" height="6" fill="#4f5ac8" />
-          <path d="M2.5 9.5 16 5.5l1.5 3.5L4 13Z" fill="#4cc9f0" />
-          <path d="M2.5 9.5 16 5.5l.5 1.2L3 10.7Z" fill="#f4f6ff" opacity=".7" />
-          <path d="M2.5 9.5 16 5.5l1.5 3.5L4 13Z" fill="none" stroke="#2b8fd6" strokeWidth="1" />
+          <rect x="2" y="9" width="16" height="9" rx="1" fill="#e7ecff" />
+          <g fill="#241b55">
+            <rect x="4" y="11" width="1.8" height="6" />
+            <rect x="7.6" y="11" width="1.8" height="6" />
+            <rect x="11.2" y="11" width="1.8" height="6" />
+            <rect x="14.8" y="11" width="1.8" height="6" />
+          </g>
+          <path d="M4 9a6 5 0 0 1 12 0Z" fill="#ffb703" />
+          <circle cx="10" cy="2.6" r="1.4" fill="#ffd23f" />
         </svg>
       );
-    case "grade7x7":
+    case "pesquisa":
       return (
         <svg className="icone icone--item" viewBox="0 0 20 20" aria-hidden="true">
-          <path d="M10 2 18 10l-8 8-8-8Z" fill="#222a66" />
-          <path d="M10 2 18 10l-8 8-8-8Z" fill="none" stroke="#4cc9f0" strokeOpacity=".6" strokeWidth="1.2" />
-          <path d="M7.3 4.7 15.3 12.7M4.7 7.3l8 8M12.7 4.7 4.7 12.7M15.3 7.3l-8 8" stroke="#f4f6ff" strokeOpacity=".25" strokeWidth="1" />
+          <circle cx="10" cy="10" r="2.4" fill="#ffd23f" />
+          <g fill="none" stroke="#4cc9f0" strokeWidth="1.3">
+            <ellipse cx="10" cy="10" rx="8.6" ry="3.6" />
+            <ellipse cx="10" cy="10" rx="8.6" ry="3.6" transform="rotate(60 10 10)" />
+            <ellipse cx="10" cy="10" rx="8.6" ry="3.6" transform="rotate(120 10 10)" />
+          </g>
         </svg>
       );
   }

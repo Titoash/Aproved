@@ -51,6 +51,8 @@ export type NomeSprite =
   | "montanha"
   | "pico"
   | "subestacao"
+  | "laboratorio"
+  | "universidade"
   | "cristal"
   | "placaBloqueio"
   | "bipe"
@@ -78,6 +80,8 @@ export const NOMES_SPRITES: readonly NomeSprite[] = [
   "montanha",
   "pico",
   "subestacao",
+  "laboratorio",
+  "universidade",
   "cristal",
   "placaBloqueio",
   "bipe",
@@ -123,6 +127,8 @@ export interface EstadoSprite {
   vel?: number;
   /** casaVila: cor do telhado (padrão `coral`). */
   teto?: Teto;
+  /** casaVila: densidade 1..4 do bairro (GDD §8.6) — muda altura, andares e antena. */
+  densidade?: number;
   /** casaVila 0 porta / 1 janelas / 2 chaminé; arvore 0..2 (deslocamento da copa); pedra 0..2 (silhueta). */
   variante?: number;
   /** arvore, pinheiro, cristal: escala local (padrão 1). */
@@ -185,6 +191,8 @@ const P = {
   painelBrilho: "#8fe3ff",
   vilaParede: "#f3e7c9",
   vilaParede2: "#cdbf9e",
+  labParede: "#e7ecff",
+  labParede2: "#c2cbf0",
   bateriaCaixa: "#e4e8ff",
   scram: "#7c86b0",
   copa: "#3fb36a",
@@ -225,6 +233,8 @@ const D = {
   painelGrade: A(P.sky, 0.35),
   painelBrilho: A(P.painelBrilho, 0.7),
   vilaBorda: E(P.vilaParede2, 0.35),
+  labBorda: E(P.labParede2, 0.3),
+  labSE: E(P.labParede, 0.16),
   tetos: TETOS,
   tetoSW: porTeto((c) => E(c, 0.18)),
   tetoSE: porTeto((c) => E(c, 0.3)),
@@ -1092,36 +1102,131 @@ const S: Record<NomeSprite, FnSprite> = {
   },
 
   // Casa da vila: caixinha isométrica com telhado colorido; variante 0 porta, 1 janelas, 2 chaminé.
-  casaVila(ctx, e, _t, longe) {
+  /**
+   * Bairro. A densidade (GDD §8.6) sobe o prédio e acende mais janelas: aldeia baixa com telhado,
+   * vila com um andar a mais, cidade com quatro fileiras de janelas e metrópole com antena piscando.
+   */
+  casaVila(ctx, e, t, longe) {
     const teto: Teto = e.teto ?? "coral";
     const variante = e.variante || 0;
+    const densidade = Math.max(1, Math.min(4, Math.round(e.densidade ?? 1)));
     const corTeto = D.tetos[teto];
+    const alturas = [22, 32, 46, 62];
+    const alt = alturas[densidade - 1];
+    const largura = densidade >= 3 ? 0.36 : 0.32;
+    // A partir da cidade o telhado inclinado vira laje: prédio alto não tem duas águas.
+    const laje = densidade >= 3;
     if (longe) {
-      caixa(ctx, 0.32, 0.32, 22, P.vilaParede, P.vilaParede, P.vilaParede2);
-      caixa(ctx, 0.36, 0.36, 6, corTeto, D.tetoSW[teto], D.tetoSE[teto], -22);
+      caixa(ctx, largura, largura, alt, P.vilaParede, P.vilaParede, P.vilaParede2);
+      caixa(ctx, largura + 0.04, largura + 0.04, 6, corTeto, D.tetoSW[teto], D.tetoSE[teto], -alt);
       return;
     }
-    sombra(ctx, 0, 0, 18, 8, 6);
-    caixa(ctx, 0.32, 0.32, 22, P.vilaParede, P.vilaParede, P.vilaParede2);
-    if (variante === 0) retFaceSW(ctx, 0.32, 0.32, 0.38, 0.62, 0, 10, P.navy2);
-    else if (variante === 1) {
-      retFaceSW(ctx, 0.32, 0.32, 0.2, 0.4, 8, 13, P.sun);
-      retFaceSW(ctx, 0.32, 0.32, 0.6, 0.8, 8, 13, P.sun);
-    } else retFaceSW(ctx, 0.32, 0.32, 0.35, 0.65, 0, 9, P.navy2);
-    retFaceSE(ctx, 0.32, 0.32, 0.35, 0.65, 7, 12, P.sun);
-    contornoCaixa(ctx, 0.32, 0.32, 22, D.vilaBorda);
-    caixa(ctx, 0.36, 0.36, 6, corTeto, D.tetoSW[teto], D.tetoSE[teto], -22);
-    // cumeeira: aresta NW do topo do telhado
-    ctx.strokeStyle = D.tetoCume[teto];
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(-32 * 0.72, -28);
-    ctx.lineTo(0, -28 - 16 * 0.72);
-    ctx.stroke();
-    if (variante === 2) {
+    sombra(ctx, 0, 0, 18 + densidade * 2, 8, 6);
+    caixa(ctx, largura, largura, alt, P.vilaParede, P.vilaParede, P.vilaParede2);
+    if (densidade === 1) {
+      if (variante === 0) retFaceSW(ctx, largura, largura, 0.38, 0.62, 0, 10, P.navy2);
+      else if (variante === 1) {
+        retFaceSW(ctx, largura, largura, 0.2, 0.4, 8, 13, P.sun);
+        retFaceSW(ctx, largura, largura, 0.6, 0.8, 8, 13, P.sun);
+      } else retFaceSW(ctx, largura, largura, 0.35, 0.65, 0, 9, P.navy2);
+      retFaceSE(ctx, largura, largura, 0.35, 0.65, 7, 12, P.sun);
+    } else {
+      // fileiras de janelas: uma a cada 10 px de altura, alternando acesas para não virar xadrez
+      const fileiras = Math.max(2, Math.floor((alt - 8) / 11));
+      for (let f = 0; f < fileiras; f++) {
+        const v0 = 4 + f * 11;
+        const acesa = (f + variante) % 3 !== 0;
+        retFaceSW(ctx, largura, largura, 0.18, 0.42, v0, v0 + 6, acesa ? P.sun : P.navy2);
+        retFaceSW(ctx, largura, largura, 0.58, 0.82, v0, v0 + 6, (f + variante) % 2 ? P.sun : P.navy2);
+        retFaceSE(ctx, largura, largura, 0.3, 0.7, v0, v0 + 6, acesa ? P.sun : P.navy2);
+      }
+    }
+    contornoCaixa(ctx, largura, largura, alt, D.vilaBorda);
+    caixa(ctx, largura + 0.04, largura + 0.04, laje ? 3 : 6, corTeto, D.tetoSW[teto], D.tetoSE[teto], -alt);
+    if (!laje) {
+      // cumeeira: aresta NW do topo do telhado
+      ctx.strokeStyle = D.tetoCume[teto];
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-32 * (largura + 0.04) / 0.5, -alt - 6);
+      ctx.lineTo(0, -alt - 6 - 16 * (largura + 0.04) / 0.5);
+      ctx.stroke();
+    }
+    if (densidade === 4) {
+      // antena com luz de obstáculo: pisca em 1,6 s
+      rect(ctx, -0.8, -alt - 22, 1.6, 20, P.tanque2);
+      circulo(ctx, 0, -alt - 23, 2, ((t / 1.6) % 1) < 0.5 ? P.coral : D.leafApagado);
+    } else if (densidade === 1 && variante === 2) {
       rect(ctx, 6, -40, 4, 8, P.tanque2);
       rect(ctx, 5, -41, 6, 2, P.tanque);
     }
+  },
+
+  /**
+   * Laboratório: bloco claro com cúpula de observação e uma janela acesa. A cúpula é o sinal de que
+   * ali se olha para fora — e o glow ciano diz que está consumindo energia.
+   */
+  laboratorio(ctx, _e, t, longe) {
+    if (!longe) sombra(ctx, 0, 0, 15, 7, 5);
+    caixa(ctx, 0.3, 0.26, 20, P.labParede, P.labParede, P.labParede2);
+    if (!longe) {
+      retFaceSW(ctx, 0.3, 0.26, 0.2, 0.45, 5, 12, P.sky);
+      retFaceSE(ctx, 0.3, 0.26, 0.3, 0.7, 5, 11, P.sun);
+      contornoCaixa(ctx, 0.3, 0.26, 20, D.labBorda);
+    }
+    // cúpula
+    ctx.fillStyle = P.tanque;
+    ctx.beginPath();
+    ctx.ellipse(0, -27, 9, 5, 0, Math.PI, TAU);
+    ctx.fill();
+    if (longe) return;
+    ctx.strokeStyle = D.labBorda;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // fresta da cúpula, com o brilho respirando em 3 s
+    ctx.globalCompositeOperation = "lighter";
+    ctx.fillStyle = alfa(P.sky, 0.35 + 0.25 * Math.sin((t / 3) * TAU));
+    ctx.beginPath();
+    ctx.moveTo(-1.6, -27);
+    ctx.lineTo(1.6, -27);
+    ctx.lineTo(1, -32);
+    ctx.lineTo(-1, -32);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalCompositeOperation = "source-over";
+  },
+
+  /**
+   * Universidade: dois blocos, colunata na frente e cúpula dourada. Maior que o laboratório porque
+   * custa e rende mais — a silhueta tem de dizer isso de longe.
+   */
+  universidade(ctx, _e, t, longe) {
+    if (!longe) sombra(ctx, 0, 0, 20, 9, 6);
+    caixa(ctx, 0.42, 0.34, 26, P.labParede, P.labParede, P.labParede2);
+    if (!longe) {
+      // colunata na face SW: cinco vãos escuros entre colunas claras
+      for (let i = 0; i < 5; i++) {
+        const u0 = 0.1 + i * 0.17;
+        retFaceSW(ctx, 0.42, 0.34, u0, u0 + 0.1, 3, 18, P.navy2);
+      }
+      retFaceSE(ctx, 0.42, 0.34, 0.2, 0.8, 6, 16, P.sun);
+      contornoCaixa(ctx, 0.42, 0.34, 26, D.labBorda);
+    }
+    // tambor + cúpula dourada
+    rect(ctx, -7, -38, 14, 6, P.labParede2);
+    ctx.fillStyle = P.gold;
+    ctx.beginPath();
+    ctx.ellipse(0, -38, 8.5, 7, 0, Math.PI, TAU);
+    ctx.fill();
+    if (longe) return;
+    ctx.fillStyle = P.sun;
+    ctx.beginPath();
+    ctx.ellipse(-2.5, -40, 3.5, 3, 0, Math.PI, TAU);
+    ctx.fill();
+    circulo(ctx, 0, -47, 1.8, P.sun);
+    ctx.globalCompositeOperation = "lighter";
+    circulo(ctx, 0, -47, 4.5 + Math.sin((t / 4) * TAU), alfa(P.sun, 0.16));
+    ctx.globalCompositeOperation = "source-over";
   },
 
   // Bateria: caixa clara com 3 barras `leaf` na face SE e terminal amarelo.

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { MELHORIA, USINAS, VILA } from "../../content/era1";
+import { MELHORIA, USINAS } from "../../content/era1";
+import { BAIRRO } from "../../content/cidade-era1";
 import { custoMelhoria, custoUnidade, fatorMelhoria } from "../custos";
 
 describe("custoUnidade", () => {
@@ -14,11 +15,11 @@ describe("custoUnidade", () => {
     expect(custoUnidade(USINAS.cataVento, 10)).toBeCloseTo(custoBase * crescimento ** 10, 10);
   });
 
-  it("vilas crescem ×1,25 (GDD §7)", () => {
-    expect(VILA.crescimento).toBe(1.25);
-    expect(custoUnidade(VILA, 0)).toBe(40);
-    expect(custoUnidade(VILA, 1)).toBe(50);
-    expect(custoUnidade(VILA, 3)).toBeCloseTo(VILA.custoBase * 1.25 ** 3, 10);
+  it("bairros crescem ×1,25 (GDD §7)", () => {
+    expect(BAIRRO.crescimento).toBe(1.25);
+    expect(custoUnidade(BAIRRO, 0)).toBe(40);
+    expect(custoUnidade(BAIRRO, 1)).toBe(50);
+    expect(custoUnidade(BAIRRO, 3)).toBeCloseTo(BAIRRO.custoBase * 1.25 ** 3, 10);
     expect(custoUnidade({ custoBase: 100, crescimento: 2 }, 3)).toBe(800);
   });
 });

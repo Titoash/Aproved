@@ -163,7 +163,7 @@ describe("acoplamento Núcleo → Rede e ordem do tick", () => {
 
   it("sem Núcleo o tick da Sessão 1 não muda", () => {
     // 10 kW contra um bairro de 8 kW: faixa neutra ×1, vende 8 kW por 10 s.
-    const s0 = plantar(plantar(estadoLimpo(0), "vila", 1), "cataVento", 10);
+    const s0 = plantar(plantar(estadoLimpo(0), "bairro", 1), "cataVento", 10);
     expect(avancarTicks(s0, 100).creditos).toBeCloseTo(80, 6);
   });
 });
