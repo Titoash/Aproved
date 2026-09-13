@@ -1,6 +1,8 @@
 import { useState, type CSSProperties } from "react";
 import { faixaDeCalor, pesquisaPorSegundo, temperaturaNucleo } from "../sim/calor";
 import { formatarCreditos, formatarNumero, formatarPorcentagem, formatarPotencia, formatarTaxa } from "../sim/formatar";
+import { proximoNo } from "../sim/arvore";
+import { progressoDoAtivo } from "../sim/capitulos";
 import { analisar } from "../sim/producao";
 import { balancoDoEstado, potenciaNucleoEfetivaKw } from "../sim/tick";
 import { corDaRampaCss } from "../scene/rampa";
@@ -28,6 +30,7 @@ function NotaDeCreditos() {
 export function Hud() {
   const state = useGameStore((s) => s.state);
   const [extratoAberto, setExtratoAberto] = useState(false);
+  const abrirArvore = useGameStore((s) => s.abrirArvore);
   const balanco = balancoDoEstado(state);
   const analise = analisar(state);
   const nucleo = state.nucleo;
@@ -36,6 +39,8 @@ export function Hud() {
   const potenciaNucleo = potenciaNucleoEfetivaKw(nucleo);
   const pesquisaTaxa = nucleo && nucleo.scramRestanteMs === 0 && t !== null ? pesquisaPorSegundo(potenciaNucleo, t) : 0;
   const corCalor = t !== null ? corDaRampaCss(Math.min(1, t)) : "var(--muted)";
+  const proximo = proximoNo(state);
+  const capitulo = progressoDoAtivo(state);
   const estiloEsfera = {
     background: corCalor,
     boxShadow: t !== null && t >= 0.7 ? (t > 1 ? "var(--glow-coral)" : "var(--glow-sun)") : "none",
@@ -87,11 +92,21 @@ export function Hud() {
         <span className="hud-rotulo">{faixaCalor ? faixaCalor.nome.toLowerCase() : "Núcleo bloqueado"}</span>
       </div>
 
-      <div className="hud-item hud-item--extra">
-        <span className="hud-valor">
-          🔬 <NumeroPop valor={Math.floor(state.pesquisa)}>{formatarNumero(state.pesquisa, state.pesquisa < 100 ? 1 : 0)}</NumeroPop>
-        </span>
-        <span className="hud-rotulo">{nucleo ? `+${formatarNumero(pesquisaTaxa, 2)}/s` : "nasce no Núcleo"}</span>
+      <div className="hud-item hud-item--ciencia">
+        <button type="button" className="hud-pesquisa" onClick={abrirArvore} title="Abrir a árvore de pesquisa: 🔬 se gasta em nós">
+          <span className="hud-valor">
+            🔬 <NumeroPop valor={Math.floor(state.pesquisa)}>{formatarNumero(state.pesquisa, state.pesquisa < 100 ? 1 : 0)}</NumeroPop>
+          </span>
+          <span className="hud-rotulo">
+            +{formatarNumero(pesquisaTaxa + analise.pesquisaPorSegundo, 2)}/s
+            {proximo ? ` · próximo: ${proximo.nome} (🔬 ${proximo.pesquisa})` : " · árvore completa"}
+          </span>
+        </button>
+      </div>
+
+      <div className="hud-item hud-item--populacao">
+        <span className="hud-valor">👥 {formatarNumero(analise.populacao, 0)}</span>
+        <span className="hud-rotulo">habitantes</span>
       </div>
 
       <div className="hud-item hud-item--extra">
@@ -99,6 +114,20 @@ export function Hud() {
         <span className="hud-rotulo">Estabilidade</span>
       </div>
       </header>
+      {capitulo ? (
+        <div className="capitulo" aria-label="Capítulo ativo">
+          <span className="capitulo-titulo">{capitulo.capitulo.titulo}</span>
+          <span className="capitulo-objetivo">{capitulo.capitulo.objetivo}</span>
+          <span className="capitulo-progresso">
+            <span className="capitulo-barra" style={{ width: `${Math.min(100, (capitulo.atual / capitulo.alvo) * 100)}%` }} />
+          </span>
+          <span className="capitulo-numeros">
+            {formatarNumero(Math.min(capitulo.atual, capitulo.alvo), capitulo.alvo >= 100 ? 0 : 0)}/{formatarNumero(capitulo.alvo, 0)}
+            {capitulo.capitulo.recompensa.creditos ? ` · ${formatarCreditos(capitulo.capitulo.recompensa.creditos)}` : ""}
+            {capitulo.capitulo.recompensa.pesquisa ? ` · 🔬 ${capitulo.capitulo.recompensa.pesquisa}` : ""}
+          </span>
+        </div>
+      ) : null}
       {/* Fora do <header>: o HUD do celular rola na horizontal e recortaria o popover. */}
       {extratoAberto ? (
         <div className="hud-extrato" role="dialog" aria-label="Extrato">

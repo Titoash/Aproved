@@ -3,6 +3,7 @@ import { useTick } from "./store/useTick";
 import { CardExplicativo } from "./ui/CardExplicativo";
 import { CardOffline } from "./ui/CardOffline";
 import { Hud } from "./ui/Hud";
+import { PainelArvore } from "./ui/PainelArvore";
 import { PainelKardashev } from "./ui/PainelKardashev";
 import { PainelNucleo } from "./ui/PainelNucleo";
 import { PainelRede } from "./ui/PainelRede";
@@ -23,6 +24,7 @@ export default function App() {
         <PainelKardashev />
         <PainelSave />
       </div>
+      <PainelArvore />
       <CardOffline />
       <CardExplicativo />
     </div>

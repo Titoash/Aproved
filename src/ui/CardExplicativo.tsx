@@ -1,7 +1,16 @@
+import type { ReactNode } from "react";
 import { CARDS_ERA1 } from "../content/cards-era1";
 import { formatarNumero } from "../sim/formatar";
 import { useGameStore } from "../store/gameStore";
 import { Bipe } from "./bipe/Bipe";
+
+/**
+ * Os textos dos cards marcam ênfase com `**assim**`. Sem isto os asteriscos apareciam crus na tela
+ * (defeito herdado da Sessão 6, encontrado ao escrever os cards novos da Sessão 7).
+ */
+function comNegrito(texto: string): ReactNode[] {
+  return texto.split("**").map((parte, i) => (i % 2 === 1 ? <strong key={i}>{parte}</strong> : parte));
+}
 
 /** Preenche `{entrada}` e `{saida}` com os fluxos registrados na última Cascata. */
 function preencher(texto: string, entradaUs: number | null, saidaUs: number | null): string {
@@ -34,7 +43,7 @@ export function CardExplicativo() {
             </div>
           ) : null}
           <h3 id="card-explicativo-titulo">{tela.titulo}</h3>
-          <p>{texto}</p>
+          <p>{comNegrito(texto)}</p>
           <div className="card-explicativo-acoes">
             <button type="button" className="botao botao--primario" onClick={avancarCard} autoFocus>
               {ultima ? "Entendi" : "Próximo"}

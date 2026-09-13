@@ -16,6 +16,7 @@ import type { GameState, TipoConstrucao } from "../sim/state";
 import { useGameStore, type FerramentaMundo } from "../store/gameStore";
 import { BotaoCompra } from "./BotaoCompra";
 import { Extrato } from "./Extrato";
+import { PainelCidade } from "./PainelCidade";
 import { IconeCadeado, IconeItem } from "./icones";
 import { rolarParaOTabuleiro } from "./rolagem";
 
@@ -206,6 +207,8 @@ export function PainelRede() {
 
       <h2 className="rede-subtitulo">Extrato</h2>
       <Extrato />
+
+      <PainelCidade />
 
       <h2 className="rede-subtitulo">Ilhas</h2>
       <p className="rede-dica">

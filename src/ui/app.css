@@ -1329,8 +1329,15 @@ h2 {
 }
 
 @media (max-width: 600px) {
+  /* 🔬 e 👥 ficam: são decisão, não enfeite (GDD §7, v0.6). Só a Estabilidade some. */
   .hud-item--extra {
     display: none;
+  }
+
+  .hud-pesquisa .hud-rotulo {
+    display: block;
+    max-width: 150px;
+    font-size: 10px;
   }
 
   .hud-sem-escoamento {
@@ -1375,5 +1382,256 @@ h2 {
 
   .card-explicativo-bipe {
     justify-self: center;
+  }
+}
+
+/* ---------- Capítulo ativo (GDD §12, v0.6) ---------- */
+
+.capitulo {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 120px auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 4px;
+  border-bottom: 1px solid var(--card-borda);
+  font-size: var(--t-12);
+}
+
+.capitulo-titulo {
+  font-family: var(--fonte-titulo);
+  font-weight: 600;
+  color: var(--sun);
+  white-space: nowrap;
+}
+
+.capitulo-objetivo {
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.capitulo-progresso {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.capitulo-barra {
+  display: block;
+  height: 100%;
+  background: var(--leaf);
+  border-radius: 3px;
+  transition: width 0.25s ease-out;
+}
+
+.capitulo-numeros {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ---------- HUD: 🔬 gastável e 👥 população ---------- */
+
+.hud-pesquisa {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 2px 8px 2px 0;
+  background: none;
+  border: 0;
+  border-radius: 10px;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.hud-pesquisa:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.hud-pesquisa .hud-rotulo {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- Cidade ---------- */
+
+.linha--selecionada {
+  outline: 2px solid var(--sun);
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+
+.linha-nome--botao {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline dotted rgba(255, 255, 255, 0.25);
+}
+
+/* ---------- Árvore de pesquisa ---------- */
+
+.arvore-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 16px;
+  background: rgba(6, 9, 26, 0.82);
+  overflow: auto;
+}
+
+.arvore {
+  width: min(1180px, 100%);
+  background: var(--card);
+  border: 1px solid var(--card-borda);
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.arvore-cabecalho {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.arvore-ramos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 16px;
+}
+
+.arvore-ramo h3 {
+  font-family: var(--fonte-titulo);
+  font-size: var(--t-16);
+  margin: 0 0 2px;
+}
+
+.arvore-ramo-descricao {
+  color: var(--muted);
+  font-size: var(--t-12);
+  margin: 0 0 8px;
+}
+
+.arvore-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.no {
+  border: 1px solid var(--card-borda);
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.no--comprado {
+  border-color: rgba(107, 229, 133, 0.45);
+  background: rgba(107, 229, 133, 0.07);
+}
+
+.no--disponivel {
+  border-color: rgba(255, 210, 63, 0.35);
+}
+
+.no--bloqueado,
+.no--excluido {
+  opacity: 0.55;
+}
+
+.no--excluido {
+  text-decoration: line-through rgba(255, 107, 107, 0.5);
+}
+
+.no-topo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.no-nome {
+  font-family: var(--fonte-titulo);
+  font-weight: 600;
+  font-size: var(--t-14);
+}
+
+.no-custo {
+  font-size: var(--t-12);
+  color: var(--sun);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.no-efeito {
+  margin: 0;
+  font-size: var(--t-12);
+  color: var(--ink);
+}
+
+.no-fisica {
+  margin: 0;
+  font-size: var(--t-12);
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.no-exclui {
+  margin: 0;
+  font-size: var(--t-12);
+  color: var(--coral);
+}
+
+.no-botao {
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+.no-aviso {
+  font-size: var(--t-12);
+  color: var(--muted);
+}
+
+@media (max-width: 600px) {
+  .capitulo {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 4px;
+  }
+
+  .capitulo-titulo {
+    grid-column: 1 / -1;
+  }
+
+  .capitulo-progresso {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .arvore-fundo {
+    padding: 12px 8px;
+  }
+
+  .arvore {
+    padding: 14px;
   }
 }

@@ -68,6 +68,10 @@ export interface GameStore {
   casaMundoSobPonteiro: number | null;
   /** Prédio ou ferramenta selecionada na paleta de construção. */
   ferramentaMundo: FerramentaMundo;
+  /** Casa do arquipélago selecionada (bairro no painel da Cidade, realce na cena). */
+  casaSelecionada: number | null;
+  /** Tela da árvore de pesquisa aberta. */
+  arvoreAberta: boolean;
 
   avancarTicks: (n: number) => void;
 
@@ -88,6 +92,9 @@ export interface GameStore {
   melhorarCabo: (id: IlhaId) => boolean;
   melhorarSubestacao: (indice: number) => boolean;
   setCasaMundoSobPonteiro: (indice: number | null) => void;
+  selecionarCasa: (indice: number | null) => void;
+  abrirArvore: () => void;
+  fecharArvore: () => void;
   setIlhaSobPonteiro: (id: IlhaId | null) => void;
 
   // Núcleo
@@ -197,6 +204,8 @@ export const useGameStore = create<GameStore>()((set, get) => {
     ilhaSobPonteiro: null,
     casaMundoSobPonteiro: null,
     ferramentaMundo: "cataVento",
+    casaSelecionada: null,
+    arvoreAberta: false,
 
     avancarTicks(n) {
       const { state, salvoEmTempoMs, pausado } = get();
@@ -251,6 +260,12 @@ export const useGameStore = create<GameStore>()((set, get) => {
         return aplicar(mundo.removerObstaculo(state, indice));
       }
       const construcao = mundo.construcaoEm(state.mundo, indice);
+      if (construcao?.tipo === "bairro") {
+        set({ casaSelecionada: indice });
+        // Com o bairro selecionado na paleta, tocar num bairro existente evolui (₵ + 🔬).
+        if (ferramentaMundo === "bairro") return get().evoluirBairro(indice);
+        return false;
+      }
       if (construcao?.tipo === "subestacao" && ferramentaMundo === "subestacao") {
         if (aplicar(mundo.melhorarSubestacao(state, indice))) return true;
         avisar(indice, "₵ insuficientes para o próximo nível da subestação.");
@@ -292,6 +307,9 @@ export const useGameStore = create<GameStore>()((set, get) => {
       return aplicar(proximo);
     },
     melhorarSubestacao: (indice) => aplicar(mundo.melhorarSubestacao(get().state, indice)),
+    selecionarCasa: (indice) => set({ casaSelecionada: indice }),
+    abrirArvore: () => set({ arvoreAberta: true }),
+    fecharArvore: () => set({ arvoreAberta: false }),
     setCasaMundoSobPonteiro(indice) {
       if (get().casaMundoSobPonteiro !== indice) set({ casaMundoSobPonteiro: indice });
     },
