@@ -1,16 +1,22 @@
 import { useEffect, useRef } from "react";
-import { CASCATA, FAIXAS_CALOR, MODO_SEGURO, NUCLEO, ORDEM_PECAS, PECAS } from "../content/era1-nucleo";
-import { podeDesbloquearNucleo } from "../sim/acoesNucleo";
+import { CASCATA, FAIXAS_CALOR, MODO_SEGURO, NUCLEO } from "../content/era1-nucleo";
+import { REATOR, SCRAM_ERA2, VARETA } from "../content/era2-nucleo";
+import { PECA_POR_ID, ordemDasPecas } from "../content/pecas";
+import { pecaDisponivel, podeDesbloquearNucleo } from "../sim/acoesNucleo";
+import { avaliarConstruirReator, era3Pronta } from "../sim/era";
+import { contarReator, esperaParaTrocaMs } from "../sim/reator";
+import { equilibrioMotor, motorDoNucleo } from "../sim/motor";
 import { dicaDeEquilibrio, faixaDeCalor, pesquisaPorSegundo, temperatura, temperaturaNucleo } from "../sim/calor";
 import { custoReconstrucao, faltaParaLimpezaMs, podeLimparEntulho } from "../sim/cascata";
 import { formatarCalor, formatarCreditos, formatarNumero, formatarPorcentagem, formatarPotencia, formatarSegundos } from "../sim/formatar";
 import { efeitosDe, type EfeitosArvore } from "../sim/arvore";
-import { capacidadeU, contar, equilibrioU, espelhosEfetivos } from "../sim/nucleo";
+import { contar, espelhosEfetivos } from "../sim/nucleo";
 import type { NucleoState } from "../sim/state";
 import { potenciaNucleoEfetivaKw } from "../sim/tick";
 import { setPalcoElement } from "../scene/layout";
 import { anexarPalco } from "../scene/tabuleiro/controle";
 import { CalloutCasa } from "./CalloutCasa";
+import { CalloutPeca } from "./CalloutPeca";
 import { Escada } from "./Escada";
 import { corDaRampaCss } from "../scene/rampa";
 import { useGameStore, type Ferramenta } from "../store/gameStore";
@@ -80,6 +86,7 @@ function Tabuleiro() {
       <TabuleiroArea />
       <ControlesTabuleiro />
       <CalloutCasa />
+      <CalloutPeca />
     </div>
   );
 }
@@ -89,11 +96,12 @@ const TEXTO_DICA = {
   tirarEspelho: "Tire um espelho ou ponha um radiador.",
 } as const;
 
-function BarraCalor({ nucleo, efeitos }: { nucleo: NucleoState; efeitos: EfeitosArvore }) {
+function BarraCalor({ nucleo, efeitos, tempoMs }: { nucleo: NucleoState; efeitos: EfeitosArvore; tempoMs: number }) {
   const t = temperaturaNucleo(nucleo);
   const faixa = faixaDeCalor(t);
-  const capacidade = capacidadeU(nucleo.grade, nucleo.receptorCeramico, efeitos);
-  const qEq = equilibrioU(nucleo.grade, efeitos);
+  const motor = motorDoNucleo(nucleo, efeitos, tempoMs);
+  const capacidade = motor.capacidadeU;
+  const qEq = equilibrioMotor(motor);
   const tEq = temperatura(qEq, capacidade);
   const dica = dicaDeEquilibrio(tEq);
   const escalaMax = 1.2;
@@ -147,20 +155,35 @@ function BarraEstabilidade({ nucleo }: { nucleo: NucleoState }) {
   );
 }
 
-function SeletorPecas() {
+function SeletorPecas({ era }: { era: 1 | 2 }) {
   const state = useGameStore((s) => s.state);
   const ferramenta = useGameStore((s) => s.ferramenta);
   const selecionar = useGameStore((s) => s.selecionarFerramenta);
-  const opcoes: { id: Ferramenta; nome: string; custo: number | null; descricao: string }[] = [
-    ...ORDEM_PECAS.map((id) => ({ id, nome: PECAS[id].nome, custo: PECAS[id].custo, descricao: PECAS[id].descricao })),
-    { id: "remover", nome: "Remover", custo: null, descricao: "Tira a peça da casa (sem reembolso)." },
+  const opcoes: { id: Ferramenta; nome: string; custo: number | null; descricao: string; bloqueada?: boolean }[] = [
+    ...ordemDasPecas(era).map((id) => ({
+      id,
+      nome: PECA_POR_ID[id].nome,
+      custo: PECA_POR_ID[id].custo,
+      descricao: PECA_POR_ID[id].descricao,
+      bloqueada: !pecaDisponivel(state, id),
+    })),
+    { id: "remover" as Ferramenta, nome: "Remover", custo: null, descricao: "Tira a peça da casa (sem reembolso)." },
   ];
   const atual = opcoes.find((o) => o.id === ferramenta);
   return (
     <>
       <div className="seletor-pecas" role="radiogroup" aria-label="Peça para colocar">
         {opcoes.map((o) => (
-          <button key={o.id} type="button" role="radio" aria-checked={ferramenta === o.id} className={`pilula ${ferramenta === o.id ? "pilula--ativa" : ""}`} title={o.descricao} onClick={() => selecionar(o.id)}>
+          <button
+            key={o.id}
+            type="button"
+            role="radio"
+            aria-checked={ferramenta === o.id}
+            disabled={o.bloqueada}
+            className={`pilula ${ferramenta === o.id ? "pilula--ativa" : ""}`}
+            title={o.bloqueada ? `${o.descricao} · pesquise o nó da árvore para liberar` : o.descricao}
+            onClick={() => selecionar(o.id)}
+          >
             <span>{o.nome}</span>
             {o.custo !== null ? <span className={`pilula-custo ${state.creditos < o.custo ? "pilula-custo--caro" : ""}`}>{formatarCreditos(o.custo)}</span> : null}
           </button>
@@ -186,6 +209,39 @@ function Entulhos({ nucleo, tempoMs }: { nucleo: NucleoState; tempoMs: number })
   );
 }
 
+/** Botão da transição de era: aparece com Estabilidade 100 % + "Fissão básica" (GDD Parte 2 §2). */
+function ConstruirReator() {
+  const state = useGameStore((s) => s.state);
+  const construir = useGameStore((s) => s.construirReator);
+  if (state.era !== 1 || !state.pesquisados.includes("fissaoBasica")) return null;
+  const v = avaliarConstruirReator(state);
+  return (
+    <div className="nucleo-transicao">
+      <p className="nucleo-transicao-texto">
+        A Torre chegou ao fim. O próximo passo é <strong>fissão</strong>: um Vaso de pressão no lugar do Receptor, cem vezes
+        mais potência — e combustível que acaba. As peças da Torre são desmontadas e devolvem 50 %.
+      </p>
+      <button type="button" className={`pilula pilula--primaria ${v.ok ? "pilula--brilho" : ""}`} disabled={!v.ok} onClick={construir}>
+        <span>Construir o Reator</span>
+        <span className={`pilula-custo ${v.ok ? "" : "pilula-custo--caro"}`}>{formatarCreditos(REATOR.custoVaso)}</span>
+      </button>
+      {v.motivo ? <span className="nucleo-transicao-motivo">{v.motivo}</span> : null}
+    </div>
+  );
+}
+
+/** O aviso de fim de conteúdo: a Era 3 é a Sessão 9 (GDD Parte 2 §6). */
+function FimDaEra2() {
+  const state = useGameStore((s) => s.state);
+  if (!era3Pronta(state)) return null;
+  return (
+    <p className="nucleo-transicao-texto nucleo-transicao--fim">
+      <strong>Fusão básica pronta e Estabilidade em 100 %.</strong> A Era 3 (Tokamak, contenção magnética e o planeta
+      inteiro como tabuleiro) está em produção — o MVP termina aqui. O seu save continua valendo.
+    </p>
+  );
+}
+
 function Operacao({ nucleo }: { nucleo: NucleoState }) {
   const state = useGameStore((s) => s.state);
   const scramManual = useGameStore((s) => s.scramManual);
@@ -193,40 +249,65 @@ function Operacao({ nucleo }: { nucleo: NucleoState }) {
   const aviso = useGameStore((s) => s.avisoGrade);
 
   const efeitos = efeitosDe(state);
-  const potencia = potenciaNucleoEfetivaKw(nucleo, efeitos);
+  const potencia = potenciaNucleoEfetivaKw(nucleo, efeitos, state.tempoMs);
   const t = temperaturaNucleo(nucleo);
   const emScram = nucleo.scramRestanteMs > 0;
+  const era2 = nucleo.era === 2;
+  const motor = motorDoNucleo(nucleo, efeitos, state.tempoMs);
   const c = contar(nucleo.grade);
+  const cr = contarReator(nucleo.grade);
   const calorEspelho = efeitos.calorPorEspelho;
 
   return (
     <div className="palco">
       {emScram ? (
-        <p className="nucleo-scram">SCRAM · Núcleo desligado por {formatarSegundos(nucleo.scramRestanteMs)}. Espelhos e turbinas parados; radiadores esfriando.</p>
+        <p className="nucleo-scram">
+          SCRAM · Núcleo desligado por {formatarSegundos(nucleo.scramRestanteMs)}.{" "}
+          {era2
+            ? "A fissão parou, mas as varetas continuam decaindo no Vaso: quem segura o calor agora é a torre de resfriamento."
+            : "Espelhos e turbinas parados; radiadores esfriando."}
+        </p>
       ) : null}
-      <BarraCalor nucleo={nucleo} efeitos={efeitos} />
+      <BarraCalor nucleo={nucleo} efeitos={efeitos} tempoMs={state.tempoMs} />
       <p className="nucleo-status">
-        <span>⚡ Núcleo {formatarPotencia(potencia)}</span>
-        <span>🔬 +{formatarNumero(emScram ? 0 : pesquisaPorSegundo(potencia, t), 2)}/s</span>
-        <span>
-          h = {formatarNumero(espelhosEfetivos(nucleo.grade), 2)} · t = {c.turbinas} · rad = {c.radiadoresAdjacentes} · {formatarNumero(calorEspelho, 0)} u/s por espelho
-        </span>
+        <span>⚡ {era2 ? "Reator" : "Núcleo"} {formatarPotencia(potencia)}</span>
+        <span>🔬 +{formatarNumero(emScram ? 0 : pesquisaPorSegundo(potencia, t, motor.pesquisaPorKw), 2)}/s</span>
+        {era2 ? (
+          <span>
+            varetas {cr.varetasAtivas} ativas · {cr.varetasGastas} gastas · turbinas {cr.turbinas} · torres {cr.torres} ·{" "}
+            {formatarCalor(motor.entradaUs)}/s entrando
+          </span>
+        ) : (
+          <span>
+            h = {formatarNumero(espelhosEfetivos(nucleo.grade), 2)} · t = {c.turbinas} · rad = {c.radiadoresAdjacentes} ·{" "}
+            {formatarNumero(calorEspelho, 0)} u/s por espelho
+          </span>
+        )}
         {nucleo.cascatas > 0 ? <span>💥 {nucleo.cascatas} cascata{nucleo.cascatas > 1 ? "s" : ""}</span> : null}
       </p>
       <Entulhos nucleo={nucleo} tempoMs={state.tempoMs} />
-      <SeletorPecas />
+      <SeletorPecas era={nucleo.era} />
       {aviso && state.tempoMs - aviso.emTempoMs < DURACAO_AVISO_MS ? <p className="aviso aviso--erro nucleo-aviso">{aviso.texto}</p> : null}
       <BarraEstabilidade nucleo={nucleo} />
+      <ConstruirReator />
+      <FimDaEra2 />
       <div className="nucleo-controles">
-        <button type="button" className="pilula pilula--perigo" disabled={emScram} onClick={scramManual} title={`Desliga o Núcleo por ${formatarSegundos(CASCATA.scramMs)}`}>
+        <button
+          type="button"
+          className="pilula pilula--perigo"
+          disabled={emScram}
+          onClick={scramManual}
+          title={`Desliga o Núcleo por ${formatarSegundos(era2 ? SCRAM_ERA2.totalMs : CASCATA.scramMs)}`}
+        >
           SCRAM manual
         </button>
         <button type="button" className={`pilula ${nucleo.modoSeguro ? "pilula--ativa" : ""}`} role="switch" aria-checked={nucleo.modoSeguro} onClick={alternarModoSeguro} title={`SCRAM automático a ${formatarPorcentagem(MODO_SEGURO.limiarT)}, potência ×${formatarNumero(MODO_SEGURO.fatorPotencia, 1)}`}>
           Modo seguro {nucleo.modoSeguro ? "ligado" : "desligado"}
         </button>
         <p className="nucleo-dica-arvore">
-          As melhorias do Núcleo (Receptor cerâmico, Grade 7×7, níveis de peça) vivem na <strong>árvore de pesquisa</strong>, e
-          agora custam 🔬 de verdade.
+          {era2
+            ? `Cada vareta vale ${VARETA.combustivelS} s de combustível e depois fica quente: trocar custa ${formatarCreditos(VARETA.custoTroca)} e só depois de ${formatarSegundos(esperaParaTrocaMs())} — ou na hora, com uma piscina ao lado.`
+            : "As melhorias do Núcleo (Receptor cerâmico, Grade 7×7, níveis de peça) vivem na árvore de pesquisa, e agora custam 🔬 de verdade."}
         </p>
       </div>
     </div>

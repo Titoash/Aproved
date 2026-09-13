@@ -22,7 +22,7 @@ import type { GameState } from "../sim/state";
 import { balancoDoEstado } from "../sim/tick";
 import { useGameStore, type FerramentaMundo } from "../store/gameStore";
 import { getPalcoRect } from "./layout";
-import { PALETA, alfa, clamp01, movimentoReduzido, type Camera } from "./tabuleiro/base";
+import { PALETA, alfa, clamp01, definirEraVisual, movimentoReduzido, type Camera } from "./tabuleiro/base";
 import {
   atualizarCena,
   criarCena,
@@ -94,6 +94,9 @@ export class TabuleiroScene extends Phaser.Scene {
   private reduzido = movimentoReduzido();
   private nivelDesenhado: NivelId = "ilha";
   private chegada: Partial<Record<NivelId, number>> = {};
+  /** Transição de era em curso: `[começo em s, já voltou?]` (GDD Parte 2 §2: afasta 3 s e volta). */
+  private transicaoEra: { t0: number; voltou: boolean } | null = null;
+  private transicaoEraVista: number | null = null;
 
   constructor() {
     super(TabuleiroScene.KEY);
@@ -124,6 +127,18 @@ export class TabuleiroScene extends Phaser.Scene {
       this.serieProcessada = loja.presetPedido.serie;
       ctl.preset(loja.presetPedido.nome);
     }
+    // Transição de era: a paleta troca e a câmera afasta 3 s antes de voltar ao Núcleo.
+    definirEraVisual(loja.state.era);
+    if (loja.transicaoEraEm !== null && loja.transicaoEraEm !== this.transicaoEraVista) {
+      this.transicaoEraVista = loja.transicaoEraEm;
+      this.transicaoEra = { t0: this.tempoS, voltou: false };
+      ctl.preset("ilha");
+    }
+    if (this.transicaoEra && !this.transicaoEra.voltou && this.tempoS - this.transicaoEra.t0 >= 3) {
+      this.transicaoEra.voltou = true;
+      ctl.preset("nucleo");
+    }
+
     const passo = ctl.passo(this.tempoS);
     if (passo && passo.k >= 1) this.chegada[ctl.nivel] = this.tempoS;
     if (ctl.nivel !== this.nivelDesenhado && !ctl.transicao) {

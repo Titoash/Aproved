@@ -1747,3 +1747,72 @@ h2 {
   position: relative;
   z-index: 1;
 }
+
+/* Callout da peça do Núcleo (GDD Parte 2 §7) */
+.callout-casa--peca {
+  left: auto;
+  right: 12px;
+  bottom: 12px;
+}
+
+.callout-barra {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.callout-barra-preenchida {
+  height: 100%;
+  background: linear-gradient(90deg, var(--coral), var(--sun));
+}
+
+/* Transição de era no painel do Núcleo (GDD Parte 2 §2) */
+.nucleo-transicao {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 210, 63, 0.35);
+  background: rgba(255, 210, 63, 0.06);
+}
+
+.nucleo-transicao-texto {
+  margin: 0;
+  font-size: var(--t-12);
+  color: var(--muted);
+}
+
+.nucleo-transicao-motivo {
+  font-size: var(--t-12);
+  color: var(--coral);
+}
+
+.nucleo-transicao--fim {
+  border: 1px solid rgba(124, 245, 255, 0.35);
+  background: rgba(124, 245, 255, 0.06);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.arvore-abas {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Paleta "entardecer" da Era 2 (GDD Parte 2 §8)                        */
+/* ------------------------------------------------------------------ */
+
+.app[data-era="2"] {
+  --sun: #ffb05a;
+  --sky: #6fa8d8;
+  --card: #1a1533;
+  --fundo-2: #2b1440;
+}
+
+.app[data-era="2"] .hud {
+  background: linear-gradient(180deg, rgba(60, 25, 70, 0.55), rgba(22, 18, 50, 0.25));
+}

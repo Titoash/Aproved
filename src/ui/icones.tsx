@@ -161,6 +161,103 @@ export function IconeItem({ id }: { id: ItemIcone }) {
           <circle cx="10" cy="2.6" r="1.4" fill="#ffd23f" />
         </svg>
       );
+    /* --- Era 2 (GDD Parte 2 §8) --- */
+    case "eolicaOffshore":
+      return (
+        <svg className="icone icone--item" viewBox="0 0 20 20" aria-hidden="true">
+          <path d="M1 16h18" stroke="#4cc9f0" strokeWidth="1.6" strokeLinecap="round" />
+          <rect x="9" y="6" width="2" height="10" rx="1" fill="#b8c0e8" />
+          <g fill="#f7f9ff">
+            <rect x="9.2" y="0.4" width="1.7" height="6" rx="0.85" />
+            <rect x="9.2" y="0.4" width="1.7" height="6" rx="0.85" transform="rotate(120 10 6.4)" />
+            <rect x="9.2" y="0.4" width="1.7" height="6" rx="0.85" transform="rotate(240 10 6.4)" />
+          </g>
+          <circle cx="10" cy="6.4" r="1.5" fill="#ffd23f" />
+        </svg>
+      );
+    case "fazendaSolar":
+      return (
+        <svg className="icone icone--item" viewBox="0 0 20 20" aria-hidden="true">
+          <g fill="#2d4bd9">
+            <path d="M1 9 9 7v3l-8 2Z" />
+            <path d="M11 7 19 5v3l-8 2Z" />
+            <path d="M1 16 9 14v3l-8 2Z" />
+            <path d="M11 14 19 12v3l-8 2Z" />
+          </g>
+          <g fill="#8fe3ff" opacity=".7">
+            <path d="M1 9 9 7v.7L1 9.7Z" />
+            <path d="M11 7 19 5v.7L11 7.7Z" />
+          </g>
+        </svg>
+      );
+    case "termicaGas":
+      return (
+        <svg className="icone icone--item" viewBox="0 0 20 20" aria-hidden="true">
+          <rect x="2" y="10" width="12" height="8" rx="1" fill="#b8c0e8" />
+          <rect x="13" y="4" width="4" height="14" rx="1" fill="#8f98c8" />
+          <circle cx="15" cy="2.6" r="2" fill="#8b93bd" opacity=".7" />
+          <rect x="4" y="12.5" width="3" height="3" fill="#ffd23f" />
+          <rect x="9" y="12.5" width="3" height="3" fill="#ff7a1a" />
+        </svg>
+      );
+    case "subestacao138":
+      return (
+        <svg className="icone icone--item" viewBox="0 0 20 20" aria-hidden="true">
+          <rect x="3" y="13" width="14" height="5" rx="1" fill="#b8c0e8" />
+          <g fill="#c9cfff">
+            <rect x="3" y="3" width="2" height="10" />
+            <rect x="15" y="3" width="2" height="10" />
+            <rect x="3" y="2" width="14" height="2" />
+          </g>
+          <path d="M4.5 7h11M4.5 10h11" stroke="#5b4cb5" strokeWidth="0.9" />
+          <circle cx="10" cy="1.4" r="1.4" fill="#ffd23f" />
+        </svg>
+      );
+    case "subestacaoOffshore":
+      return (
+        <svg className="icone icone--item" viewBox="0 0 20 20" aria-hidden="true">
+          <path d="M1 17h18" stroke="#4cc9f0" strokeWidth="1.6" strokeLinecap="round" />
+          <rect x="4" y="11" width="2" height="6" fill="#8f98c8" />
+          <rect x="14" y="11" width="2" height="6" fill="#8f98c8" />
+          <rect x="3" y="7" width="14" height="5" rx="1" fill="#b8c0e8" />
+          <rect x="9" y="2" width="2" height="5" fill="#c9cfff" />
+          <circle cx="10" cy="1.6" r="1.4" fill="#ffd23f" />
+        </svg>
+      );
+    case "bateriaRede":
+      return (
+        <svg className="icone icone--item" viewBox="0 0 20 20" aria-hidden="true">
+          <rect x="2" y="5" width="16" height="11" rx="1.5" fill="#e4e8ff" />
+          <rect x="8" y="3" width="4" height="2" rx="0.8" fill="#c9cfff" />
+          <g fill="#6be585">
+            <rect x="4" y="8" width="3" height="5" />
+            <rect x="8.5" y="8" width="3" height="5" />
+            <rect x="13" y="8" width="3" height="5" />
+          </g>
+        </svg>
+      );
+    case "distritoIndustrial":
+      return (
+        <svg className="icone icone--item" viewBox="0 0 20 20" aria-hidden="true">
+          <rect x="1" y="14" width="18" height="4" rx="1" fill="#8f98c8" />
+          <g fill="#c0562f">
+            <path d="M2 14V9l4 2.5V14Z" />
+            <path d="M7 14V9l4 2.5V14Z" />
+            <path d="M12 14V6h5v8Z" />
+          </g>
+          <rect x="13.5" y="8" width="2" height="2" fill="#ffd23f" />
+        </svg>
+      );
+    case "institutoPesquisa":
+      return (
+        <svg className="icone icone--item" viewBox="0 0 20 20" aria-hidden="true">
+          <rect x="2" y="10" width="16" height="8" rx="1" fill="#e7ecff" />
+          <path d="M3 10a7 5.5 0 0 1 14 0Z" fill="#4cc9f0" />
+          <circle cx="10" cy="7" r="1.6" fill="#f4f6ff" />
+          <rect x="5" y="12.5" width="3" height="3" fill="#4cc9f0" />
+          <rect x="12" y="12.5" width="3" height="3" fill="#8a5cff" />
+        </svg>
+      );
     case "pesquisa":
       return (
         <svg className="icone icone--item" viewBox="0 0 20 20" aria-hidden="true">

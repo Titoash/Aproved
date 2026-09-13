@@ -3,7 +3,8 @@
  * toca-se numa casa do arquipélago. Abaixo dela ficam o extrato, as ilhas (expedição e cabo) e as melhorias.
  */
 import { BATERIA, type Desbloqueio } from "../content/era1";
-import { ORDEM_USINAS, USINAS } from "../content/usinas";
+import { USINAS, ordemUsinas } from "../content/usinas";
+import { BATERIA_REDE, DISTRITO_INDUSTRIAL, INSTITUTO, SUBESTACAO_138, SUBESTACAO_OFFSHORE } from "../content/era2";
 import { BAIRRO, LABORATORIO, UNIVERSIDADE } from "../content/cidade-era1";
 import { DENSIDADES } from "../content/cidade";
 import { NO_POR_ID } from "../content/arvore";
@@ -14,7 +15,7 @@ import { formatarCreditos, formatarNumero, formatarPotencia } from "../sim/forma
 import { custoCabo, custoColocar, custoExpedicao, custoNivelCabo, ilhaAberta, nivelCabo, podeComprarIlha, podeLigarCabo, podeMelhorarCabo, temCabo, tetoCabo } from "../sim/mundo";
 import { efeitosDe } from "../sim/arvore";
 import { analisar } from "../sim/producao";
-import type { GameState, TipoConstrucao } from "../sim/state";
+import type { GameState, TipoConstrucao, UsinaId } from "../sim/state";
 import { useGameStore, type FerramentaMundo } from "../store/gameStore";
 import { BotaoCompra } from "./BotaoCompra";
 import { Extrato } from "./Extrato";
@@ -46,10 +47,10 @@ interface ItemPaleta {
 }
 
 function itensDaPaleta(state: GameState): ItemPaleta[] {
-  const itens: ItemPaleta[] = ORDEM_USINAS.map((id) => ({
+  const itens: ItemPaleta[] = ordemUsinas(state.era).map((id) => ({
     id,
     nome: USINAS[id].nome,
-    detalhe: `${formatarPotencia(USINAS[id].potenciaKw * fatorMelhoria(state.rede.usinas[id].nivel) * efeitosDe(state).potencia[id])} por unidade`,
+    detalhe: `${formatarPotencia(USINAS[id].potenciaKw * fatorMelhoria(state.rede.usinas[id].nivel) * efeitosDe(state).potencia[id])} por unidade${USINAS[id].lado === 2 ? " · 2×2" : ""}${USINAS[id].agua ? " · mar raso" : ""}${USINAS[id].combustivelPorSegundo ? ` · ${formatarCreditos(USINAS[id].combustivelPorSegundo)}/s de gás` : ""}`,
     desbloqueio: USINAS[id].desbloqueio,
   }));
   itens.push({ id: "bairro", nome: BAIRRO.nome, detalhe: `${DENSIDADES[0].nome} · +${formatarPotencia(DENSIDADES[0].demandaKw)} · ${DENSIDADES[0].populacao} hab` });
@@ -59,9 +60,16 @@ function itensDaPaleta(state: GameState): ItemPaleta[] {
   itens.push({
     id: "universidade",
     nome: UNIVERSIDADE.nome,
-    detalhe: `🔬 pela raiz da população · −${formatarPotencia(UNIVERSIDADE.consumoKw)}`,
+    detalhe: `🔬 pela raiz dos alunos · −${formatarPotencia(UNIVERSIDADE.consumoKw)}`,
     desbloqueio: { no: "universidade" },
   });
+  if (state.era >= 2) {
+    itens.push({ id: "subestacao138", nome: SUBESTACAO_138.nome, detalhe: `alcance ${SUBESTACAO_138.alcance} · teto ${formatarPotencia(SUBESTACAO_138.tetoKw)}`, desbloqueio: { no: "subestacaoDe138kV" } });
+    itens.push({ id: "subestacaoOffshore", nome: SUBESTACAO_OFFSHORE.nome, detalhe: `mar raso · alcance ${SUBESTACAO_OFFSHORE.alcance} · teto ${formatarPotencia(SUBESTACAO_OFFSHORE.tetoKw)}`, desbloqueio: { no: "subestacaoOffshore" } });
+    itens.push({ id: "bateriaRede", nome: BATERIA_REDE.nome, detalhe: `+${formatarNumero(BATERIA_REDE.capacidadeKwh, 0)} kWh · ±${formatarPotencia(BATERIA_REDE.potenciaKw)}`, desbloqueio: BATERIA_REDE.desbloqueio });
+    itens.push({ id: "distritoIndustrial", nome: DISTRITO_INDUSTRIAL.nome, detalhe: `2×2 · +${formatarPotencia(DISTRITO_INDUSTRIAL.demandaKw)} · tarifa ×${formatarNumero(DISTRITO_INDUSTRIAL.tarifa, 1)}`, desbloqueio: DISTRITO_INDUSTRIAL.desbloqueio });
+    itens.push({ id: "institutoPesquisa", nome: INSTITUTO.nome, detalhe: `2×2 · 🔬 ${INSTITUTO.pesquisaPorSegundo}/s · −${formatarPotencia(INSTITUTO.consumoKw)}`, desbloqueio: INSTITUTO.desbloqueio });
+  }
   return itens;
 }
 
@@ -130,7 +138,7 @@ function Ferramentas() {
   );
 }
 
-function LinhaNivelUsina({ id }: { id: (typeof ORDEM_USINAS)[number] }) {
+function LinhaNivelUsina({ id }: { id: UsinaId }) {
   const state = useGameStore((s) => s.state);
   const melhorarUsina = useGameStore((s) => s.melhorarUsina);
   const analise = analisar(state);
@@ -195,7 +203,8 @@ function LinhaIlha({ id }: { id: IlhaId }) {
 }
 
 export function PainelRede() {
-  const itens = itensDaPaleta(useGameStore((s) => s.state));
+  const estado = useGameStore((s) => s.state);
+  const itens = itensDaPaleta(estado);
   return (
     <section className="rede" aria-label="Rede">
       <h2>Construir</h2>
@@ -225,7 +234,7 @@ export function PainelRede() {
       <h2 className="rede-subtitulo">Níveis das usinas</h2>
       <p className="rede-dica">As melhorias nomeadas viraram nós da árvore de pesquisa, e agora custam 🔬.</p>
       <ul className="lista">
-        {ORDEM_USINAS.map((id) => (
+        {ordemUsinas(estado.era).map((id) => (
           <LinhaNivelUsina key={id} id={id} />
         ))}
       </ul>

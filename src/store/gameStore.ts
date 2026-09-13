@@ -11,6 +11,7 @@ import { OBSTACULOS, type IlhaId } from "../content/era1-arquipelago";
 import type { NivelId } from "../content/escalas";
 import * as acoes from "../sim/acoes";
 import * as nucleo from "../sim/acoesNucleo";
+import { construirReator } from "../sim/era";
 import { cardVisto, marcarCardVisto } from "../sim/cards";
 import { pesquisar } from "../sim/arvore";
 import { avaliarEvolucao, evoluirBairro } from "../sim/cidade";
@@ -70,6 +71,10 @@ export interface GameStore {
   ferramentaMundo: FerramentaMundo;
   /** Casa do arquipélago selecionada (bairro no painel da Cidade, realce na cena). */
   casaSelecionada: number | null;
+  /** Casa da grade do Núcleo selecionada (callout da peça: combustível, decaimento, "Trocar"). */
+  casaNucleoSelecionada: number | null;
+  /** `Date.now()` do começo da transição de era: a cena afasta a câmera 3 s e volta. */
+  transicaoEraEm: number | null;
   /** Tela da árvore de pesquisa aberta. */
   arvoreAberta: boolean;
 
@@ -112,6 +117,11 @@ export interface GameStore {
   alternarModoSeguro: () => boolean;
   scramManual: () => boolean;
   comprarReceptorCeramico: () => boolean;
+  /** Constrói o Reator: desmonta a Torre e começa a Era 2 (GDD Parte 2 §2). */
+  construirReator: () => boolean;
+  /** Troca uma vareta gasta por uma nova (₵ 8 000). */
+  trocarVareta: (indice: number) => boolean;
+  selecionarCasaNucleo: (indice: number | null) => void;
   setCasaSobPonteiro: (indice: number | null) => void;
   fecharRelatorioOffline: () => void;
   /** "Próximo" no card aberto; na última tela fecha e marca como visto. */
@@ -205,6 +215,8 @@ export const useGameStore = create<GameStore>()((set, get) => {
     casaMundoSobPonteiro: null,
     ferramentaMundo: "cataVento",
     casaSelecionada: null,
+    casaNucleoSelecionada: null,
+    transicaoEraEm: null,
     arvoreAberta: false,
 
     avancarTicks(n) {
@@ -334,6 +346,11 @@ export const useGameStore = create<GameStore>()((set, get) => {
       const { state, ferramenta } = get();
       if (!state.nucleo) return false;
       const casa = state.nucleo.grade[indice];
+      // Tocar numa peça já colocada seleciona: o callout mostra os números dela e o botão "Trocar".
+      if (casa?.tipo === "peca" && ferramenta !== "remover") {
+        set({ casaNucleoSelecionada: indice });
+        return false;
+      }
       if (casa?.tipo === "entulho") {
         // Entulho: limpa se já é grátis; senão reconstrói pagando metade.
         if (aplicar(nucleo.limparEntulho(state, indice))) return true;
@@ -342,7 +359,10 @@ export const useGameStore = create<GameStore>()((set, get) => {
         return false;
       }
       if (ferramenta === "remover") {
-        if (aplicar(nucleo.removerPeca(state, indice))) return true;
+        if (aplicar(nucleo.removerPeca(state, indice))) {
+          if (get().casaNucleoSelecionada === indice) set({ casaNucleoSelecionada: null });
+          return true;
+        }
         avisar(indice, casa?.tipo === "receptor" ? "O Receptor é fixo." : "Nada para remover.");
         return false;
       }
@@ -361,6 +381,23 @@ export const useGameStore = create<GameStore>()((set, get) => {
     alternarModoSeguro: () => aplicar(nucleo.alternarModoSeguro(get().state)),
     scramManual: () => aplicar(nucleo.scramManual(get().state)),
     comprarReceptorCeramico: () => aplicar(nucleo.comprarReceptorCeramico(get().state)),
+    construirReator() {
+      const proximo = construirReator(get().state);
+      if (!proximo) return false;
+      // A câmera afasta e volta em 3 s (GDD §10, Parte 2 §2); a cena consome o pedido.
+      set({ casaNucleoSelecionada: null, casaSelecionada: null, ferramenta: "vareta", transicaoEraEm: Date.now() });
+      return aplicar(proximo);
+    },
+    trocarVareta(indice) {
+      const proximo = nucleo.trocarVareta(get().state, indice);
+      if (!proximo) {
+        const v = nucleo.avaliarTrocaVareta(get().state, indice);
+        avisar(indice, v.motivo ?? "Não dá para trocar esta vareta.");
+        return false;
+      }
+      return aplicar(proximo);
+    },
+    selecionarCasaNucleo: (indice) => set({ casaNucleoSelecionada: indice }),
     setCasaSobPonteiro: (indice) => {
       if (get().casaSobPonteiro !== indice) set({ casaSobPonteiro: indice });
     },

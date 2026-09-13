@@ -2,9 +2,10 @@
  * Extrato da Rede (GDD §10, v0.6): o que existe, quanto rende e quanto está sem escoamento.
  * Usado no painel e no popover da nota de ₵ no HUD.
  */
-import { ORDEM_USINAS, USINAS } from "../content/usinas";
+import { USINAS, ordemUsinas } from "../content/usinas";
 import { BAIRRO, LABORATORIO, UNIVERSIDADE } from "../content/cidade-era1";
 import { ilhaDef, SUBESTACAO } from "../content/era1-arquipelago";
+import { DISTRITO_INDUSTRIAL, INSTITUTO } from "../content/era2";
 import { formatarCreditos, formatarNumero, formatarPotencia, formatarTaxa } from "../sim/formatar";
 import { analisar } from "../sim/producao";
 import { balancoDoEstado } from "../sim/tick";
@@ -19,12 +20,24 @@ export function Extrato() {
 
   return (
     <div className="extrato">
-      <p className="extrato-linha extrato-linha--forte">
+      <p className={`extrato-linha ${b.custoPorSegundo > 0 ? "" : "extrato-linha--forte"}`}>
         <span>Receita</span>
         <span>
           {formatarTaxa(b.receitaPorSegundo)} · {b.faixa.nome.toLowerCase()} ×{formatarNumero(b.multiplicador, 2)}
         </span>
       </p>
+      {b.custoPorSegundo > 0 ? (
+        <>
+          <p className="extrato-linha extrato-linha--alerta">
+            <span>Combustível</span>
+            <span>−{formatarTaxa(b.custoPorSegundo)} · {analise.contagem.termicaGas} térmica{analise.contagem.termicaGas > 1 ? "s" : ""} a gás</span>
+          </p>
+          <p className={`extrato-linha extrato-linha--forte ${b.receitaLiquidaPorSegundo < 0 ? "extrato-linha--alerta" : ""}`}>
+            <span>Receita líquida</span>
+            <span>{formatarTaxa(b.receitaLiquidaPorSegundo)}</span>
+          </p>
+        </>
+      ) : null}
       <p className="extrato-linha">
         <span>Cidade</span>
         <span>
@@ -66,7 +79,7 @@ export function Extrato() {
           </tr>
         </thead>
         <tbody>
-          {ORDEM_USINAS.filter((id) => analise.contagem[id] > 0).map((id) => {
+          {ordemUsinas(state.era).filter((id) => analise.contagem[id] > 0).map((id) => {
             const usinas = analise.usinas.filter((u) => u.tipo === id);
             const bruto = usinas.reduce((s, u) => s + u.brutoKw, 0);
             const escoado = usinas.reduce((s, u) => s + u.escoadoKw, 0);
@@ -105,10 +118,26 @@ export function Extrato() {
               <td>🔬</td>
             </tr>
           ) : null}
-          {analise.contagem.subestacao > 0 ? (
+          {analise.contagem.distritoIndustrial > 0 ? (
+            <tr className={analise.distritosSemEscoamento > 0 ? "extrato-alerta" : undefined}>
+              <th scope="row">{DISTRITO_INDUSTRIAL.nomePlural}</th>
+              <td>{analise.contagem.distritoIndustrial}</td>
+              <td>−{formatarPotencia((analise.contagem.distritoIndustrial - analise.distritosSemEscoamento) * DISTRITO_INDUSTRIAL.demandaKw)}</td>
+              <td>tarifa ×{formatarNumero(DISTRITO_INDUSTRIAL.tarifa, 1)}</td>
+            </tr>
+          ) : null}
+          {analise.contagem.institutoPesquisa > 0 ? (
             <tr>
-              <th scope="row">{SUBESTACAO.nome}</th>
-              <td>{analise.contagem.subestacao}</td>
+              <th scope="row">{INSTITUTO.nomePlural}</th>
+              <td>{analise.contagem.institutoPesquisa}</td>
+              <td>−{formatarPotencia(analise.contagem.institutoPesquisa * INSTITUTO.consumoKw)}</td>
+              <td>🔬</td>
+            </tr>
+          ) : null}
+          {analise.subestacoes.length > 0 ? (
+            <tr>
+              <th scope="row">Subestações</th>
+              <td>{analise.subestacoes.length}</td>
               <td>{formatarPotencia(usadoTotal)}</td>
               <td>de {formatarPotencia(tetoTotal)}</td>
             </tr>

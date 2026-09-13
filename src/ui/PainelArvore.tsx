@@ -7,7 +7,7 @@
  * `leaf` mais forte quando ele já está comprado. É o que faz a tela ler como árvore.
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { NOS, RAMOS, type NoDef } from "../content/arvore";
+import { NOS, nosDaEra, ramosDaEra, type NoDef } from "../content/arvore";
 import { avaliarNo, disponivel, excluido, pesquisado, podePesquisar } from "../sim/arvore";
 import { formatarCreditos, formatarNumero } from "../sim/formatar";
 import type { GameState } from "../sim/state";
@@ -74,6 +74,8 @@ export function PainelArvore() {
   const state = useGameStore((s) => s.state);
   const gradeRef = useRef<HTMLDivElement>(null);
   const [ligacoes, setLigacoes] = useState<Ligacao[]>([]);
+  // A aba abre na era em curso; a árvore da Era 1 continua visível e continua valendo.
+  const [aba, setAba] = useState<1 | 2>(state.era);
   const pesquisados = state.pesquisados;
 
   const medir = useCallback(() => {
@@ -96,7 +98,7 @@ export function PainelArvore() {
   useLayoutEffect(() => {
     if (!aberta) return;
     medir();
-  }, [aberta, medir]);
+  }, [aberta, aba, medir]);
 
   useEffect(() => {
     if (!aberta) return;
@@ -108,7 +110,8 @@ export function PainelArvore() {
   }, [aberta, medir]);
 
   if (!aberta) return null;
-  const comprados = state.pesquisados.length;
+  const daEra = nosDaEra(aba);
+  const comprados = state.pesquisados.filter((id) => daEra.some((n) => n.id === id)).length;
   return (
     <div className="arvore-fundo" role="dialog" aria-modal="true" aria-label="Árvore de pesquisa">
       <section className="arvore">
@@ -116,8 +119,25 @@ export function PainelArvore() {
           <div>
             <h2>Árvore de pesquisa</h2>
             <p className="rede-dica">
-              🔬 é saldo: cada nó cobra. Saldo atual: <strong>🔬 {formatarNumero(state.pesquisa, state.pesquisa < 100 ? 1 : 0)}</strong> · {comprados} de {NOS.length} nós.
+              🔬 é saldo: cada nó cobra. Saldo atual: <strong>🔬 {formatarNumero(state.pesquisa, state.pesquisa < 100 ? 1 : 0)}</strong> · {comprados} de{" "}
+              {daEra.length} nós da Era {aba}.
             </p>
+            <div className="arvore-abas" role="tablist" aria-label="Era da árvore">
+              {([1, 2] as const).map((e) => (
+                <button
+                  key={e}
+                  type="button"
+                  role="tab"
+                  aria-selected={aba === e}
+                  disabled={e > state.era}
+                  className={`pilula pilula--mini ${aba === e ? "pilula--ativa" : ""}`}
+                  title={e > state.era ? "Construa o Reator para abrir a árvore da Era 2" : undefined}
+                  onClick={() => setAba(e)}
+                >
+                  Era {e}
+                </button>
+              ))}
+            </div>
           </div>
           <button type="button" className="pilula" onClick={fechar}>
             Fechar
@@ -129,7 +149,7 @@ export function PainelArvore() {
               <path key={l.chave} className={`arvore-ligacao ${l.pronta ? "arvore-ligacao--pronta" : ""}`} d={l.d} />
             ))}
           </svg>
-          {RAMOS.map((ramo) => (
+          {ramosDaEra(aba).map((ramo) => (
             <div key={ramo.id} className="arvore-ramo">
               <h3>{ramo.nome}</h3>
               <p className="arvore-ramo-descricao">{ramo.descricao}</p>

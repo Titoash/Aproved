@@ -6,7 +6,7 @@
  * Nada de `Math.random`/`Date.now`: a animação vem do `t` (s).
  */
 import type { Arquipelago } from "../../sim/arquipelago";
-import { ISO, PALETA, alfa, clarear, escurecer, iso, movimentoReduzido, type Camera } from "./base";
+import { ISO, PALETA, alfa, clarear, entardecer, escurecer, iso, movimentoReduzido, type Camera } from "./base";
 
 const P = {
   ...PALETA,
@@ -18,6 +18,20 @@ const P = {
   ceuAlto: "#0d1230",
   ceuBaixo: "#3b57b5",
 } as const;
+
+/** Entardecer da Era 2 (GDD Parte 2 §8): os mesmos azuis um passo mais escuros e o Sol baixo. */
+const P2 = {
+  marFundo: "#123a7e",
+  marFundo2: "#0c2a5e",
+  marRaso: "#22679b",
+  marRaso2: "#3c9fc4",
+  espuma: "#c3ddef",
+  ceuAlto: "#0b0d26",
+  ceuBaixo: "#7a3f7a",
+} as const;
+
+/** Cor do mar/céu da era em curso. */
+const cor = (chave: keyof typeof P2): string => (entardecer() ? P2[chave] : P[chave]);
 
 const TAU = Math.PI * 2;
 
@@ -92,15 +106,16 @@ export function desenharMar(ctx: CanvasRenderingContext2D, arq: Arquipelago, cam
   const vx1 = (cam.w - cam.tx) / z;
   const vy1 = (cam.h - cam.ty) / z;
   const g = ctx.createLinearGradient(0, Math.min(vy0, c.y0), 0, Math.max(vy1, c.y1));
-  g.addColorStop(0, P.marFundo2);
-  g.addColorStop(0.55, P.marFundo);
-  g.addColorStop(1, P.marFundo2);
+  g.addColorStop(0, cor("marFundo2"));
+  g.addColorStop(0.55, cor("marFundo"));
+  g.addColorStop(1, cor("marFundo2"));
   ctx.fillStyle = g;
   ctx.fillRect(vx0, vy0, vx1 - vx0, vy1 - vy0);
 
   // 1b. brilho do Sol na água: mancha quente no alto à esquerda (a luz dos sprites vem de lá)
+  // Na Era 2 o Sol está baixo: o brilho na água desce e esquenta.
   const gx = vx0 + (vx1 - vx0) * 0.28;
-  const gy = vy0 + (vy1 - vy0) * 0.16;
+  const gy = vy0 + (vy1 - vy0) * (entardecer() ? 0.55 : 0.16);
   const gr = (vx1 - vx0) * 0.42;
   const brilho = ctx.createRadialGradient(gx, gy, 0, gx, gy, gr);
   brilho.addColorStop(0, alfa(P.sun, 0.16));
@@ -112,7 +127,7 @@ export function desenharMar(ctx: CanvasRenderingContext2D, arq: Arquipelago, cam
   ctx.globalCompositeOperation = "source-over";
 
   // 2. água rasa: três faixas cada vez mais claras junto à terra
-  const tons = [alfa(P.marRaso2, 0.55), alfa(P.marRaso, 0.5), alfa(P.marRaso, 0.28)];
+  const tons = [alfa(cor("marRaso2"), 0.55), alfa(cor("marRaso"), 0.5), alfa(cor("marRaso"), 0.28)];
   for (let i = 0; i < 3; i++) {
     ctx.fillStyle = tons[i];
     ctx.fill(c.pRaso[i]);
@@ -122,7 +137,7 @@ export function desenharMar(ctx: CanvasRenderingContext2D, arq: Arquipelago, cam
   if (z > 0.3) {
     const passo = ISO.H * 2;
     const desl = reduzido ? 0 : ((t / 6) % 1) * passo;
-    ctx.strokeStyle = alfa(P.marRaso2, z > 0.6 ? 0.14 : 0.08);
+    ctx.strokeStyle = alfa(cor("marRaso2"), z > 0.6 ? 0.14 : 0.08);
     ctx.lineWidth = 2 / z;
     ctx.beginPath();
     for (let y = Math.floor(vy0 / passo) * passo + desl; y < vy1; y += passo) {
@@ -140,7 +155,7 @@ export function desenharMar(ctx: CanvasRenderingContext2D, arq: Arquipelago, cam
   }
 
   // 4. espuma: contorno claro das casas de mar coladas na terra
-  ctx.strokeStyle = alfa(P.espuma, 0.45);
+  ctx.strokeStyle = alfa(cor("espuma"), 0.45);
   ctx.lineWidth = 1.5 / z;
   ctx.stroke(c.pEspuma);
   ctx.restore();
@@ -224,16 +239,16 @@ export function desenharAlcance(ctx: CanvasRenderingContext2D, x: number, y: num
 export function desenharCeu(ctx: CanvasRenderingContext2D, w: number, h: number, t: number, cam: Camera): void {
   const reduzido = movimentoReduzido();
   const g = ctx.createLinearGradient(0, 0, 0, h);
-  g.addColorStop(0, P.ceuAlto);
-  g.addColorStop(0.62, escurecer(P.ceuBaixo, 0.35));
-  g.addColorStop(1, P.ceuBaixo);
+  g.addColorStop(0, cor("ceuAlto"));
+  g.addColorStop(0.62, escurecer(cor("ceuBaixo"), 0.35));
+  g.addColorStop(1, cor("ceuBaixo"));
   ctx.save();
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, w, h);
 
   // Sol alto, à direita da reserva da escada (a luz dos sprites continua vindo de cima-esquerda).
   const sx = w * 0.32 + cam.tx * 0.04;
-  const sy = h * 0.14 + cam.ty * 0.03;
+  const sy = h * (entardecer() ? 0.42 : 0.14) + cam.ty * 0.03;
   const pulso = reduzido ? 0 : Math.sin(t * 0.6) * 2;
   ctx.globalCompositeOperation = "lighter";
   for (let i = 3; i >= 1; i--) {

@@ -56,6 +56,23 @@ export const PALETA = {
 
 export type CorPaleta = keyof typeof PALETA;
 
+/* ------------------------------------------------------------------ */
+/* Paleta por era (GDD Parte 2 §8)                                     */
+/* ------------------------------------------------------------------ */
+
+let eraVisual: 1 | 2 = 1;
+
+/**
+ * Paleta da era em curso. A Era 2 é o **entardecer**: os mesmos tokens com o céu e o mar um passo mais
+ * escuros e o Sol baixo na água. Quem desenha o mar e o céu pergunta por aqui.
+ */
+export function definirEraVisual(era: 1 | 2): void {
+  eraVisual = era;
+}
+
+export const eraDaCena = (): 1 | 2 => eraVisual;
+export const entardecer = (): boolean => eraVisual >= 2;
+
 /** Rampa de calor (corpo negro), a mesma de `content/era1-nucleo.ts`. */
 export const RAMPA: readonly (readonly [number, string])[] = [
   [0, "#3A6FF2"],
