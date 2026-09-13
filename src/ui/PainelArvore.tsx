@@ -23,7 +23,7 @@ function No({ no }: { no: NoDef }) {
   const motivo = avaliarNo(state, no.id).motivo;
   const falta = situacao === "disponivel" && !pode;
   return (
-    <li className={`no no--${situacao}`}>
+    <li className={`no no--${situacao}`} data-no={no.id}>
       <div className="no-topo">
         <span className="no-nome">{no.nome}</span>
         <span className={`no-custo ${falta ? "pilula-custo--caro" : ""}`}>

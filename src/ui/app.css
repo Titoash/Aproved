@@ -1334,9 +1334,31 @@ h2 {
     display: none;
   }
 
+  /* Com 🔬 e 👥 na faixa, quatro itens não cabem numa linha de 390 px: quebram em duas. */
+  .hud {
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    padding-bottom: 8px;
+  }
+
+  .hud-item--creditos,
+  .hud-item--oferta {
+    flex: 1 1 46%;
+  }
+
+  .hud-item--ciencia,
+  .hud-item--populacao,
+  .hud-item--calor {
+    flex: 0 1 auto;
+  }
+
+  .hud-valor--grande {
+    font-size: var(--t-20);
+  }
+
   .hud-pesquisa .hud-rotulo {
     display: block;
-    max-width: 150px;
+    max-width: 42vw;
     font-size: 10px;
   }
 

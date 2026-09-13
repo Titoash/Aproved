@@ -15,10 +15,13 @@ A cidade evolui e a ciência tem de onde vir e para onde ir: bairros com densida
 - **G · Verificação.** Testes; roteiro Playwright (evoluir bairro, universidade aparece com 1 000 habitantes, gastar 🔬 num nó e ver o efeito, capítulo concluído); capturas em `docs/capturas/sessao-7/`; `ESTADO.md`; relatório.
 
 ## Checklist
-- [ ] bairros com densidade, evolução exponencial, tarifa por densidade; testes
-- [ ] laboratório e universidade; população; 🔬 gasto; migração v6 → v7
-- [ ] árvore da Era 1 com frases de física; efeitos nas fórmulas; exclusões
-- [ ] capítulos com recompensas; objetivo ativo no HUD
-- [ ] UI: painel do bairro, tela da árvore, HUD com 🔬 e 👥, cards
-- [ ] simulação de 60 min e números recalibrados no GDD
-- [ ] roteiro Playwright verde; capturas; `ESTADO.md`; relatório; `typecheck`, `test`, `lint`, `build`
+- [x] bairros com densidade, evolução exponencial, tarifa por densidade; testes
+- [x] laboratório e universidade; população; 🔬 gasto; migração v6 → v7
+- [x] árvore da Era 1 com frases de física; efeitos nas fórmulas; exclusões
+- [x] capítulos com recompensas; objetivo ativo no HUD
+- [x] UI: painel do bairro, tela da árvore, HUD com 🔬 e 👥, cards
+- [x] simulação de 60 min e números recalibrados no GDD
+- [x] roteiro Playwright verde; capturas; `ESTADO.md`; relatório; `typecheck`, `test`, `lint`, `build`
+
+*Concluída. Relatório em `docs/sessoes/sessao-7-relatorio.md`; a Era 1 fecha em 41 min na simulação e o
+conflito com os 50–70 minutos de §7 (taxa de Estabilidade) está registrado lá e no GDD §8.4.*

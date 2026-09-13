@@ -344,7 +344,7 @@ export async function main(args: string[] = []): Promise<void> {
     "5 cata-ventos": null,
     "primeiro 🔬 gasto": null,
     "primeira evolução de bairro": null,
-    "expedição de Ventania comprável (₵ 600)": null,
+    "expedição de Ventania comprável": null,
     "Ventania aberta": null,
     "🔬 3 000 acumulados (saída da Era 1)": null,
     "₵ 50 000 (saída da Era 1)": null,
@@ -379,7 +379,7 @@ export async function main(args: string[] = []): Promise<void> {
       marcar("5 cata-ventos", a.contagem.cataVento >= 5);
       marcar("primeiro 🔬 gasto", s.pesquisados.length > 1);
       marcar("primeira evolução de bairro", Object.values(s.mundo.construcoes).some((c) => c.tipo === "bairro" && c.nivel > 0));
-      marcar("expedição de Ventania comprável (₵ 600)", s.creditos >= (custoExpedicao("ventania") ?? 0));
+      marcar("expedição de Ventania comprável", s.creditos >= (custoExpedicao("ventania") ?? 0));
       marcar("Ventania aberta", s.mundo.ilhasAbertas.includes("ventania"));
       marcar("🔬 3 000 acumulados (saída da Era 1)", pesquisaGanha >= 3000);
       marcar("₵ 50 000 (saída da Era 1)", s.creditos >= 50000);

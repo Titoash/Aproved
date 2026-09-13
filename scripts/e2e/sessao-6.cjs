@@ -325,7 +325,8 @@ async function rodar(tamanho) {
   await page.locator(".linha", { hasText: "Ventania" }).locator("button", { hasText: "Ligar cabo" }).click();
   await page.waitForTimeout(300);
   s = await estado(page);
-  ok(s.mundo.cabos.includes("ventania"), "o cabo submarino liga Ventania à rede", s.mundo.cabos);
+  // na v7 os cabos viraram ilha → nível (teto próprio de kW, ajuste 1 da gestão)
+  ok(s.mundo.cabos.ventania !== undefined, "o cabo submarino liga Ventania à rede", s.mundo.cabos);
   await page.evaluate(() => window.__jogo.store.getState().pedirPreset("ilha"));
   await page.waitForTimeout(900);
   await captura("07-ilha-aberta-e-cabo");
