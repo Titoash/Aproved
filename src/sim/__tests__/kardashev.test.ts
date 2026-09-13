@@ -25,10 +25,11 @@ describe("medidor Kardashev (GDD §6)", () => {
     const humanidade = MARCOS_KARDASHEV.find((m) => m.id === "humanidade")!;
     expect(posicaoNaBarra(2e13)).toBeCloseTo(posicaoNaBarra(humanidade.watts), 12);
     expect(posicaoNaBarra(1e3)).toBe(0);
-    expect(posicaoNaBarra(1e27)).toBe(1);
-    expect(posicaoNaBarra(1e15)).toBeCloseTo(0.5, 10);
+    expect(posicaoNaBarra(1e50)).toBe(1);
+    expect(posicaoNaBarra(10 ** 26.5)).toBeCloseTo(0.5, 10);
     expect(proximoMarco(2e13)?.id).toBe("tipoI");
-    expect(proximoMarco(1e30)).toBeNull();
+    expect(proximoMarco(1e30)?.id).toBe("tipoIII");
+    expect(proximoMarco(1e51)).toBeNull();
   });
 
   it("potência instalada soma usinas e Núcleo, em W, vendida ou não", () => {

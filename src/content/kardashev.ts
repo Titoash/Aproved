@@ -9,6 +9,8 @@ export interface MarcoKardashev {
   texto: string;
   /** Marco auxiliar (desenhado menor). */
   auxiliar?: boolean;
+  /** Acima do Sol não há marco físico: ficção declarada (GDD §6, v0.5). */
+  especulativo?: boolean;
 }
 
 export const MARCOS_KARDASHEV: readonly MarcoKardashev[] = [
@@ -17,12 +19,17 @@ export const MARCOS_KARDASHEV: readonly MarcoKardashev[] = [
   { id: "tipoI", nome: "Tipo I", nomeCurto: "I", watts: 1e16, texto: "Toda a energia que chega do Sol ao planeta." },
   { id: "tipoII", nome: "Tipo II", nomeCurto: "II", watts: 1e26, texto: "Toda a energia de uma estrela." },
   { id: "sol", nome: "Sol", nomeCurto: "Sol", watts: 3.8e26, texto: "A luminosidade real do Sol." },
+  { id: "tipoIII", nome: "Tipo III", nomeCurto: "III", watts: 1e36, texto: "Toda a energia de uma galáxia." },
+  { id: "tipoIV", nome: "Tipo IV", nomeCurto: "IV", watts: 1e46, texto: "Especulativo: a energia de um universo observável.", especulativo: true },
+  { id: "tipoV", nome: "Tipo V", nomeCurto: "V", watts: 1e50, texto: "Especulativo: além de um universo.", especulativo: true },
 ];
 
 export const ESCALA_KARDASHEV = {
   /** Extremos da barra, em W (log10). */
   minW: 1e3,
-  maxW: 1e27,
+  maxW: 1e50,
+  /** Acima disto a potência aparece só em notação científica (prefixos SI param no yotta). */
+  maxSiW: 1e24,
   /** K = (log10 P − base) ÷ divisor (Sagan). */
   base: 6,
   divisor: 10,

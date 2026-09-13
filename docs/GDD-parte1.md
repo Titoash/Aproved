@@ -207,10 +207,10 @@ Estabilidade 100 % + pesquisa "Fissão básica" (🔬 3 000) + ₵ 50 000 → Er
 | Planalto Solar | sol | 36 (painéis) | inicial |
 | Vila | vila | 32 vilas + 8 baterias | inicial |
 | Lago, Floresta | cenário | — | inicial |
-| Planície | local comprável | 24 vento + 24 sol + 24 vila | ₵ 2,4 mil |
-| Colinas | local comprável | 32 vento + 32 sol + 32 vila | ₵ 6,8 mil |
+| Planície | local comprável | 12 vento + 9 sol + 6 vila | ₵ 2,4 mil |
+| Colinas | local comprável | 14 vento + 11 sol + 8 vila | ₵ 6,8 mil |
 
-Vagas por categoria somam 104 de vento, 92 de sol, 88 de vila e 8 de bateria: acima do que a Era 1 compra (a 48ª unidade de uma usina custa ₵ 10,7 mil; a 100ª, ₵ 15 milhões), logo o limite só aparece para quem ignora os níveis das usinas. Preço dos locais na escala de ₵ da metade da era. A Grade 7×7 (§8.3) não é local: é a plataforma inteira.
+Vagas por categoria somam 74 de vento, 56 de sol, 46 de vila e 8 de bateria — o que cabe nas regiões da ilha da semente 7 em fileiras espaçadas — e ficam acima do que a Era 1 compra (a 48ª unidade de uma usina custa ₵ 10,7 mil; a 56ª, ₵ 33 mil), logo o limite só aparece para quem ignora os níveis das usinas. Preço dos locais na escala de ₵ da metade da era. A Grade 7×7 (§8.3) não é local: é a plataforma inteira.
 
 ---
 

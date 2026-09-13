@@ -1,8 +1,10 @@
 /** Ações do jogador sobre o estado. Funções puras: devolvem `null` quando a ação não é possível. */
 import { BATERIA, USINAS, VILA, type Desbloqueio } from "../content/era1";
+import { CATEGORIA_VAGA } from "../content/era1-tabuleiro";
 import { custoMelhoria, custoUnidade } from "./custos";
 import { capacidadeBateriaKwh } from "./rede";
 import type { GameState, UsinaId } from "./state";
+import { temVaga } from "./tabuleiro";
 
 /** Desbloqueio por quantidade de usina e/ou por pesquisa acumulada (🔬 é requisito, não gasto). */
 export function desbloqueado(state: GameState, desbloqueio?: Desbloqueio): boolean {
@@ -31,8 +33,13 @@ export function custoProximaBateria(state: GameState): number {
   return custoUnidade(BATERIA, state.rede.bateria.unidades);
 }
 
+/** Sem vaga na categoria do item nas regiões desbloqueadas (GDD §2.4): o jogador precisa abrir um local. */
+export function semVaga(state: GameState, item: UsinaId | "vila" | "bateria"): boolean {
+  return !temVaga(state, CATEGORIA_VAGA[item]);
+}
+
 export function podeComprarUsina(state: GameState, id: UsinaId): boolean {
-  return desbloqueado(state, USINAS[id].desbloqueio) && state.creditos >= custoProximaUsina(state, id);
+  return desbloqueado(state, USINAS[id].desbloqueio) && !semVaga(state, id) && state.creditos >= custoProximaUsina(state, id);
 }
 
 export function podeMelhorarUsina(state: GameState, id: UsinaId): boolean {
@@ -40,11 +47,11 @@ export function podeMelhorarUsina(state: GameState, id: UsinaId): boolean {
 }
 
 export function podeComprarVila(state: GameState): boolean {
-  return desbloqueado(state, VILA.desbloqueio) && state.creditos >= custoProximaVila(state);
+  return desbloqueado(state, VILA.desbloqueio) && !semVaga(state, "vila") && state.creditos >= custoProximaVila(state);
 }
 
 export function podeComprarBateria(state: GameState): boolean {
-  return desbloqueado(state, BATERIA.desbloqueio) && state.creditos >= custoProximaBateria(state);
+  return desbloqueado(state, BATERIA.desbloqueio) && !semVaga(state, "bateria") && state.creditos >= custoProximaBateria(state);
 }
 
 export function comprarUsina(state: GameState, id: UsinaId): GameState | null {

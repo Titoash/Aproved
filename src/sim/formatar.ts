@@ -49,6 +49,9 @@ const ESCALAS_POTENCIA: readonly Escala[] = [
   { fator: 1e6, sufixo: "GW" },
   { fator: 1e9, sufixo: "TW" },
   { fator: 1e12, sufixo: "PW" },
+  { fator: 1e15, sufixo: "EW" },
+  { fator: 1e18, sufixo: "ZW" },
+  { fator: 1e21, sufixo: "YW" },
 ];
 
 const ESCALAS_ENERGIA: readonly Escala[] = [

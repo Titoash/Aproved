@@ -56,6 +56,6 @@ export function formatarWatts(w: number): string {
   const cientifica = `${formatarNumero(mantissa, 1)}×10${sobrescrito(exp)} W`;
   // O prefixo SI acompanha o valor arredondado que aparece na notação científica.
   const arredondado = Number(mantissa.toFixed(1)) * 10 ** exp;
-  if (arredondado >= 1e6) return `${cientifica} (${formatarPotencia(arredondado / 1000)})`;
+  if (arredondado >= 1e6 && arredondado < ESCALA_KARDASHEV.maxSiW) return `${cientifica} (${formatarPotencia(arredondado / 1000)})`;
   return cientifica;
 }

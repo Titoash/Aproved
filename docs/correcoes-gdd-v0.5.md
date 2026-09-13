@@ -5,7 +5,7 @@ Origem: a amostra visual aprovada pelo autor (ilha isométrica de 2048 casas com
 ## 1. Tabuleiro (§2.2, §2.4 novo)
 - As duas camadas moram na **mesma ilha**: plataforma 7×7 do Núcleo no centro, regiões da Rede em volta. 2048 casas de terra, grade 52×52, forma por ruído com semente fixa por era.
 - A Rede continua uma **lista** (não muda o contrato de §2.1): comprar coloca a usina numa vaga da região certa, de forma determinística pelas contagens.
-- **Vagas** são o único limite novo: sem vaga da categoria, o botão avisa e o jogador compra um local. Locais não dão bônus. Saves antigos com mais usinas do que vagas continuam produzindo. Motivo: é a mecânica "novos locais" do Reactor citada em §1, e as vagas somadas (104 vento, 92 sol, 88 vila) ficam acima do que a economia da Era 1 compra, então a balança de §8 não muda.
+- **Vagas** são o único limite novo: sem vaga da categoria, o botão avisa e o jogador compra um local. Locais não dão bônus. Saves antigos com mais usinas do que vagas continuam produzindo. Motivo: é a mecânica "novos locais" do Reactor citada em §1, e as vagas somadas (74 vento, 56 sol, 46 vila) ficam acima do que a economia da Era 1 compra, então a balança de §8 não muda.
 
 ## 2. Escalas (§2.4, §6)
 - Escada de seis níveis: ilha, planeta, sistema, galáxia, universo, multiverso, alinhada aos tipos Kardashev I–V. Navegação livre; um nível **abre** pela potência instalada (10²⁶, 10³⁶, 10⁴⁶, 10⁵⁰ W).

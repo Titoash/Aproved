@@ -13,7 +13,10 @@ import { cardVisto, marcarCardVisto } from "../sim/cards";
 import { comprarMelhoria } from "../sim/melhorias";
 import { calcularOffline, type RelatorioOffline } from "../sim/offline";
 import { carregar, exportarJson, importarJson, INTERVALO_SAVE_MS, limpar, salvar } from "../sim/save";
+import type { NivelId } from "../content/era1-tabuleiro";
+import type { RegiaoId } from "../sim/ilha";
 import { estadoInicial, type GameState, type MelhoriaId, type PecaId, type UsinaId } from "../sim/state";
+import { desbloquearRegiao as desbloquearRegiaoSim } from "../sim/tabuleiro";
 import { avancarTicks } from "../sim/tick";
 
 /** O que o clique numa casa da grade faz. */
@@ -50,6 +53,12 @@ export interface GameStore {
   filaCards: string[];
   /** Só o card de abertura pausa o jogo. */
   pausado: boolean;
+  /** Nível da escada de escalas em exibição (GDD §2.4). Estado de interface: não vai para o save. */
+  nivel: NivelId;
+  /** Pedido de enquadramento para a cena consumir (`null` = nenhum). */
+  presetPedido: { nome: "ilha" | "nucleo" | NivelId; serie: number } | null;
+  /** Placa de local sob o ponteiro (vem do DOM; a cena só desenha o realce). */
+  regiaoSobPonteiro: RegiaoId | null;
 
   avancarTicks: (n: number) => void;
 
@@ -62,6 +71,12 @@ export interface GameStore {
 
   // Núcleo
   desbloquearNucleo: () => boolean;
+  /** Compra um local da ilha (GDD §2.4). Devolve `false` e registra um aviso se recusado. */
+  desbloquearRegiao: (id: RegiaoId) => boolean;
+  /** Navega na escada de escalas; níveis bloqueados só avisam. */
+  irParaNivel: (id: NivelId) => void;
+  pedirPreset: (nome: "ilha" | "nucleo") => void;
+  setRegiaoSobPonteiro: (id: RegiaoId | null) => void;
   selecionarFerramenta: (ferramenta: Ferramenta) => void;
   /** Aplica a ferramenta selecionada na casa. Devolve `false` e registra um aviso se recusado. */
   agirNaCasa: (indice: number) => boolean;
@@ -159,6 +174,9 @@ export const useGameStore = create<GameStore>()((set, get) => {
     cardAberto: cardsIniciais.length > 0 ? { id: cardsIniciais[0], tela: 0 } : null,
     filaCards: cardsIniciais.slice(1),
     pausado: cardsIniciais.length > 0 ? !!CARDS_ERA1[cardsIniciais[0]].pausa : false,
+    nivel: "ilha",
+    presetPedido: null,
+    regiaoSobPonteiro: null,
 
     avancarTicks(n) {
       const { state, salvoEmTempoMs, pausado } = get();
@@ -176,6 +194,23 @@ export const useGameStore = create<GameStore>()((set, get) => {
     comprarMelhoria: (id) => aplicar(comprarMelhoria(get().state, id)),
 
     desbloquearNucleo: () => aplicar(nucleo.desbloquearNucleo(get().state)),
+    desbloquearRegiao(id) {
+      const proximo = desbloquearRegiaoSim(get().state, id);
+      if (!proximo) {
+        set({ avisoGrade: { indice: -1, texto: "Créditos insuficientes para este local.", em: Date.now(), emTempoMs: get().state.tempoMs } });
+        return false;
+      }
+      return aplicar(proximo);
+    },
+    irParaNivel(id) {
+      const { nivel } = get();
+      if (id === nivel) return;
+      set({ nivel: id, presetPedido: { nome: id, serie: (get().presetPedido?.serie ?? 0) + 1 } });
+    },
+    pedirPreset: (nome) => set({ nivel: "ilha", presetPedido: { nome, serie: (get().presetPedido?.serie ?? 0) + 1 } }),
+    setRegiaoSobPonteiro(id) {
+      if (get().regiaoSobPonteiro !== id) set({ regiaoSobPonteiro: id });
+    },
     selecionarFerramenta: (ferramenta) => set({ ferramenta }),
 
     agirNaCasa(indice) {

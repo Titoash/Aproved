@@ -1,3 +1,5 @@
+import { REGIOES } from "../content/era1-tabuleiro";
+import type { RegiaoId } from "./ilha";
 /**
  * Persistência: único arquivo que toca `localStorage`.
  * Salva a cada `INTERVALO_SAVE_MS`, carrega no início, exporta/importa JSON,
@@ -13,6 +15,8 @@ import {
   gradeVazia,
   indiceReceptor,
   melhoriasIniciais,
+  tabuleiroInicial,
+  type TabuleiroState,
   nucleoInicial,
   VERSAO_SAVE,
   type Casa,
@@ -128,6 +132,17 @@ function normalizarCardsVistos(bruto: unknown): string[] {
   return Array.from(new Set(bruto.filter((x): x is string => typeof x === "string")));
 }
 
+/** Regiões conhecidas na ordem salva; as iniciais entram sempre (um save nunca pode "perder" o Campo dos Ventos). */
+function normalizarTabuleiro(bruto: unknown): TabuleiroState {
+  const base = tabuleiroInicial();
+  const lista = bruto && typeof bruto === "object" ? (bruto as Record<string, unknown>).regioesDesbloqueadas : undefined;
+  const conhecidas = new Set(REGIOES.map((r) => r.id));
+  const salvas = Array.isArray(lista) ? lista.filter((id): id is RegiaoId => typeof id === "string" && conhecidas.has(id as RegiaoId)) : [];
+  const ordem: RegiaoId[] = [];
+  for (const id of [...base.regioesDesbloqueadas, ...salvas]) if (!ordem.includes(id)) ordem.push(id);
+  return { regioesDesbloqueadas: ordem };
+}
+
 function normalizarMelhorias(bruto: unknown): Melhorias {
   const base = melhoriasIniciais();
   const m = objeto(bruto);
@@ -175,6 +190,7 @@ function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState 
     melhorias: normalizarMelhorias(bruto.melhorias),
     salvoEmMs: typeof bruto.salvoEmMs === "number" && bruto.salvoEmMs > 0 ? bruto.salvoEmMs : agoraMs,
     cardsVistos: normalizarCardsVistos(bruto.cardsVistos),
+    tabuleiro: normalizarTabuleiro(bruto.tabuleiro),
     eventos: [],
   };
 }
@@ -184,6 +200,7 @@ function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState 
  * v1 → v2: entra o Núcleo (`nucleo: null` até ser desbloqueado). Rede e créditos ficam como estão.
  * v2 → v3: entram `melhorias` (vazias) e `salvoEmMs` (= agora, sem ganho offline na primeira carga).
  * v3 → v4: entram `nucleo.lado` (5), `nucleo.ultimaCascata` (null) e `cardsVistos` ([]).
+ * v4 → v5: entra `tabuleiro` com as regiões iniciais da ilha (GDD §2.4).
  */
 function migrar(bruto: Record<string, unknown>, agoraMs: number): Record<string, unknown> {
   const versao = bruto.versao;
@@ -205,6 +222,10 @@ function migrar(bruto: Record<string, unknown>, agoraMs: number): Record<string,
     const nucleo = atual.nucleo && typeof atual.nucleo === "object" ? { ...(atual.nucleo as Record<string, unknown>), lado: 5, ultimaCascata: null } : atual.nucleo;
     atual = { ...atual, nucleo, cardsVistos: [], versao: 4 };
     v = 4;
+  }
+  if (v === 4) {
+    atual = { ...atual, tabuleiro: tabuleiroInicial(), versao: 5 };
+    v = 5;
   }
   return { ...atual, versao: v };
 }

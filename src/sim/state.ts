@@ -1,6 +1,8 @@
 /** Tipos do estado do jogo e estado inicial (GDD §3, §8.1, §8.3, §11). */
 import { ECONOMIA } from "../content/era1";
 import { NUCLEO } from "../content/era1-nucleo";
+import { REGIOES_INICIAIS } from "../content/era1-tabuleiro";
+import type { RegiaoId } from "./ilha";
 
 export type UsinaId = "cataVento" | "painelSolar" | "turbinaEolica";
 export type MelhoriaId = "laminasDeFibra" | "rastreamentoSolar" | "grade7x7";
@@ -73,7 +75,14 @@ export type EventoJogo =
   | { tipo: "primeiroCarregamento" }
   | { tipo: "primeiraCompra"; item: PecaId | "bateria" }
   | { tipo: "melhoriaComprada"; id: MelhoriaId }
-  | { tipo: "cascata"; entradaUs: number; saidaUs: number };
+  | { tipo: "cascata"; entradaUs: number; saidaUs: number }
+  | { tipo: "regiaoDesbloqueada"; id: RegiaoId };
+
+/** O que o jogador muda na ilha (GDD §2.4). A geometria da ilha é derivada do conteúdo e não vive aqui. */
+export interface TabuleiroState {
+  /** Regiões desbloqueadas, na ordem em que foram abertas (a ordem define a alocação das vagas). */
+  regioesDesbloqueadas: RegiaoId[];
+}
 
 export interface GameState {
   versao: number;
@@ -91,12 +100,17 @@ export interface GameState {
   salvoEmMs: number;
   /** Ids dos cards explicativos já mostrados. */
   cardsVistos: string[];
+  tabuleiro: TabuleiroState;
   /** Fila de eventos do tick/ação corrente (não persiste). */
   eventos: EventoJogo[];
 }
 
 /** Versão do formato de save. Incrementar ao mudar a forma do estado. */
-export const VERSAO_SAVE = 4;
+export const VERSAO_SAVE = 5;
+
+export function tabuleiroInicial(): TabuleiroState {
+  return { regioesDesbloqueadas: [...REGIOES_INICIAIS] };
+}
 
 export function melhoriasIniciais(): Melhorias {
   return { laminasDeFibra: false, rastreamentoSolar: false, grade7x7: false };
@@ -153,6 +167,7 @@ export function estadoInicial(): GameState {
     },
     nucleo: null,
     melhorias: melhoriasIniciais(),
+    tabuleiro: tabuleiroInicial(),
     salvoEmMs: 0,
     cardsVistos: [],
     eventos: [],

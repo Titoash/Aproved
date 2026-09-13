@@ -97,6 +97,20 @@ export const CARDS_ERA1: Record<string, CardDef> = {
 };
 
 /** Liga um evento do sim ao card que ele dispara (ou a nenhum). É o único lugar com essa tabela. */
+export const CARD_LOCAL: CardDef = {
+  id: "local",
+  gatilho: "primeiro local desbloqueado",
+  bipe: { papel: "manutencao", expressao: "apontando" },
+  telas: [
+    {
+      titulo: "Um local novo",
+      texto:
+        "A ilha tem 2048 casas, mas usina só cabe onde há vaga: cata-ventos e turbinas eólicas no vento, painéis no sol, vilas e baterias perto dos caminhos. Quando um campo enche, o botão avisa \"sem vaga\" e um local novo abre mais chão. Locais não dão bônus, dão espaço. Usinas de verdade também brigam por terreno: uma fazenda eólica ocupa dez vezes a área de uma térmica para a mesma potência.",
+    },
+  ],
+};
+CARDS_ERA1.local = CARD_LOCAL;
+
 export function cardParaEvento(evento: EventoJogo): string | null {
   switch (evento.tipo) {
     case "primeiroCarregamento":
@@ -109,5 +123,7 @@ export function cardParaEvento(evento: EventoJogo): string | null {
       return evento.id === "rastreamentoSolar" ? "rastreamento" : null;
     case "cascata":
       return "cascata";
+    case "regiaoDesbloqueada":
+      return "local";
   }
 }
