@@ -42,7 +42,7 @@ Atualizado ao fim da **Sessão 7** (cidade com densidade, laboratórios e univer
 - **Interface:** tela da árvore (uma coluna por tecnologia), painel da Cidade (densidade, população, demanda, Evoluir), HUD com 🔬 gastável (e o próximo nó à vista), 👥 população e a faixa do capítulo; sprites de laboratório e universidade, e o bairro que cresce com a densidade; cards novos (laboratório, árvore, evolução, universidade, cristal).
 - **Save v7** com migração v6 → v7: cabos viram ilha → nível, `vila` vira `bairro`, 🔬 acumulado vira saldo e o que já estava desbloqueado continua desbloqueado **sem cobrar**.
 - **Balanceamento (`scripts/simular.ts`, `npm run simular`):** um bot joga 60 minutos com o tick do sim seguindo os capítulos. A partir dele: a árvore ficou 8–10× mais cara no topo (acabava aos 15 min), as expedições ×3 (o arquipélago inteiro abria aos 30 min), entrou o nó **Fissão básica** (🔬 3 000 + ₵ 50 000) como saída da Era 1, e a fila de capítulos deixou de travar.
-- **Testes (`npm test`, 299)** e roteiros Playwright: `scripts/e2e/sessao-6.cjs` (52 verificações) e `scripts/e2e/sessao-7.cjs`, nos dois tamanhos, com capturas em `docs/capturas/sessao-7/`.
+- **Testes (`npm test`, 299)** e roteiros Playwright: `scripts/e2e/sessao-6.cjs` (52 verificações) e `scripts/e2e/sessao-7.cjs` (76 verificações), nos dois tamanhos, com capturas em `docs/capturas/sessao-7/`.
 
 ## Próxima sessão
 `docs/sessoes/sessao-8.md` (a escrever) — Era 2 (fissão: esgotamento e calor de decaimento) e transição de era, com o nó "Fissão básica" já no lugar.

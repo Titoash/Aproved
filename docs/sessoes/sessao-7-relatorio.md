@@ -220,7 +220,7 @@ Registrei os dois caminhos no GDD §8.4; a escolha é da gestão.
 
 - `npm run typecheck`, `npx vitest run` (**299 testes**), `npm run lint`, `npm run build` e
   `npm run build:artifact` passam.
-- `scripts/e2e/sessao-7.cjs`: **74 verificações** verdes nos dois tamanhos (1280×800 e 390×844), com
+- `scripts/e2e/sessao-7.cjs`: **76 verificações** verdes nos dois tamanhos (1280×800 e 390×844), com
   capturas em `docs/capturas/sessao-7/`.
 - `scripts/e2e/sessao-6.cjs` continua verde (**52 verificações**) — só precisou de uma linha nova, porque
   `mundo.cabos` deixou de ser lista. Rodá-lo regravou as capturas de `docs/capturas/sessao-6/`: elas agora
