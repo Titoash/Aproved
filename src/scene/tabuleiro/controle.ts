@@ -1,10 +1,11 @@
 /**
  * Ponte entre o DOM, a câmera e o store: um controle de câmera por app, ligado ao palco pela UI.
- * Toques viram ações do store (casa da plataforma → `agirNaCasa`; placa de local → `desbloquearRegiao`).
+ * Toques viram ações do store: casa da plataforma → `agirNaCasa`; casa do arquipélago → `agirNoMundo`;
+ * placa de expedição → `comprarIlha`; minimapa → recentrar.
  */
-import { ILHA } from "../../content/era1-tabuleiro";
-import { ilhaDaEra1 } from "../../sim/gerarIlha";
-import { naPlataforma } from "../../sim/ilha";
+import { ARQUIPELAGO } from "../../content/era1-arquipelago";
+import { naPlataforma } from "../../sim/arquipelago";
+import { arquipelagoDaEra1 } from "../../sim/gerarArquipelago";
 import { useGameStore } from "../../store/gameStore";
 import { getPalcoRect } from "../layout";
 import { centro, movimentoReduzido } from "./base";
@@ -24,16 +25,17 @@ let cenaAtual: Cena | null = null;
 
 export function controleCamera(): ControleCamera {
   if (!controle) {
-    const ilha = ilhaDaEra1();
+    const arq = arquipelagoDaEra1();
     controle = new ControleCamera({
-      limitesIlha: () => limitesIlha(ilha).topo,
+      limitesIlha: () => limitesIlha(arq).topo,
       centroNucleo: () => {
-        const c = centro(ilha.plataforma.meio, ilha.plataforma.meio);
+        const c = centro(arq.plataforma.meio, arq.plataforma.meio);
         return [c[0], c[1] - ELEV_PLAT];
       },
       ajustarEscala: ajustarCameraEscala,
       marcadorEscala,
-      forma: { centro: ILHA.n / 2, raio: ILHA.raio, expoente: ILHA.expoente },
+      // O arquipélago ocupa a grade inteira: a superelipse do limite é quase um círculo em volta dela.
+      forma: { centro: ARQUIPELAGO.n / 2, raio: ARQUIPELAGO.n / 2 + 2, expoente: 2.2 },
       reduzido: movimentoReduzido(),
     });
   }
@@ -46,7 +48,7 @@ export function registrarCena(cena: Cena | null): void {
 
 /** Casa da plataforma (x, y) → índice na grade jogável do sim, ou `null` fora dela (anel 3 antes da Grade 7×7). */
 export function indiceDaGrade(x: number, y: number, lado: number): number | null {
-  const p = ilhaDaEra1().plataforma;
+  const p = arquipelagoDaEra1().plataforma;
   const desloc = (p.lado - lado) / 2;
   const col = x - p.x0 - desloc;
   const lin = y - p.y0 - desloc;
@@ -56,7 +58,7 @@ export function indiceDaGrade(x: number, y: number, lado: number): number | null
 
 /** Índice na grade jogável → casa da plataforma. */
 export function casaDaGrade(indice: number, lado: number): [number, number] {
-  const p = ilhaDaEra1().plataforma;
+  const p = arquipelagoDaEra1().plataforma;
   const desloc = (p.lado - lado) / 2;
   return [p.x0 + desloc + (indice % lado), p.y0 + desloc + Math.floor(indice / lado)];
 }
@@ -70,19 +72,29 @@ function noMinimapa(px: number, py: number, w: number, h: number): boolean {
   return px >= x && py >= y && px <= x + mw && py <= y + mh;
 }
 
+/** O que há sob o toque: casa do mundo, casa da grade do Núcleo (se for a plataforma) ou nada. */
+interface Sob {
+  /** Índice da casa no arquipélago, ou `null` no mar. */
+  casa: number | null;
+  /** Índice na grade jogável do Núcleo, ou `null` fora dela. */
+  grade: number | null;
+  naPlataforma: boolean;
+}
+
 /** Liga o palco (elemento do DOM) ao controle; devolve a função que desliga. */
 export function anexarPalco(el: HTMLElement): () => void {
   const ctl = controleCamera();
-  const ilha = ilhaDaEra1();
+  const arq = arquipelagoDaEra1();
   const store = useGameStore;
 
-  const casaSob = (p: RetornoToque): { indice: number | null; naPlataforma: boolean } => {
-    const casa = casaEm(ilha, p.wx, p.wy);
-    if (!casa) return { indice: null, naPlataforma: false };
-    const plat = naPlataforma(ilha.plataforma, casa[0], casa[1]);
+  const sob = (p: RetornoToque): Sob => {
+    const casa = casaEm(arq, p.wx, p.wy);
+    if (!casa) return { casa: null, grade: null, naPlataforma: false };
+    const indice = casa[1] * arq.n + casa[0];
+    const plat = naPlataforma(arq.plataforma, casa[0], casa[1]);
     const nucleo = store.getState().state.nucleo;
-    if (!plat || !nucleo) return { indice: null, naPlataforma: plat };
-    return { indice: indiceDaGrade(casa[0], casa[1], nucleo.lado), naPlataforma: true };
+    if (!plat) return { casa: indice, grade: null, naPlataforma: false };
+    return { casa: indice, grade: nucleo ? indiceDaGrade(casa[0], casa[1], nucleo.lado) : null, naPlataforma: true };
   };
 
   return ctl.anexar(el, {
@@ -90,21 +102,25 @@ export function anexarPalco(el: HTMLElement): () => void {
       if (ctl.nivel !== "ilha" || ctl.transicao) return;
       if (noMinimapa(p.px, p.py, ctl.w, ctl.h)) {
         const [x, y] = retanguloMinimapa(ctl.w, ctl.h);
-        const [wx, wy] = minimapaParaMundo(ilha, p.px - x, p.py - y, MINIMAPA.w, MINIMAPA.h);
+        const [wx, wy] = minimapaParaMundo(arq, p.px - x, p.py - y, MINIMAPA.w, MINIMAPA.h);
         const c = ctl.camDe("ilha");
         c.tx = ctl.w / 2 - wx * c.zoom;
         c.ty = ctl.h / 2 - wy * c.zoom;
         ctl.limitar(c, "ilha");
         return;
       }
-      const { indice, naPlataforma: plat } = casaSob(p);
-      if (indice !== null) {
-        store.getState().agirNaCasa(indice);
+      const alvo = sob(p);
+      if (alvo.grade !== null) {
+        store.getState().agirNaCasa(alvo.grade);
         return;
       }
-      if (plat) return;
+      if (alvo.naPlataforma) return;
+      if (alvo.casa !== null) {
+        store.getState().agirNoMundo(alvo.casa);
+        return;
+      }
       const placa = cenaAtual ? placaEm(cenaAtual, p.wx, p.wy) : null;
-      if (placa) store.getState().desbloquearRegiao(placa);
+      if (placa) store.getState().comprarIlha(placa);
     },
     toqueDuplo() {
       if (ctl.nivel !== "ilha" || ctl.transicao) return;
@@ -115,12 +131,14 @@ export function anexarPalco(el: HTMLElement): () => void {
       const s = store.getState();
       if (!p || ctl.nivel !== "ilha") {
         s.setCasaSobPonteiro(null);
-        s.setRegiaoSobPonteiro(null);
+        s.setCasaMundoSobPonteiro(null);
+        s.setIlhaSobPonteiro(null);
         return;
       }
-      const { indice } = casaSob(p);
-      s.setCasaSobPonteiro(indice);
-      s.setRegiaoSobPonteiro(indice === null && cenaAtual ? placaEm(cenaAtual, p.wx, p.wy) : null);
+      const alvo = sob(p);
+      s.setCasaSobPonteiro(alvo.grade);
+      s.setCasaMundoSobPonteiro(alvo.naPlataforma ? null : alvo.casa);
+      s.setIlhaSobPonteiro(alvo.casa === null && cenaAtual ? placaEm(cenaAtual, p.wx, p.wy) : null);
     },
     mudou() {
       /* a cena lê a câmera a cada frame */
@@ -128,13 +146,13 @@ export function anexarPalco(el: HTMLElement): () => void {
   });
 }
 
-/** Casa da ilha → ponto em px da janela (para o roteiro de teste e depuração). `null` sem palco. */
+/** Casa do arquipélago → ponto em px da janela (para o roteiro de teste e depuração). `null` sem palco. */
 export function telaDaCasa(x: number, y: number): [number, number] | null {
   const rect = getPalcoRect();
   if (!rect) return null;
   const ctl = controleCamera();
   const c = centro(x, y);
-  const plat = ilhaDaEra1().plataforma;
+  const plat = arquipelagoDaEra1().plataforma;
   const cy = naPlataforma(plat, x, y) ? c[1] - ELEV_PLAT : c[1];
   const [sx, sy] = ctl.paraTela(c[0], cy);
   return [rect.left + sx, rect.top + sy];
@@ -142,10 +160,15 @@ export function telaDaCasa(x: number, y: number): [number, number] | null {
 
 declare global {
   interface Window {
-    __tabuleiro?: { telaDaCasa: typeof telaDaCasa; casaDaGrade: typeof casaDaGrade; controle: () => ControleCamera };
+    __tabuleiro?: {
+      telaDaCasa: typeof telaDaCasa;
+      casaDaGrade: typeof casaDaGrade;
+      controle: () => ControleCamera;
+      arquipelago: typeof arquipelagoDaEra1;
+    };
   }
 }
 
 if (import.meta.env.DEV && typeof window !== "undefined") {
-  window.__tabuleiro = { telaDaCasa, casaDaGrade, controle: controleCamera };
+  window.__tabuleiro = { telaDaCasa, casaDaGrade, controle: controleCamera, arquipelago: arquipelagoDaEra1 };
 }

@@ -11,7 +11,7 @@
  * Transformação: aplica `ctx.transform(zoom, 0, 0, zoom, tx, ty)` sobre a corrente (identidade ou DPR) e
  * restaura ao fim.
  */
-import { NIVEIS, type NivelId } from "../../content/era1-tabuleiro";
+import { NIVEIS, type NivelId } from "../../content/escalas";
 import { PALETA, alfa, clarear, escurecer, frac, misturar, movimentoReduzido, retArred, rnd, ruido, type Camera } from "./base";
 
 export type NivelEscala = Exclude<NivelId, "ilha">;

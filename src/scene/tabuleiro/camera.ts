@@ -2,8 +2,7 @@
  * Câmera do tabuleiro: pan, zoom na roda, pinch, inércia, presets (ilha, Núcleo), limites e a transição entre níveis.
  * Recebe os ponteiros de um elemento do DOM (o palco) e nunca toca o sim: toques viram callbacks.
  */
-import type { NivelId } from "../../content/era1-tabuleiro";
-import { NIVEIS } from "../../content/era1-tabuleiro";
+import { NIVEIS, type NivelId } from "../../content/escalas";
 import { desiso, iso, type Camera } from "./base";
 
 export interface Bbox {
@@ -23,7 +22,7 @@ export interface Transicao {
 }
 
 export interface DependenciasCamera {
-  /** Caixa do topo da ilha em px de mundo. */
+  /** Caixa do topo do arquipélago em px de mundo. */
   limitesIlha: () => Bbox;
   /** Centro da plataforma do Núcleo em px de mundo (já com a elevação). */
   centroNucleo: () => [number, number];

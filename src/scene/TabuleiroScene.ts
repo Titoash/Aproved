@@ -3,26 +3,43 @@
  * módulos de `scene/tabuleiro`, recortado ao retângulo do palco. Só lê o store e despacha nada: o input é do DOM.
  */
 import Phaser from "phaser";
-import { NIVEIS, regiaoDef, type NivelId } from "../content/era1-tabuleiro";
+import { ILHAS, OBSTACULOS, SUBESTACAO } from "../content/era1-arquipelago";
+import { NIVEIS, type NivelId } from "../content/escalas";
 import { NUCLEO } from "../content/era1-nucleo";
 import { USINAS, VILA } from "../content/era1";
 import { faixaDeCalor, temperaturaNucleo } from "../sim/calor";
 import { emScram, podeLimparEntulho } from "../sim/cascata";
 import { formatarCreditos, formatarPorcentagem, formatarPotencia } from "../sim/formatar";
-import { ilhaDaEra1 } from "../sim/gerarIlha";
+import { arquipelagoDaEra1 } from "../sim/gerarArquipelago";
 import { potenciaInstaladaW } from "../sim/kardashev";
+import { avaliarCasa, avaliarRemocaoObstaculo, ancoraDoObstaculo, casasDoObstaculo, custoExpedicao, ilhaAberta, rotaDoCabo, temCabo } from "../sim/mundo";
 import { anel, podeColocar, podeRemover } from "../sim/nucleo";
+import { analisar, obstaculoEm } from "../sim/producao";
 import type { GameState } from "../sim/state";
-import { alocacao, custoRegiao, regioesBloqueadas } from "../sim/tabuleiro";
-import { potenciaUsina } from "../sim/rede";
 import { balancoDoEstado } from "../sim/tick";
-import { useGameStore, type Ferramenta } from "../store/gameStore";
+import { useGameStore, type FerramentaMundo } from "../store/gameStore";
 import { getPalcoRect } from "./layout";
 import { PALETA, alfa, clamp01, movimentoReduzido, type Camera } from "./tabuleiro/base";
-import { atualizarCena, criarCena, desenharCallouts, desenharCena, dispararCascata, tremorCena, type CalloutCena, type Cena, type EntradaCena, type PecaCena } from "./tabuleiro/cena";
+import {
+  atualizarCena,
+  criarCena,
+  desenharCallouts,
+  desenharCena,
+  dispararCascata,
+  tremorCena,
+  type AlcanceCena,
+  type CalloutCena,
+  type Cena,
+  type ConstrucaoCena,
+  type EntradaCena,
+  type ObstaculoCena,
+  type PecaCena,
+  type PlacaCena,
+} from "./tabuleiro/cena";
 import { casaDaGrade, controleCamera, LARGURA_DESKTOP_PX, MINIMAPA, registrarCena, RESERVA_ESCADA_PX } from "./tabuleiro/controle";
 import { desenharEscala, type Reserva } from "./tabuleiro/escalas";
 import { desenharFundo, desenharGrao } from "./tabuleiro/fundo";
+import { desenharCabos, desenharMar, type CaboCena } from "./tabuleiro/mar";
 import { desenharMinimapa, desenharTerreno, liberarCacheTerreno } from "./tabuleiro/terreno";
 
 const easeInOut = (k: number) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
@@ -30,7 +47,7 @@ const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
 
 export class TabuleiroScene extends Phaser.Scene {
   static readonly KEY = "tabuleiro";
-  private ilha = ilhaDaEra1();
+  private arq = arquipelagoDaEra1();
   private cena: Cena | null = null;
   private chaveEstrutura = "";
   private ultimaCascataMs: number | null = null;
@@ -79,15 +96,20 @@ export class TabuleiroScene extends Phaser.Scene {
       if (loja.nivel !== ctl.nivel) loja.irParaNivel(ctl.nivel);
     }
 
-    this.sincronizarCena(loja.state, loja.casaSobPonteiro, loja.ferramenta);
+    this.sincronizarCena(loja.state, loja);
   }
 
-  private entrada(state: GameState, casaSobPonteiro: number | null, ferramenta: Ferramenta): EntradaCena {
-    const ilha = this.ilha;
+  /** Tudo o que a cena precisa do estado, montado uma vez por frame. */
+  private entrada(state: GameState, loja: ReturnType<typeof useGameStore.getState>): EntradaCena {
+    const arq = this.arq;
+    const n = arq.n;
     const b = balancoDoEstado(state);
+    const analise = analisar(state);
     const nucleo = state.nucleo;
     let nucleoCena: EntradaCena["nucleo"] = null;
     let realce: EntradaCena["realce"] = null;
+
+    // --- Núcleo
     if (nucleo) {
       const pecas: PecaCena[] = [];
       nucleo.grade.forEach((casa, i) => {
@@ -101,51 +123,159 @@ export class TabuleiroScene extends Phaser.Scene {
       const T = temperaturaNucleo(nucleo);
       const scram = emScram(nucleo);
       nucleoCena = { lado: nucleo.lado, pecas, T, scram, consumo: scram ? 0 : clamp01(T / 0.9), rastreamento: state.melhorias.rastreamentoSolar };
-      if (casaSobPonteiro !== null && casaSobPonteiro < nucleo.grade.length) {
-        const [x, y] = casaDaGrade(casaSobPonteiro, nucleo.lado);
-        const valido = ferramenta === "remover" ? podeRemover(nucleo.grade, casaSobPonteiro) : podeColocar(nucleo.grade, casaSobPonteiro, ferramenta).ok;
-        realce = { x, y, valido };
+      if (loja.casaSobPonteiro !== null && loja.casaSobPonteiro < nucleo.grade.length) {
+        const [x, y] = casaDaGrade(loja.casaSobPonteiro, nucleo.lado);
+        const valido =
+          loja.ferramenta === "remover" ? podeRemover(nucleo.grade, loja.casaSobPonteiro) : podeColocar(nucleo.grade, loja.casaSobPonteiro, loja.ferramenta).ok;
+        realce = { x, y, valido, texto: null };
       }
     }
+
+    // --- realce da casa do arquipélago sob o ponteiro, com o motivo
+    if (!realce && loja.casaMundoSobPonteiro !== null) {
+      const i = loja.casaMundoSobPonteiro;
+      realce = this.realceDoMundo(state, i, loja.ferramentaMundo);
+    }
+
+    // --- construções e obstáculos
+    const construcoes: ConstrucaoCena[] = [];
+    for (const chave of Object.keys(state.mundo.construcoes)) {
+      const i = Number(chave);
+      const c = state.mundo.construcoes[i];
+      const u = analise.porCasa.get(i);
+      construcoes.push({
+        x: i % n,
+        y: Math.floor(i / n),
+        tipo: c.tipo,
+        nivel: c.nivel,
+        semEscoamento: !!u && u.escoadoKw < u.brutoKw - 1e-9,
+      });
+    }
+    construcoes.sort((p, q) => p.y * n + p.x - (q.y * n + q.x));
+
+    const emRemocao = new Map<number, number>();
+    const fila = state.mundo.remocoes;
+    if (fila.length > 0 && fila[0].fimMs > 0) {
+      const total = OBSTACULOS[fila[0].tipo].tempoMs || 1;
+      emRemocao.set(fila[0].indice, clamp01(1 - (fila[0].fimMs - state.tempoMs) / total));
+    }
+    for (let k = 1; k < fila.length; k++) emRemocao.set(fila[k].indice, 0);
+
+    const obstaculos: ObstaculoCena[] = [];
+    const vistos = new Set<number>();
+    for (let i = 0; i < n * n; i++) {
+      const tipo = obstaculoEm(state.mundo, i, arq);
+      if (!tipo || vistos.has(i)) continue;
+      const ancora = ancoraDoObstaculo(state.mundo, i, arq);
+      if (vistos.has(ancora)) continue;
+      for (const casa of casasDoObstaculo(ancora, tipo, n)) vistos.add(casa);
+      obstaculos.push({ x: ancora % n, y: Math.floor(ancora / n), tipo, progresso: emRemocao.get(ancora) });
+    }
+
+    // --- cabos: rota de cada ilha aberta (ligada em `sun`, prevista em `muted`)
+    const cabos: CaboCena[] = [];
+    for (const def of ILHAS) {
+      if (def.id === "principal" || !ilhaAberta(state.mundo, def.id)) continue;
+      const rota = rotaDoCabo(def.id, arq);
+      if (rota) cabos.push({ casas: rota.casas, ligado: temCabo(state.mundo, def.id) });
+    }
+
+    // --- alcance: a subestação sob o ponteiro, ou todas quando a ferramenta é a subestação
+    const alcances: AlcanceCena[] = [];
+    const mostrarTodas = loja.ferramentaMundo === "subestacao";
+    for (const sub of analise.subestacoes) {
+      const sob = loja.casaMundoSobPonteiro !== null && this.mesmaCasaOuVizinha(loja.casaMundoSobPonteiro, sub.indice);
+      if (!mostrarTodas && !sob) continue;
+      alcances.push({ x: sub.indice % n, y: Math.floor(sub.indice / n), alcance: SUBESTACAO.alcance, cheio: sub.usadoKw >= sub.tetoKw - 1e-9 });
+    }
+
+    // --- callouts
     const callouts: CalloutCena[] = [];
     if (nucleo) {
       const T = temperaturaNucleo(nucleo);
       callouts.push({ chave: "torre", ancora: "torre", texto: `Torre Solar · ${formatarPorcentagem(T)} · ${faixaDeCalor(T).nome.toLowerCase()}` });
       callouts.push({ chave: "grade", ancora: "grade", texto: `Grade ${nucleo.lado}×${nucleo.lado} · ${nucleo.lado * nucleo.lado} casas` });
     }
-    const cv = state.rede.usinas.cataVento;
-    const te = state.rede.usinas.turbinaEolica;
-    if (cv.quantidade + te.quantidade > 0) {
-      const kw = potenciaUsina("cataVento", cv, state.melhorias) + potenciaUsina("turbinaEolica", te, state.melhorias);
-      const partes = [cv.quantidade > 0 ? `${cv.quantidade} ${cv.quantidade === 1 ? USINAS.cataVento.nome.toLowerCase() : USINAS.cataVento.nomePlural.toLowerCase()}` : null, te.quantidade > 0 ? `${te.quantidade} ${te.quantidade === 1 ? "eólica" : "eólicas"}` : null].filter(Boolean);
-      callouts.push({ chave: "vento", ancora: "vento", texto: `Vento · ${partes.join(" + ")} · ${formatarPotencia(kw)}` });
+    const eolicas = analise.contagem.cataVento + analise.contagem.turbinaEolica;
+    if (eolicas > 0) {
+      const partes = [
+        analise.contagem.cataVento > 0 ? `${analise.contagem.cataVento} ${analise.contagem.cataVento === 1 ? USINAS.cataVento.nome.toLowerCase() : USINAS.cataVento.nomePlural.toLowerCase()}` : null,
+        analise.contagem.turbinaEolica > 0 ? `${analise.contagem.turbinaEolica} ${analise.contagem.turbinaEolica === 1 ? "eólica" : "eólicas"}` : null,
+      ].filter(Boolean);
+      callouts.push({ chave: "vento", ancora: "vento", texto: `Vento · ${partes.join(" + ")} · ${formatarPotencia(analise.brutoKw)}` });
     }
-    if (state.rede.vilas > 0) {
-      callouts.push({ chave: "vila", ancora: "vila", texto: `${VILA.nome} · ${state.rede.vilas} ${state.rede.vilas === 1 ? "casa" : "casas"} · ${formatarPotencia(b.demandaKw)} de demanda` });
+    if (analise.contagem.vila > 0) {
+      callouts.push({
+        chave: "vila",
+        ancora: "vila",
+        texto: `${VILA.nome} · ${analise.contagem.vila} ${analise.contagem.vila === 1 ? "bairro" : "bairros"} · ${formatarPotencia(b.demandaKw)} de demanda`,
+      });
     }
+
+    const placas: PlacaCena[] = ILHAS.filter((d) => !ilhaAberta(state.mundo, d.id)).map((d) => ({
+      ilha: d.id,
+      nome: d.nome,
+      preco: formatarCreditos(custoExpedicao(d.id) ?? 0),
+    }));
+
+    const primeira = fila.length > 0 && fila[0].fimMs > 0 ? fila[0].indice : null;
+    const capacidadeKwh = analise.contagem.bateria * 20;
+
     return {
-      ilha,
-      semente: ilha.semente,
-      desbloqueadas: state.tabuleiro.regioesDesbloqueadas,
-      colocacoes: alocacao(ilha, state.tabuleiro.regioesDesbloqueadas, state.rede),
+      arq,
+      semente: arq.semente,
+      abertas: state.mundo.ilhasAbertas,
+      construcoes,
+      obstaculos,
+      cabos,
+      alcances,
       nucleo: nucleoCena,
-      placas: regioesBloqueadas(state).map((id) => ({ regiao: id, nome: regiaoDef(id).nome, preco: formatarCreditos(custoRegiao(id) ?? 0) })),
+      placas,
       callouts,
-      bateriaCarga: state.rede.bateria.capacidadeKwh > 0 ? state.rede.bateria.kwh / state.rede.bateria.capacidadeKwh : 0,
+      bateriaCarga: capacidadeKwh > 0 ? Math.min(1, state.rede.bateria.kwh / capacidadeKwh) : 0,
       realce,
+      remocao: primeira === null ? null : { x: primeira % n, y: Math.floor(primeira / n) },
       tempoMs: state.tempoMs,
     };
   }
 
-  private sincronizarCena(state: GameState, casaSobPonteiro: number | null, ferramenta: Ferramenta) {
-    const entrada = this.entrada(state, casaSobPonteiro, ferramenta);
+  private mesmaCasaOuVizinha(a: number, b: number): boolean {
+    const n = this.arq.n;
+    return Math.max(Math.abs((a % n) - (b % n)), Math.abs(Math.floor(a / n) - Math.floor(b / n))) <= 1;
+  }
+
+  /** Realce de uma casa do arquipélago: válido/inválido e o motivo curto (GDD §2.4, v0.6). */
+  private realceDoMundo(state: GameState, i: number, ferramenta: FerramentaMundo): EntradaCena["realce"] {
+    const n = this.arq.n;
+    const x = i % n;
+    const y = Math.floor(i / n);
+    const construcao = state.mundo.construcoes[i];
+    const obstaculo = obstaculoEm(state.mundo, i, this.arq);
+    if (ferramenta === "remover") {
+      return { x, y, valido: !!construcao, texto: construcao ? "remover (50 % de volta)" : "nada para remover" };
+    }
+    if (ferramenta === "desmatar" || (obstaculo && !construcao)) {
+      const v = avaliarRemocaoObstaculo(state, i, this.arq);
+      const custo = obstaculo ? formatarCreditos(OBSTACULOS[obstaculo].custo) : "";
+      return { x, y, valido: v.ok, texto: v.ok ? `${OBSTACULOS[obstaculo!].nome} · ${custo}` : v.motivo };
+    }
+    if (construcao) {
+      const ilhaId = this.arq.ilhas[this.arq.ilha[i]]?.id;
+      if (construcao.tipo === "subestacao" && ferramenta === "subestacao") return { x, y, valido: true, texto: "melhorar subestação" };
+      return { x, y, valido: false, texto: ilhaId ? "casa ocupada" : null };
+    }
+    const v = avaliarCasa(state, i, ferramenta, this.arq);
+    return { x, y, valido: v.ok, texto: v.ok ? v.aviso : v.motivo };
+  }
+
+  private sincronizarCena(state: GameState, loja: ReturnType<typeof useGameStore.getState>) {
+    const entrada = this.entrada(state, loja);
     const chave = [
-      state.tabuleiro.regioesDesbloqueadas.join(","),
-      state.rede.usinas.cataVento.quantidade,
-      state.rede.usinas.painelSolar.quantidade,
-      state.rede.usinas.turbinaEolica.quantidade,
-      state.rede.vilas,
-      state.rede.bateria.unidades,
+      state.mundo.ilhasAbertas.join(","),
+      state.mundo.cabos.join(","),
+      entrada.construcoes.length,
+      entrada.obstaculos.length,
+      state.mundo.removidos.length,
       state.nucleo ? state.nucleo.lado : "x",
       state.nucleo ? state.nucleo.grade.map((c) => (c ? c.tipo[0] + ("id" in c ? c.id[0] : "") : "_")).join("") : "",
     ].join("|");
@@ -188,7 +318,10 @@ export class TabuleiroScene extends Phaser.Scene {
       const tr = tremorCena(this.cena, t);
       const c: Camera = { zoom: cam.zoom, tx: cam.tx + tr[0], ty: cam.ty + tr[1], w, h };
       ctx.setTransform(dpr * c.zoom, 0, 0, dpr * c.zoom, dpr * c.tx, dpr * c.ty);
-      desenharTerreno(ctx, this.ilha, c, t, { desbloqueadas: new Set(state.tabuleiro.regioesDesbloqueadas), ladoGrade: state.nucleo?.lado ?? NUCLEO.ladoInicial, chaoDpr, chaoEscalavel });
+      // mar e cabos ficam sob as ilhas
+      desenharMar(ctx, this.arq, c, t);
+      desenharCabos(ctx, this.arq, this.cena.cabos, c, t);
+      desenharTerreno(ctx, this.arq, c, t, { desbloqueadas: new Set(state.mundo.ilhasAbertas), ladoGrade: state.nucleo?.lado ?? NUCLEO.ladoInicial, chaoDpr, chaoEscalavel });
       desenharCena(ctx, this.cena, c, t);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       desenharCallouts(ctx, this.cena, c, this.reservas(w, h));
@@ -308,7 +441,7 @@ export class TabuleiroScene extends Phaser.Scene {
     ctx.stroke();
     ctx.translate(x, y);
     const cam = controleCamera().camDe("ilha");
-    desenharMinimapa(ctx, this.ilha, cam, MINIMAPA.w, MINIMAPA.h, new Set(useGameStore.getState().state.tabuleiro.regioesDesbloqueadas));
+    desenharMinimapa(ctx, this.arq, cam, MINIMAPA.w, MINIMAPA.h, new Set(useGameStore.getState().state.mundo.ilhasAbertas));
     ctx.restore();
   }
 }

@@ -1,37 +1,29 @@
-import { BATERIA, MELHORIAS, ORDEM_MELHORIAS, ORDEM_USINAS, USINAS, VILA, type Desbloqueio } from "../content/era1";
-import { CATEGORIA_VAGA, REGIOES, regiaoDef, type CategoriaVaga } from "../content/era1-tabuleiro";
-import { ilhaDaEra1 } from "../sim/gerarIlha";
-import type { RegiaoId } from "../sim/ilha";
-import { custoRegiao, podeDesbloquearRegiao, proximaRegiaoComVaga, regiaoDesbloqueada, vagasLivres } from "../sim/tabuleiro";
-import { IconeCadeado, IconeItem } from "./icones";
-import {
-  custoProximaBateria,
-  custoProximaMelhoria,
-  custoProximaUsina,
-  custoProximaVila,
-  desbloqueado,
-  podeComprarBateria,
-  podeComprarUsina,
-  podeComprarVila,
-  podeMelhorarUsina,
-  semVaga,
-} from "../sim/acoes";
+/**
+ * Painel da Rede (GDD §2.1, v0.6): a lista de compra virou **paleta de construção** — escolhe-se um prédio e
+ * toca-se numa casa do arquipélago. Abaixo dela ficam o extrato, as ilhas (expedição e cabo) e as melhorias.
+ */
+import { MELHORIAS, ORDEM_MELHORIAS, ORDEM_USINAS, USINAS, VILA, BATERIA, type Desbloqueio } from "../content/era1";
+import { CABO, ILHAS, OBSTACULOS, SUBESTACAO, type IlhaId } from "../content/era1-arquipelago";
+import { custoProximaMelhoria, desbloqueado, podeMelhorarUsina } from "../sim/acoes";
 import { fatorMelhoria } from "../sim/custos";
-import { formatarEnergia, formatarNumero, formatarPotencia } from "../sim/formatar";
+import { formatarCreditos, formatarNumero, formatarPotencia } from "../sim/formatar";
+import { custoCabo, custoColocar, custoExpedicao, ilhaAberta, podeComprarIlha, podeLigarCabo, temCabo } from "../sim/mundo";
 import { fatorPotenciaUsina, podeComprarMelhoria } from "../sim/melhorias";
-import { potenciaUsina } from "../sim/rede";
-import type { GameState, UsinaId } from "../sim/state";
-import { useGameStore } from "../store/gameStore";
+import { analisar } from "../sim/producao";
+import type { GameState, TipoConstrucao } from "../sim/state";
+import { useGameStore, type FerramentaMundo } from "../store/gameStore";
 import { BotaoCompra } from "./BotaoCompra";
-import { NumeroPop } from "./NumeroPop";
+import { Extrato } from "./Extrato";
+import { IconeCadeado, IconeItem } from "./icones";
 
 function textoBloqueio(state: GameState, desbloqueio: Desbloqueio | undefined): string | null {
   if (desbloqueado(state, desbloqueio)) return null;
   const partes: string[] = [];
+  const analise = analisar(state);
   if (desbloqueio?.usina) {
     const [id, n] = desbloqueio.usina;
     const nome = n === 1 ? USINAS[id].nome : USINAS[id].nomePlural;
-    if (state.rede.usinas[id].quantidade < n) partes.push(`${n} ${nome.toLowerCase()} (${state.rede.usinas[id].quantidade}/${n})`);
+    if (analise.contagem[id] < n) partes.push(`${n} ${nome.toLowerCase()} (${analise.contagem[id]}/${n})`);
   }
   if (desbloqueio?.pesquisa !== undefined && state.pesquisa < desbloqueio.pesquisa) {
     partes.push(`🔬 ${desbloqueio.pesquisa} (${formatarNumero(state.pesquisa, 0)}/${desbloqueio.pesquisa})`);
@@ -39,105 +31,82 @@ function textoBloqueio(state: GameState, desbloqueio: Desbloqueio | undefined): 
   return `Desbloqueia com ${partes.join(" e ")}`;
 }
 
-const NOME_CATEGORIA: Record<CategoriaVaga, string> = { vento: "vento", sol: "sol", vila: "vila", bateria: "bateria" };
-
-/** "sem vaga" quando as regiões desbloqueadas encheram (GDD §2.4); aponta o local mais barato que resolve. */
-function TextoVaga({ item }: { item: UsinaId | "vila" | "bateria" }) {
-  const state = useGameStore((s) => s.state);
-  if (!semVaga(state, item)) return null;
-  const proxima = proximaRegiaoComVaga(state, CATEGORIA_VAGA[item]);
-  return (
-    <span className="linha-vaga">
-      <IconeCadeado /> sem vaga{proxima ? ` · desbloqueie ${regiaoDef(proxima).nome}` : " · a ilha lotou"}
-    </span>
-  );
+interface ItemPaleta {
+  id: FerramentaMundo;
+  nome: string;
+  detalhe: string;
+  desbloqueio?: Desbloqueio;
 }
 
-function LinhaUsina({ id }: { id: UsinaId }) {
-  const state = useGameStore((s) => s.state);
-  const comprarUsina = useGameStore((s) => s.comprarUsina);
-  const melhorarUsina = useGameStore((s) => s.melhorarUsina);
-  const def = USINAS[id];
-  const usina = state.rede.usinas[id];
-  const bloqueio = textoBloqueio(state, def.desbloqueio);
-  const potenciaCada = def.potenciaKw * fatorMelhoria(usina.nivel) * fatorPotenciaUsina(state.melhorias, id);
+function itensDaPaleta(state: GameState): ItemPaleta[] {
+  const itens: ItemPaleta[] = ORDEM_USINAS.map((id) => ({
+    id,
+    nome: USINAS[id].nome,
+    detalhe: `${formatarPotencia(USINAS[id].potenciaKw * fatorMelhoria(state.rede.usinas[id].nivel) * fatorPotenciaUsina(state.melhorias, id))} por unidade`,
+    desbloqueio: USINAS[id].desbloqueio,
+  }));
+  itens.push({ id: "vila", nome: VILA.nome, detalhe: `+${formatarPotencia(VILA.demandaKw)} de demanda` });
+  itens.push({ id: "subestacao", nome: SUBESTACAO.nome, detalhe: `alcance ${SUBESTACAO.alcance} · teto ${formatarPotencia(SUBESTACAO.tetoKw)}` });
+  itens.push({ id: "bateria", nome: BATERIA.nome, detalhe: `+${BATERIA.capacidadeKwh} kWh · ±${formatarPotencia(BATERIA.potenciaKw)}`, desbloqueio: BATERIA.desbloqueio });
+  return itens;
+}
 
+function BotaoPaleta({ item }: { item: ItemPaleta }) {
+  const state = useGameStore((s) => s.state);
+  const ferramenta = useGameStore((s) => s.ferramentaMundo);
+  const selecionar = useGameStore((s) => s.selecionarFerramentaMundo);
+  const bloqueio = textoBloqueio(state, item.desbloqueio);
+  const custo = custoColocar(state, item.id as TipoConstrucao);
+  const caro = state.creditos < custo;
   return (
-    <li className={`linha ${bloqueio ? "linha--bloqueada" : ""}`}>
-      <IconeItem id={id} />
-      <div className="linha-texto">
-        <span className="linha-nome">{def.nome}</span>
-        <span className="linha-meta">
-          {bloqueio ? (
-            <span className="linha-bloqueio">🔒 {bloqueio}</span>
-          ) : (
-            <>
-              <NumeroPop valor={usina.quantidade}>×{usina.quantidade}</NumeroPop> · {formatarPotencia(potenciaUsina(id, usina, state.melhorias))} ·{" "}
-              {formatarPotencia(potenciaCada)} cada
-              {usina.nivel > 0 ? ` · nível ${usina.nivel}` : ""}
-              <TextoVaga item={id} />
-            </>
-          )}
+    <button
+      type="button"
+      role="radio"
+      aria-checked={ferramenta === item.id}
+      className={`paleta-item ${ferramenta === item.id ? "paleta-item--ativa" : ""} ${bloqueio ? "paleta-item--bloqueada" : ""}`}
+      disabled={!!bloqueio}
+      title={bloqueio ?? item.detalhe}
+      onClick={() => selecionar(item.id)}
+    >
+      <IconeItem id={item.id as never} />
+      <span className="paleta-nome">{item.nome}</span>
+      {bloqueio ? (
+        <span className="paleta-custo paleta-custo--bloqueio">
+          <IconeCadeado /> {bloqueio.replace("Desbloqueia com ", "")}
         </span>
-      </div>
-      {bloqueio ? null : (
-        <div className="linha-acoes">
-          <BotaoCompra titulo="Comprar" custo={custoProximaUsina(state, id)} creditos={state.creditos} habilitado={podeComprarUsina(state, id)} variante="primario" onClick={() => comprarUsina(id)} />
-          <BotaoCompra titulo={`Nível ${usina.nivel + 1}`} custo={custoProximaMelhoria(state, id)} creditos={state.creditos} habilitado={podeMelhorarUsina(state, id)} onClick={() => melhorarUsina(id)} />
-        </div>
+      ) : (
+        <span className={`paleta-custo ${caro ? "pilula-custo--caro" : ""}`}>{formatarCreditos(custo)}</span>
       )}
-    </li>
+      <span className="paleta-detalhe">{item.detalhe}</span>
+    </button>
   );
 }
 
-function LinhaVila() {
-  const state = useGameStore((s) => s.state);
-  const comprarVila = useGameStore((s) => s.comprarVila);
+function Ferramentas() {
+  const ferramenta = useGameStore((s) => s.ferramentaMundo);
+  const selecionar = useGameStore((s) => s.selecionarFerramentaMundo);
+  const opcoes: { id: FerramentaMundo; nome: string; detalhe: string; icone: "remover" | "arvore" }[] = [
+    { id: "remover", nome: "Remover", detalhe: "devolve 50 % do custo", icone: "remover" },
+    { id: "desmatar", nome: "Desmatar", detalhe: `árvore ${formatarCreditos(OBSTACULOS.arvore.custo)} · pedra ${formatarCreditos(OBSTACULOS.pedra.custo)}`, icone: "arvore" },
+  ];
   return (
-    <li className="linha">
-      <IconeItem id="vila" />
-      <div className="linha-texto">
-        <span className="linha-nome">Vila</span>
-        <span className="linha-meta">
-          <NumeroPop valor={state.rede.vilas}>×{state.rede.vilas}</NumeroPop> · +{formatarPotencia(VILA.demandaKw)} de demanda cada
-          <TextoVaga item="vila" />
-        </span>
-      </div>
-      <div className="linha-acoes">
-        <BotaoCompra titulo="Comprar" custo={custoProximaVila(state)} creditos={state.creditos} habilitado={podeComprarVila(state)} variante="primario" onClick={comprarVila} />
-      </div>
-    </li>
-  );
-}
-
-function LinhaBateria() {
-  const state = useGameStore((s) => s.state);
-  const comprarBateria = useGameStore((s) => s.comprarBateria);
-  const bloqueio = textoBloqueio(state, BATERIA.desbloqueio);
-  const { bateria } = state.rede;
-  return (
-    <li className={`linha ${bloqueio ? "linha--bloqueada" : ""}`}>
-      <IconeItem id="bateria" />
-      <div className="linha-texto">
-        <span className="linha-nome">Bateria</span>
-        <span className="linha-meta">
-          {bloqueio ? (
-            <span className="linha-bloqueio">🔒 {bloqueio}</span>
-          ) : (
-            <>
-              <NumeroPop valor={bateria.unidades}>×{bateria.unidades}</NumeroPop> · {formatarEnergia(bateria.kwh)} / {formatarEnergia(bateria.capacidadeKwh)} · ±
-              {formatarPotencia(BATERIA.potenciaKw * bateria.unidades)}
-              <TextoVaga item="bateria" />
-            </>
-          )}
-        </span>
-      </div>
-      {bloqueio ? null : (
-        <div className="linha-acoes">
-          <BotaoCompra titulo="Comprar" custo={custoProximaBateria(state)} creditos={state.creditos} habilitado={podeComprarBateria(state)} variante="primario" onClick={comprarBateria} />
-        </div>
-      )}
-    </li>
+    <div className="paleta paleta--ferramentas" role="radiogroup" aria-label="Ferramentas">
+      {opcoes.map((o) => (
+        <button
+          key={o.id}
+          type="button"
+          role="radio"
+          aria-checked={ferramenta === o.id}
+          className={`paleta-item ${ferramenta === o.id ? "paleta-item--ativa" : ""}`}
+          title={o.detalhe}
+          onClick={() => selecionar(o.id)}
+        >
+          <IconeItem id={o.icone} />
+          <span className="paleta-nome">{o.nome}</span>
+          <span className="paleta-detalhe">{o.detalhe}</span>
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -165,60 +134,91 @@ function LinhaMelhoria({ id }: { id: (typeof ORDEM_MELHORIAS)[number] }) {
   );
 }
 
-/** Locais compráveis da ilha (GDD §8.5): só vagas, nenhum bônus. */
-function LinhaLocal({ id }: { id: RegiaoId }) {
+function LinhaNivelUsina({ id }: { id: (typeof ORDEM_USINAS)[number] }) {
   const state = useGameStore((s) => s.state);
-  const desbloquear = useGameStore((s) => s.desbloquearRegiao);
-  const def = regiaoDef(id);
-  const custo = custoRegiao(id);
-  if (custo === null) return null;
-  const aberta = regiaoDesbloqueada(state, id);
-  const vagas = (Object.entries(def.vagas) as [CategoriaVaga, number][]).map(([c, n]) => `${n} ${NOME_CATEGORIA[c]}`).join(" · ");
+  const melhorarUsina = useGameStore((s) => s.melhorarUsina);
+  const analise = analisar(state);
+  if (analise.contagem[id] === 0) return null;
+  const nivel = state.rede.usinas[id].nivel;
   return (
-    <li className={`linha ${aberta ? "linha--comprada" : ""}`}>
+    <li className="linha">
+      <IconeItem id={id} />
       <div className="linha-texto">
-        <span className="linha-nome">
-          {def.nome}
-          {aberta ? <span className="marca-comprado"> ✔ aberto</span> : null}
+        <span className="linha-nome">{USINAS[id].nome}</span>
+        <span className="linha-meta">
+          ×{analise.contagem[id]} · nível {nivel} · produção ×{formatarNumero(fatorMelhoria(nivel), 1)}
         </span>
-        <span className="linha-meta">{aberta ? `vagas: ${vagas}` : `abre ${vagas}`}</span>
       </div>
-      {aberta ? null : (
-        <div className="linha-acoes">
-          <BotaoCompra titulo="Desbloquear" custo={custo} creditos={state.creditos} habilitado={podeDesbloquearRegiao(state, id)} variante="primario" onClick={() => desbloquear(id)} />
-        </div>
-      )}
+      <div className="linha-acoes">
+        <BotaoCompra titulo={`Nível ${nivel + 1}`} custo={custoProximaMelhoria(state, id)} creditos={state.creditos} habilitado={podeMelhorarUsina(state, id)} onClick={() => melhorarUsina(id)} />
+      </div>
     </li>
   );
 }
 
-function ResumoVagas() {
+/** Uma ilha do arquipélago: expedição (₵) e depois o cabo submarino (₵ 150 + ₵ 40 por casa de mar). */
+function LinhaIlha({ id }: { id: IlhaId }) {
   const state = useGameStore((s) => s.state);
-  const ilha = ilhaDaEra1();
-  const partes = (["vento", "sol", "vila", "bateria"] as const).map((c) => `${vagasLivres(state, c, ilha)} ${NOME_CATEGORIA[c]}`);
-  return <p className="rede-vagas">Vagas livres: {partes.join(" · ")}</p>;
+  const comprarIlha = useGameStore((s) => s.comprarIlha);
+  const ligarCabo = useGameStore((s) => s.ligarCabo);
+  const def = ILHAS.find((i) => i.id === id);
+  if (!def || def.expedicao === null) return null;
+  const aberta = ilhaAberta(state.mundo, id);
+  const cabo = temCabo(state.mundo, id);
+  return (
+    <li className={`linha ${cabo ? "linha--comprada" : ""}`}>
+      <div className="linha-texto">
+        <span className="linha-nome">
+          {def.nome}
+          {aberta ? <span className="marca-comprado"> ✔ aberta</span> : null}
+          {cabo ? <span className="marca-comprado"> ✔ com cabo</span> : null}
+        </span>
+        <span className="linha-meta">
+          {def.casas} casas · {def.descricao}
+        </span>
+      </div>
+      <div className="linha-acoes">
+        {!aberta ? (
+          <BotaoCompra titulo="Expedição" custo={custoExpedicao(id) ?? 0} creditos={state.creditos} habilitado={podeComprarIlha(state, id)} variante="primario" onClick={() => comprarIlha(id)} />
+        ) : !cabo ? (
+          <BotaoCompra titulo="Ligar cabo" custo={custoCabo(id)} creditos={state.creditos} habilitado={podeLigarCabo(state, id)} variante="primario" onClick={() => ligarCabo(id)} />
+        ) : null}
+      </div>
+    </li>
+  );
 }
 
 export function PainelRede() {
+  const itens = itensDaPaleta(useGameStore((s) => s.state));
   return (
     <section className="rede" aria-label="Rede">
-      <h2>Rede</h2>
-      <ul className="lista">
-        {ORDEM_USINAS.map((id) => (
-          <LinhaUsina key={id} id={id} />
+      <h2>Construir</h2>
+      <p className="rede-dica">Escolha e toque numa casa. Cada casa é uma decisão: terreno, vizinhos e escoamento mudam o que ela rende.</p>
+      <div className="paleta" role="radiogroup" aria-label="Paleta de construção">
+        {itens.map((item) => (
+          <BotaoPaleta key={item.id} item={item} />
         ))}
-        <LinhaVila />
-        <LinhaBateria />
-      </ul>
-      <h2 className="rede-subtitulo">Locais da ilha</h2>
-      <ResumoVagas />
+      </div>
+      <Ferramentas />
+
+      <h2 className="rede-subtitulo">Extrato</h2>
+      <Extrato />
+
+      <h2 className="rede-subtitulo">Ilhas</h2>
+      <p className="rede-dica">
+        A expedição abre a ilha; o cabo ({formatarCreditos(CABO.custoFixo)} + {formatarCreditos(CABO.custoPorCasa)} por casa de mar) liga a energia dela à rede principal.
+      </p>
       <ul className="lista">
-        {REGIOES.filter((r) => r.preco !== undefined).map((r) => (
-          <LinhaLocal key={r.id} id={r.id} />
+        {ILHAS.filter((i) => i.expedicao !== null).map((i) => (
+          <LinhaIlha key={i.id} id={i.id} />
         ))}
       </ul>
+
       <h2 className="rede-subtitulo">Melhorias</h2>
       <ul className="lista">
+        {ORDEM_USINAS.map((id) => (
+          <LinhaNivelUsina key={id} id={id} />
+        ))}
         {ORDEM_MELHORIAS.filter((id) => MELHORIAS[id].camada === "rede").map((id) => (
           <LinhaMelhoria key={id} id={id} />
         ))}

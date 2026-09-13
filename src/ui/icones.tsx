@@ -1,8 +1,9 @@
 /** Ícones vetoriais próprios (GDD §10: nada de terceiros, nada de emoji nos ícones). */
-import type { NivelId } from "../content/era1-tabuleiro";
-import type { MelhoriaId, UsinaId } from "../sim/state";
+import type { NivelId } from "../content/escalas";
+import type { TipoObstaculo } from "../content/era1-arquipelago";
+import type { MelhoriaId, TipoConstrucao } from "../sim/state";
 
-export type ItemIcone = UsinaId | "vila" | "bateria" | MelhoriaId;
+export type ItemIcone = TipoConstrucao | MelhoriaId | TipoObstaculo | "remover";
 
 export function IconeItem({ id }: { id: ItemIcone }) {
   switch (id) {
@@ -52,6 +53,77 @@ export function IconeItem({ id }: { id: ItemIcone }) {
           <path d="M10 3l7.5 6.5H10Z" fill="#c95050" />
           <rect x="6" y="12" width="2.4" height="2.4" fill="#ffd23f" />
           <rect x="12" y="12" width="2.4" height="2.4" fill="#ffd23f" />
+        </svg>
+      );
+    case "subestacao":
+      return (
+        <svg className="icone icone--item" viewBox="0 0 20 20" aria-hidden="true">
+          <rect x="2.5" y="13.5" width="15" height="4.5" rx="1.5" fill="#c9cfff" />
+          <rect x="4.5" y="3" width="1.8" height="11" fill="#e9edff" />
+          <rect x="13.7" y="3" width="1.8" height="11" fill="#e9edff" />
+          <rect x="4.5" y="2" width="11" height="1.8" rx="0.9" fill="#e9edff" />
+          <path d="M5.4 5.5h9.2M5.4 8.5h9.2" stroke="#4f5ac8" strokeWidth="0.9" />
+          <circle cx="7" cy="1.6" r="1.1" fill="#ffd23f" />
+          <circle cx="13" cy="1.6" r="1.1" fill="#ffd23f" />
+          <path d="M10 6.5 8.4 10h1.6l-1 3 3-4h-1.7l1-2.5Z" fill="#ffb703" />
+        </svg>
+      );
+    case "arvore":
+      return (
+        <svg className="icone icone--item" viewBox="0 0 20 20" aria-hidden="true">
+          <rect x="9" y="11" width="2" height="7" fill="#3e3488" />
+          <circle cx="10" cy="8" r="6" fill="#2f9c60" />
+          <circle cx="8.5" cy="6.5" r="4.5" fill="#3fb36a" />
+          <circle cx="7" cy="5" r="1.8" fill="#6be585" />
+        </svg>
+      );
+    case "arbusto":
+      return (
+        <svg className="icone icone--item" viewBox="0 0 20 20" aria-hidden="true">
+          <ellipse cx="10" cy="15" rx="7" ry="4" fill="#2f9c60" />
+          <ellipse cx="8.5" cy="13" rx="5.5" ry="3.4" fill="#55d162" />
+          <circle cx="6.5" cy="11.5" r="1.5" fill="#6be585" />
+        </svg>
+      );
+    case "pedra":
+      return (
+        <svg className="icone icone--item" viewBox="0 0 20 20" aria-hidden="true">
+          <path d="M3 15 6 7l6-2 5 5-2 5Z" fill="#5b4cb5" />
+          <path d="M6 7l6-2 5 5-6 1Z" fill="#7a6ad6" />
+          <path d="M11 11l6-1-2 5-4 1Z" fill="#3e3488" />
+        </svg>
+      );
+    case "pantano":
+      return (
+        <svg className="icone icone--item" viewBox="0 0 20 20" aria-hidden="true">
+          <ellipse cx="10" cy="14" rx="8" ry="4.5" fill="#2d5f55" />
+          <ellipse cx="9.5" cy="13.2" rx="6" ry="3.2" fill="#3c7a6a" />
+          <path d="M5 12c0-3 1-5 1-7M9 11c0-4 1-6 1.5-8M13 12c0-3 .6-4.5 1-6" stroke="#5ec975" strokeWidth="1.3" strokeLinecap="round" fill="none" />
+        </svg>
+      );
+    case "montanha":
+      return (
+        <svg className="icone icone--item" viewBox="0 0 20 20" aria-hidden="true">
+          <path d="M1 17 10 3l9 14Z" fill="#5b4cb5" />
+          <path d="M10 3l9 14h-9Z" fill="#3e3488" />
+          <path d="M10 3l3 4.6-1.5-.5L10 8.4 8.5 7.1 7 7.6Z" fill="#eef3ff" />
+        </svg>
+      );
+    case "pico":
+      return (
+        <svg className="icone icone--item" viewBox="0 0 20 20" aria-hidden="true">
+          <path d="M4 18 10 1l6 17Z" fill="#5b4cb5" />
+          <path d="M10 1l6 17h-6Z" fill="#3e3488" />
+          <path d="M10 1l2.2 6-2.2-1-2.2 1Z" fill="#eef3ff" />
+        </svg>
+      );
+    case "remover":
+      return (
+        <svg className="icone icone--item" viewBox="0 0 20 20" aria-hidden="true">
+          <path d="M4 6h12l-1 11.5a1.5 1.5 0 0 1-1.5 1.4h-7A1.5 1.5 0 0 1 5 17.5Z" fill="#9aa3c7" />
+          <path d="M8 3.2h4a1 1 0 0 1 1 1V6H7V4.2a1 1 0 0 1 1-1Z" fill="#ff6b6b" />
+          <rect x="2.5" y="5.2" width="15" height="1.9" rx="0.95" fill="#f4f6ff" />
+          <path d="M8.4 9v7M11.6 9v7" stroke="#161b3d" strokeWidth="1.4" strokeLinecap="round" />
         </svg>
       );
     case "bateria":

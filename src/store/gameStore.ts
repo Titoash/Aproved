@@ -7,20 +7,23 @@
 import { create } from "zustand";
 import { cardParaEvento, CARDS_ERA1 } from "../content/cards-era1";
 import { OFFLINE } from "../content/era1";
+import { OBSTACULOS, type IlhaId } from "../content/era1-arquipelago";
+import type { NivelId } from "../content/escalas";
 import * as acoes from "../sim/acoes";
 import * as nucleo from "../sim/acoesNucleo";
 import { cardVisto, marcarCardVisto } from "../sim/cards";
 import { comprarMelhoria } from "../sim/melhorias";
+import * as mundo from "../sim/mundo";
 import { calcularOffline, type RelatorioOffline } from "../sim/offline";
 import { carregar, exportarJson, importarJson, INTERVALO_SAVE_MS, limpar, salvar } from "../sim/save";
-import type { NivelId } from "../content/era1-tabuleiro";
-import type { RegiaoId } from "../sim/ilha";
-import { estadoInicial, type GameState, type MelhoriaId, type PecaId, type UsinaId } from "../sim/state";
-import { desbloquearRegiao as desbloquearRegiaoSim } from "../sim/tabuleiro";
+import { estadoInicial, type GameState, type MelhoriaId, type PecaId, type TipoConstrucao, type UsinaId } from "../sim/state";
 import { avancarTicks } from "../sim/tick";
 
-/** O que o clique numa casa da grade faz. */
+/** O que o clique numa casa da grade do Núcleo faz. */
 export type Ferramenta = PecaId | "remover";
+
+/** O que o clique numa casa do arquipélago faz (paleta de construção, GDD §2.1, v0.6). */
+export type FerramentaMundo = TipoConstrucao | "remover" | "desmatar";
 
 export interface CardAberto {
   id: string;
@@ -57,26 +60,35 @@ export interface GameStore {
   nivel: NivelId;
   /** Pedido de enquadramento para a cena consumir (`null` = nenhum). */
   presetPedido: { nome: "ilha" | "nucleo" | NivelId; serie: number } | null;
-  /** Placa de local sob o ponteiro (vem do DOM; a cena só desenha o realce). */
-  regiaoSobPonteiro: RegiaoId | null;
+  /** Placa de expedição sob o ponteiro (vem do DOM; a cena só desenha o realce). */
+  ilhaSobPonteiro: IlhaId | null;
+  /** Casa do arquipélago sob o ponteiro (fora da plataforma). */
+  casaMundoSobPonteiro: number | null;
+  /** Prédio ou ferramenta selecionada na paleta de construção. */
+  ferramentaMundo: FerramentaMundo;
 
   avancarTicks: (n: number) => void;
 
-  // Rede
-  comprarUsina: (id: UsinaId) => boolean;
+  // Rede e mundo
   melhorarUsina: (id: UsinaId) => boolean;
-  comprarVila: () => boolean;
-  comprarBateria: () => boolean;
   comprarMelhoria: (id: MelhoriaId) => boolean;
+  selecionarFerramentaMundo: (f: FerramentaMundo) => void;
+  /** Aplica a ferramenta da paleta na casa do arquipélago. Devolve `false` e avisa se recusado. */
+  agirNoMundo: (indice: number) => boolean;
+  colocar: (indice: number, tipo: TipoConstrucao) => boolean;
+  removerConstrucao: (indice: number) => boolean;
+  desmatar: (indice: number) => boolean;
+  comprarIlha: (id: IlhaId) => boolean;
+  ligarCabo: (id: IlhaId) => boolean;
+  melhorarSubestacao: (indice: number) => boolean;
+  setCasaMundoSobPonteiro: (indice: number | null) => void;
+  setIlhaSobPonteiro: (id: IlhaId | null) => void;
 
   // Núcleo
   desbloquearNucleo: () => boolean;
-  /** Compra um local da ilha (GDD §2.4). Devolve `false` e registra um aviso se recusado. */
-  desbloquearRegiao: (id: RegiaoId) => boolean;
   /** Navega na escada de escalas; níveis bloqueados só avisam. */
   irParaNivel: (id: NivelId) => void;
   pedirPreset: (nome: "ilha" | "nucleo") => void;
-  setRegiaoSobPonteiro: (id: RegiaoId | null) => void;
   selecionarFerramenta: (ferramenta: Ferramenta) => void;
   /** Aplica a ferramenta selecionada na casa. Devolve `false` e registra um aviso se recusado. */
   agirNaCasa: (indice: number) => boolean;
@@ -176,7 +188,9 @@ export const useGameStore = create<GameStore>()((set, get) => {
     pausado: cardsIniciais.length > 0 ? !!CARDS_ERA1[cardsIniciais[0]].pausa : false,
     nivel: "ilha",
     presetPedido: null,
-    regiaoSobPonteiro: null,
+    ilhaSobPonteiro: null,
+    casaMundoSobPonteiro: null,
+    ferramentaMundo: "cataVento",
 
     avancarTicks(n) {
       const { state, salvoEmTempoMs, pausado } = get();
@@ -187,30 +201,88 @@ export const useGameStore = create<GameStore>()((set, get) => {
       if (proximo.tempoMs - salvoEmTempoMs >= INTERVALO_SAVE_MS) salvarEstado(proximo);
     },
 
-    comprarUsina: (id) => aplicar(acoes.comprarUsina(get().state, id)),
     melhorarUsina: (id) => aplicar(acoes.melhorarUsina(get().state, id)),
-    comprarVila: () => aplicar(acoes.comprarVila(get().state)),
-    comprarBateria: () => aplicar(acoes.comprarBateria(get().state)),
     comprarMelhoria: (id) => aplicar(comprarMelhoria(get().state, id)),
 
-    desbloquearNucleo: () => aplicar(nucleo.desbloquearNucleo(get().state)),
-    desbloquearRegiao(id) {
-      const proximo = desbloquearRegiaoSim(get().state, id);
+    selecionarFerramentaMundo: (f) => set({ ferramentaMundo: f }),
+
+    /**
+     * Um toque resolve o caso comum: com um prédio selecionado, uma casa com obstáculo manda o Bipe
+     * desmatar (cobrando), e uma casa livre coloca o prédio. "Remover" e "Desmatar" são explícitos.
+     */
+    agirNoMundo(indice) {
+      const { state, ferramentaMundo } = get();
+      if (ferramentaMundo === "remover") {
+        if (aplicar(mundo.remover(state, indice))) return true;
+        avisar(indice, "Nada para remover aqui.");
+        return false;
+      }
+      if (ferramentaMundo === "desmatar") {
+        const v = mundo.avaliarRemocaoObstaculo(state, indice);
+        if (!v.ok) {
+          avisar(indice, v.motivo ?? "Não dá para remover aqui.");
+          return false;
+        }
+        return aplicar(mundo.removerObstaculo(state, indice));
+      }
+      const obstaculo = mundo.obstaculoEm(state.mundo, indice);
+      if (obstaculo) {
+        const v = mundo.avaliarRemocaoObstaculo(state, indice);
+        if (!v.ok) {
+          avisar(indice, v.motivo ?? "Não dá para remover aqui.");
+          return false;
+        }
+        avisar(indice, `${OBSTACULOS[obstaculo].nome}: o Bipe está a caminho.`);
+        return aplicar(mundo.removerObstaculo(state, indice));
+      }
+      const construcao = mundo.construcaoEm(state.mundo, indice);
+      if (construcao?.tipo === "subestacao" && ferramentaMundo === "subestacao") {
+        if (aplicar(mundo.melhorarSubestacao(state, indice))) return true;
+        avisar(indice, "₵ insuficientes para o próximo nível da subestação.");
+        return false;
+      }
+      const v = mundo.avaliarCasa(state, indice, ferramentaMundo);
+      if (!v.ok) {
+        avisar(indice, v.motivo ?? "Não dá para construir aqui.");
+        return false;
+      }
+      return aplicar(mundo.colocar(state, indice, ferramentaMundo));
+    },
+
+    colocar: (indice, tipo) => aplicar(mundo.colocar(get().state, indice, tipo)),
+    removerConstrucao: (indice) => aplicar(mundo.remover(get().state, indice)),
+    desmatar: (indice) => aplicar(mundo.removerObstaculo(get().state, indice)),
+    comprarIlha(id) {
+      const proximo = mundo.comprarIlha(get().state, id);
       if (!proximo) {
-        set({ avisoGrade: { indice: -1, texto: "Créditos insuficientes para este local.", em: Date.now(), emTempoMs: get().state.tempoMs } });
+        avisar(-1, "₵ insuficientes para esta expedição.");
         return false;
       }
       return aplicar(proximo);
     },
+    ligarCabo(id) {
+      const proximo = mundo.ligarCabo(get().state, id);
+      if (!proximo) {
+        avisar(-1, "₵ insuficientes para o cabo submarino.");
+        return false;
+      }
+      return aplicar(proximo);
+    },
+    melhorarSubestacao: (indice) => aplicar(mundo.melhorarSubestacao(get().state, indice)),
+    setCasaMundoSobPonteiro(indice) {
+      if (get().casaMundoSobPonteiro !== indice) set({ casaMundoSobPonteiro: indice });
+    },
+    setIlhaSobPonteiro(id) {
+      if (get().ilhaSobPonteiro !== id) set({ ilhaSobPonteiro: id });
+    },
+
+    desbloquearNucleo: () => aplicar(nucleo.desbloquearNucleo(get().state)),
     irParaNivel(id) {
       const { nivel } = get();
       if (id === nivel) return;
       set({ nivel: id, presetPedido: { nome: id, serie: (get().presetPedido?.serie ?? 0) + 1 } });
     },
     pedirPreset: (nome) => set({ nivel: "ilha", presetPedido: { nome, serie: (get().presetPedido?.serie ?? 0) + 1 } }),
-    setRegiaoSobPonteiro(id) {
-      if (get().regiaoSobPonteiro !== id) set({ regiaoSobPonteiro: id });
-    },
     selecionarFerramenta: (ferramenta) => set({ ferramenta }),
 
     agirNaCasa(indice) {

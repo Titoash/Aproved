@@ -6,8 +6,9 @@
  * `rnd`, animação via `t`; com `movimentoReduzido()` não há cintilação, respiração nem giro.
  * Canvas offscreen via `OffscreenCanvas` (sem `document`).
  */
-import type { NivelId } from "../../content/era1-tabuleiro";
-import { PALETA, alfa, misturar, movimentoReduzido, retArred, rnd, ruido, type Camera } from "./base";
+import type { NivelId } from "../../content/escalas";
+import { desenharCeu } from "./mar";
+import { PALETA, alfa, misturar, movimentoReduzido, rnd, type Camera } from "./base";
 
 /** Paleta local (direcao.md §2): ajustes entram aqui, nunca em base.ts. */
 const P = {
@@ -341,257 +342,10 @@ function desenharEstrelas(ctx: CanvasRenderingContext2D, w: number, h: number, t
  * R = 0,12·min(w,h) no desktop; no celular 0,11·min(w,h) com 60 % fora do palco. Sem contorno, sem sombra,
  * sem blur: halos em degraus aditivos.
  */
-interface Sol {
-  cx: number;
-  cy: number;
-  R: number;
-  resp: number;
-  pequeno: boolean;
-}
-
-const sol: Sol = { cx: 0, cy: 0, R: 0, resp: 1, pequeno: false };
-
-function geometriaSol(w: number, h: number, t: number, cam: Camera, reduzido: boolean): Sol {
-  const pequeno = w < 600;
-  const R = pequeno ? Math.max(30, Math.min(60, Math.min(w, h) * 0.11)) : Math.max(48, Math.min(110, Math.min(w, h) * 0.12));
-  const k = pequeno ? 0.4 : 0.6;
-  sol.cx = R * k + cam.tx * PARALAXE.astros;
-  sol.cy = R * k + cam.ty * PARALAXE.astros;
-  sol.R = R;
-  sol.resp = reduzido ? 1 : 1 + 0.06 * Math.sin(t * Math.PI); // halos respiram ±6 % em 2 s
-  sol.pequeno = pequeno;
-  return sol;
-}
-
-/** Halos do Sol: ANTES das estrelas, em 'lighter' com alfa baixo (somam luz ao navy sem embarrar em ocre). */
-const HALOS: readonly (readonly [number, string])[] = [
-  [2.1, alfa(P.sun, 0.04)],
-  [1.6, alfa(P.sun, 0.09)],
-  [1.25, alfa(P.sun, 0.16)],
-];
-
-function desenharHalosSol(ctx: CanvasRenderingContext2D, s: Sol): void {
-  ctx.globalCompositeOperation = "lighter";
-  for (let i = s.pequeno ? 2 : 0; i < HALOS.length; i++) {
-    // no celular só o halo 1,25R
-    ctx.fillStyle = HALOS[i][1];
-    ctx.beginPath();
-    ctx.arc(s.cx, s.cy, s.R * HALOS[i][0] * s.resp, 0, TAU);
-    ctx.fill();
-  }
-  ctx.globalCompositeOperation = "source-over";
-}
-
-const COR_TRACO = alfa(P.gold, 0.6);
-
-function desenharDiscoSol(ctx: CanvasRenderingContext2D, s: Sol, t: number, reduzido: boolean): void {
-  const { cx, cy, R } = s;
-  if (!s.pequeno) {
-    // 12 traços curtos (retArred 3×22) girando devagar entre 1,12R e 1,30R, em vez de cunhas de clip-art
-    const rot = reduzido ? 0 : t * 0.05;
-    const len = Math.min(22, R * 0.18);
-    ctx.fillStyle = COR_TRACO;
-    for (let i = 0; i < 12; i++) {
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(rot + i * (TAU / 12));
-      retArred(ctx, R * 1.12, -1.5, len, 3, 1.5);
-      ctx.fill();
-      ctx.restore();
-    }
-    // anéis finos: 1,4R sólido 1,5 px e 1,85R tracejado [6,8]
-    ctx.strokeStyle = alfa(P.sun, 0.35);
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(cx, cy, R * 1.4, 0, TAU);
-    ctx.stroke();
-    ctx.save();
-    ctx.setLineDash([6, 8]);
-    ctx.lineDashOffset = reduzido ? 0 : -t * 6;
-    ctx.strokeStyle = alfa(P.sun, 0.28);
-    ctx.lineWidth = 1.25;
-    ctx.beginPath();
-    ctx.arc(cx, cy, R * 1.85, 0, TAU);
-    ctx.stroke();
-    ctx.restore();
-  }
-  // disco, miolo e 3 manchas
-  ctx.fillStyle = P.sun;
-  ctx.beginPath();
-  ctx.arc(cx, cy, R, 0, TAU);
-  ctx.fill();
-  ctx.fillStyle = P.solMiolo;
-  ctx.beginPath();
-  ctx.arc(cx - R * 0.08, cy - R * 0.08, R * 0.55, 0, TAU);
-  ctx.fill();
-  ctx.fillStyle = alfa(P.gold, 0.5);
-  ctx.beginPath();
-  ctx.ellipse(cx + R * 0.45, cy + R * 0.35, R * 0.16, R * 0.11, 0.5, 0, TAU);
-  ctx.moveTo(cx - R * 0.5 + R * 0.11, cy + R * 0.48);
-  ctx.ellipse(cx - R * 0.5, cy + R * 0.48, R * 0.11, R * 0.08, -0.4, 0, TAU);
-  ctx.moveTo(cx + R * 0.2 + R * 0.09, cy - R * 0.62);
-  ctx.ellipse(cx + R * 0.2, cy - R * 0.62, R * 0.09, R * 0.07, 0.2, 0, TAU);
-  ctx.fill();
-}
 
 /* ------------------------------------------------------------------ */
-/* Planeta de fundo (nível ilha): canto oposto ao Sol, receita do §8 reduzida */
+/* Órbita (ilha): removida com o céu do arquipélago (v0.6)              */
 /* ------------------------------------------------------------------ */
-
-/**
- * Desktop: inferior-esquerdo (o minimapa ocupa o inferior-direito e os controles o superior-direito),
- * r ≈ 0,11·min(w,h). Celular: oculto abaixo de 500 px de largura; entre 500 e 600, superior-direito com
- * r 0,09·min(w,h) e α .6. Continentes e grade em Path2D unitário (r = 1), montados uma vez.
- */
-interface GeometriaPlaneta {
-  cont: Path2D;
-  grade: Path2D;
-  atm1: string;
-  atm2: string;
-  gradeCor: string;
-  nuvem: string;
-  term: string;
-}
-
-let planetaGeo: GeometriaPlaneta | null = null;
-
-function geometriaPlaneta(): GeometriaPlaneta {
-  if (planetaGeo) return planetaGeo;
-  const ru = ruido(SEED + 9);
-  const rd = rnd(SEED + 21);
-  const cont = new Path2D();
-  const grade = new Path2D();
-  for (let c = 0; c < 4; c++) {
-    const ax = (rd() - 0.5) * 1.5;
-    const ay = (rd() - 0.5) * 1.5;
-    const rx = 0.22 + rd() * 0.3;
-    const ry = rx * (0.5 + rd() * 0.5);
-    for (let k = 0; k <= 24; k++) {
-      const a = (k / 24) * TAU;
-      const d = 0.75 + 0.5 * ru(c * 11 + Math.cos(a) * 2.2 + 5, Math.sin(a) * 2.2 + 5);
-      const px = ax + Math.cos(a) * rx * d;
-      const py = ay + Math.sin(a) * ry * d;
-      if (k === 0) cont.moveTo(px, py);
-      else cont.lineTo(px, py);
-    }
-    cont.closePath();
-  }
-  for (let k = -2; k <= 2; k++) {
-    const yy = k * 0.33;
-    grade.moveTo(-1, yy);
-    grade.lineTo(1, yy);
-  }
-  for (let k = -2; k <= 2; k++) {
-    const rx = Math.abs(k) * 0.33 || 0.001;
-    grade.moveTo(rx, 0);
-    grade.ellipse(0, 0, rx, 1, 0, 0, TAU);
-  }
-  planetaGeo = {
-    cont,
-    grade,
-    atm1: alfa(P.ion, 0.35),
-    atm2: alfa(P.ion, 0.15),
-    gradeCor: alfa(P.ink, 0.06),
-    nuvem: alfa(P.turbinaCarcaca, 0.5),
-    term: alfa(P.oceano2, 0.6),
-  };
-  return planetaGeo;
-}
-
-function desenharPlaneta(ctx: CanvasRenderingContext2D, w: number, h: number, t: number, cam: Camera, reduzido: boolean): void {
-  const pequeno = w < 600;
-  if (pequeno && w < 500) return;
-  const G = geometriaPlaneta();
-  const r = pequeno ? Math.max(28, Math.min(60, Math.min(w, h) * 0.09)) : Math.max(40, Math.min(70, Math.min(w, h) * 0.11));
-  const m = r + 22;
-  const cx = (pequeno ? w - m : m) + cam.tx * PARALAXE.astros;
-  const cy = (pequeno ? m : h - m) + cam.ty * PARALAXE.astros;
-  ctx.save();
-  if (pequeno) ctx.globalAlpha = 0.6;
-  // atmosfera: anel 4 px em r+2 (A(ion,.35)) e 1 px α .15 em r+10, sem glow
-  ctx.strokeStyle = G.atm1;
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.arc(cx, cy, r + 2, 0, TAU);
-  ctx.stroke();
-  ctx.strokeStyle = G.atm2;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.arc(cx, cy, r + 10, 0, TAU);
-  ctx.stroke();
-  // disco + clip
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, TAU);
-  ctx.fillStyle = P.oceano;
-  ctx.fill();
-  ctx.clip();
-  ctx.translate(cx, cy);
-  // 4 continentes (Path2D unitário escalado por r; contorno em px de tela)
-  ctx.save();
-  ctx.scale(r, r);
-  ctx.fillStyle = P.grama2;
-  ctx.fill(G.cont);
-  ctx.restore();
-  ctx.save();
-  ctx.scale(r, r);
-  ctx.strokeStyle = P.gramaEsc;
-  ctx.lineWidth = 1.5 / r;
-  ctx.stroke(G.cont);
-  ctx.restore();
-  // grade de 30° bem sutil
-  ctx.save();
-  ctx.scale(r, r);
-  ctx.strokeStyle = G.gradeCor;
-  ctx.lineWidth = 1 / r;
-  ctx.stroke(G.grade);
-  ctx.restore();
-  // 2 nuvens deslizando (2 px/s), chapadas
-  ctx.fillStyle = G.nuvem;
-  const desl = reduzido ? 0 : t * 2;
-  for (let n = 0; n < 2; n++) {
-    const nx = -r + modulo(r * (0.6 + n * 1.1) + desl, r * 2.4) - r * 0.2;
-    const ny = (n ? 0.35 : -0.45) * r;
-    ctx.beginPath();
-    ctx.ellipse(nx, ny, r * 0.22, r * 0.06, 0, 0, TAU);
-    ctx.moveTo(nx + r * 0.24, ny - r * 0.03);
-    ctx.ellipse(nx + r * 0.12, ny - r * 0.03, r * 0.12, r * 0.06, 0, 0, TAU);
-    ctx.fill();
-  }
-  // terminador: crescente oceano2 no lado baixo-direita (luz de cima-esquerda) = disco menos círculo deslocado
-  ctx.fillStyle = G.term;
-  ctx.beginPath();
-  ctx.rect(-r, -r, r * 2, r * 2);
-  ctx.moveTo(-r * 0.45 + r * 1.02, -r * 0.1);
-  ctx.arc(-r * 0.45, -r * 0.1, r * 1.02, 0, TAU, true);
-  ctx.fill("evenodd");
-  ctx.restore();
-}
-
-/* ------------------------------------------------------------------ */
-/* Órbita (ilha): um arco tracejado concêntrico ao Sol, só no desktop  */
-/* ------------------------------------------------------------------ */
-
-const ORBITA_COR = alfa(P.ink, 0.1);
-const ORBITA_PONTO = alfa(P.muted, 0.6);
-
-function desenharOrbitas(ctx: CanvasRenderingContext2D, s: Sol, t: number, reduzido: boolean): void {
-  if (s.pequeno) return;
-  ctx.save();
-  ctx.setLineDash([3, 9]);
-  ctx.lineDashOffset = reduzido ? 0 : -t * 4;
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = ORBITA_COR;
-  ctx.beginPath();
-  ctx.arc(s.cx, s.cy, s.R * 2.7, 0, TAU);
-  ctx.stroke();
-  ctx.restore();
-  // um planetinha-ponto percorrendo a órbita (só um ponto, sem detalhe)
-  const a = Math.PI * 0.55 + (reduzido ? 0 : t * 0.02);
-  ctx.fillStyle = ORBITA_PONTO;
-  ctx.beginPath();
-  ctx.arc(s.cx + Math.cos(a) * s.R * 2.7, s.cy + Math.sin(a) * s.R * 2.7, 2.5, 0, TAU);
-  ctx.fill();
-}
 
 /* ------------------------------------------------------------------ */
 /* Nível sistema: blob nebOuro (M(gold, navy, .78), α .35 → 0) de raio 2,5·RS·zoom centrado no Sol */
@@ -661,6 +415,12 @@ export function desenharGrao(ctx: CanvasRenderingContext2D, w: number, h: number
  */
 export function desenharFundo(ctx: CanvasRenderingContext2D, w: number, h: number, t: number, cam: Camera, nivel: NivelId, comGrao = true): void {
   if (w <= 0 || h <= 0) return; // palco ainda sem tamanho: nada a desenhar (e nada a pôr em cache)
+  // Nível 0 (Arquipélago, v0.6): céu e horizonte no lugar do espaço; o mar vem com o terreno.
+  if (nivel === "ilha") {
+    desenharCeu(ctx, w, h, t, cam);
+    if (comGrao) desenharGrao(ctx, w, h, GRAO_ALFA);
+    return;
+  }
   const cfg = CONFIG[nivel];
   const reduzido = movimentoReduzido();
   garantirCache(w, h);
@@ -714,17 +474,8 @@ export function desenharFundo(ctx: CanvasRenderingContext2D, w: number, h: numbe
   ctx.drawImage(bc, 0, 0);
   ctx.restore();
   if (nivel === "sistema") desenharNebOuro(ctx, cam);
-  // 3. halos do Sol (ilha), atrás das estrelas, como "céu" clareado
-  const s = nivel === "ilha" ? geometriaSol(w, h, t, cam, reduzido) : null;
-  if (s) desenharHalosSol(ctx, s);
-  // 4. estrelas (paralaxe 0,10, wrap)
+  // 3. estrelas (paralaxe 0,10, wrap). O Sol e o planeta ficaram no céu do arquipélago (v0.6).
   desenharEstrelas(ctx, w, h, t, cam, cfg.estrelas, reduzido);
-  // 5. astros de fundo (só na ilha): órbita → planeta → disco do Sol
-  if (s) {
-    desenharOrbitas(ctx, s, t, reduzido);
-    desenharPlaneta(ctx, w, h, t, cam, reduzido);
-    desenharDiscoSol(ctx, s, t, reduzido);
-  }
   // 6. grão
   if (comGrao) desenharGrao(ctx, w, h, GRAO_ALFA);
   ctx.restore();

@@ -94,6 +94,10 @@ h2 {
   border-bottom: 1px solid var(--card-borda);
 }
 
+.hud-item--creditos {
+  position: relative;
+}
+
 .hud-item {
   display: flex;
   flex-direction: column;
@@ -238,6 +242,7 @@ h2 {
   background: color-mix(in srgb, var(--card) 88%, transparent);
 }
 
+/* Crescente: no desktop de baixo (arquipélago) para cima (multiverso); no celular da esquerda para a direita. */
 .escada {
   position: absolute;
   left: 10px;
@@ -245,8 +250,9 @@ h2 {
   bottom: 12px;
   z-index: 2;
   display: flex;
-  flex-direction: column;
+  flex-direction: column-reverse;
   justify-content: center;
+  align-items: flex-start;
   gap: 4px;
   pointer-events: auto;
 }
@@ -270,8 +276,8 @@ h2 {
 }
 
 .degrau-quadro {
-  width: 34px;
-  height: 34px;
+  width: calc(26px * var(--degrau-escala, 1));
+  height: calc(26px * var(--degrau-escala, 1));
   flex: none;
   display: grid;
   place-items: center;
@@ -314,8 +320,8 @@ h2 {
 }
 
 .icone--nivel {
-  width: 18px;
-  height: 18px;
+  width: calc(14px * var(--degrau-escala, 1));
+  height: calc(14px * var(--degrau-escala, 1));
 }
 
 .icone--item {
@@ -336,10 +342,206 @@ h2 {
   color: var(--coral);
 }
 
-.rede-vagas {
-  margin: 0 0 6px;
+/* ---------- Paleta de construção (v0.6) ---------- */
+
+.rede-dica {
+  margin: 6px 0 10px;
   color: var(--muted);
   font-size: var(--t-12);
+}
+
+.paleta {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 8px;
+}
+
+.paleta--ferramentas {
+  margin-top: 8px;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.paleta-item {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  grid-template-areas:
+    "icone nome"
+    "icone custo"
+    "detalhe detalhe";
+  align-items: center;
+  gap: 2px 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--card-borda);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--card) 70%, transparent);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.paleta-item .icone--item {
+  grid-area: icone;
+  width: 26px;
+  height: 26px;
+  align-self: center;
+}
+
+.paleta-item:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--sun) 50%, var(--card-borda));
+}
+
+.paleta-item--ativa {
+  border-color: var(--sun);
+  background: color-mix(in srgb, var(--sun) 14%, var(--card));
+}
+
+.paleta-item--bloqueada {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.paleta-nome {
+  grid-area: nome;
+  font-family: var(--fonte-titulo);
+  font-weight: 600;
+  font-size: var(--t-14);
+}
+
+.paleta-custo {
+  grid-area: custo;
+  font-size: var(--t-12);
+  color: var(--sun);
+  font-variant-numeric: tabular-nums;
+}
+
+.paleta-custo--bloqueio {
+  color: var(--muted);
+}
+
+.paleta-detalhe {
+  grid-area: detalhe;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: var(--t-12);
+}
+
+/* ---------- Extrato ---------- */
+
+.extrato {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--t-12);
+}
+
+.extrato-linha {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  color: var(--muted);
+}
+
+.extrato-linha--forte {
+  color: var(--ink);
+  font-size: var(--t-14);
+}
+
+.extrato-linha--alerta {
+  color: var(--coral);
+}
+
+.extrato-tabela {
+  width: 100%;
+  margin: 6px 0 2px;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.extrato-tabela th,
+.extrato-tabela td {
+  padding: 4px 2px;
+  text-align: right;
+  font-weight: 400;
+  color: var(--ink);
+  border-bottom: 1px solid var(--card-borda);
+}
+
+.extrato-tabela thead th {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.extrato-tabela th[scope="row"],
+.extrato-tabela thead th:first-child {
+  text-align: left;
+}
+
+.extrato-alerta td,
+.extrato-alerta th {
+  color: var(--coral);
+}
+
+.extrato-nota {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+
+/* ---------- Nota de ₵ no HUD ---------- */
+
+.hud-nota {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 6px 2px 2px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.hud-nota:hover {
+  background: color-mix(in srgb, var(--card) 70%, transparent);
+}
+
+.nota {
+  width: 40px;
+  height: 24px;
+  flex: none;
+  filter: drop-shadow(2px 3px 0 rgba(9, 12, 34, 0.45));
+}
+
+.hud-nota-texto {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.1;
+}
+
+.hud-alerta {
+  color: var(--coral);
+}
+
+.hud-extrato {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 20;
+  width: min(360px, calc(100vw - 24px));
+  margin-top: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--card-borda);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--card) 96%, transparent);
+  box-shadow: 0 10px 30px rgba(7, 10, 30, 0.55);
+  text-align: left;
+}
+
+.hud-extrato .pilula {
+  margin-top: 10px;
 }
 
 .kardashev-marco--especulativo .kardashev-marco-rotulo {
@@ -1069,6 +1271,7 @@ h2 {
     position: static;
     order: 2;
     flex-direction: row;
+    align-items: flex-end;
     justify-content: center;
     gap: 2px;
     padding: 8px 6px;

@@ -47,6 +47,10 @@ export type NomeSprite =
   | "pinheiro"
   | "arbusto"
   | "pedra"
+  | "pantano"
+  | "montanha"
+  | "pico"
+  | "subestacao"
   | "cristal"
   | "placaBloqueio"
   | "bipe"
@@ -70,6 +74,10 @@ export const NOMES_SPRITES: readonly NomeSprite[] = [
   "pinheiro",
   "arbusto",
   "pedra",
+  "pantano",
+  "montanha",
+  "pico",
+  "subestacao",
   "cristal",
   "placaBloqueio",
   "bipe",
@@ -103,7 +111,7 @@ export interface EstadoSprite {
   scram?: boolean;
   /** radiador: 0..1, clareia as aletas. */
   atividade?: number;
-  /** tanque: 0..1, nível na rampa de calor. */
+  /** tanque: 0..1, nível na rampa de calor. subestacao: nível da construção (isoladores). */
   nivel?: number;
   /** receptor: temperatura 0..1,2 na rampa de calor (pulso acima de 0,9). */
   T?: number;
@@ -133,8 +141,12 @@ export interface EstadoSprite {
   vida?: number;
   /** particula: cor (padrão `sun`). */
   cor?: string;
-  /** Desenha o sprite inteiro em α 0,35 (prévia do que vai numa região bloqueada). */
+  /** Desenha o sprite inteiro em α 0,35 (prévia do que vai numa ilha fechada). */
   fantasma?: boolean;
+  /** Obstáculo em remoção: 0..1 (barra de tempo por cima). */
+  progresso?: number;
+  /** Usina sem escoamento: marca de alerta. */
+  semEscoamento?: boolean;
   /** cristal (piscar), brasa (raio), particula (deriva): variação determinística. */
   seed?: number;
   /** Zoom da câmera: em `longe` receptor, cataVento, turbinaEolica e placaBloqueio medem em px de tela. */
@@ -177,6 +189,11 @@ const P = {
   scram: "#7c86b0",
   copa: "#3fb36a",
   copa2: "#2f9c60",
+  junco: "#5ec975",
+  lodo: "#3c7a6a",
+  lodo2: "#2d5f55",
+  neve: "#eef3ff",
+  poste: "#c9cfff",
 } as const;
 
 const TETOS: Record<Teto, string> = { coral: P.coral, sun: P.sun, sky: P.sky };
@@ -289,6 +306,23 @@ const easeOutBack = (k: number): number => {
 
 type Ctx = CanvasRenderingContext2D;
 type Ponto = readonly [number, number];
+
+/** Barra de tempo chapada (largura `w`, 0..1) centrada em (x, y): remoção de obstáculo em curso. */
+function barraProgresso(ctx: Ctx, x: number, y: number, w: number, k: number): void {
+  const h = 5;
+  retArred(ctx, x - w / 2, y, w, h, h / 2);
+  ctx.fillStyle = A(P.navy, 0.75);
+  ctx.fill();
+  ctx.strokeStyle = A(P.ink, 0.35);
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  const largura = Math.max(0, Math.min(1, k)) * (w - 4);
+  if (largura > 0) {
+    retArred(ctx, x - w / 2 + 2, y + 1, largura, h - 2, (h - 2) / 2);
+    ctx.fillStyle = P.leaf;
+    ctx.fill();
+  }
+}
 
 /** Sombra chapada elíptica deslocada (+desloc, +desloc). Só chamar em `perto`. */
 export function sombra(ctx: Ctx, cx: number, cy: number, rx: number, ry: number, desloc = 4): void {
@@ -1197,6 +1231,151 @@ const S: Record<NomeSprite, FnSprite> = {
     ctx.strokeStyle = P.rocha3;
     ctx.lineWidth = 1;
     ctx.stroke(p.sil);
+  },
+
+
+  // Pântano: poça de lodo em dois tons com juncos e dois brilhos.
+  pantano(ctx, _e, t, longe) {
+    elipseCheia(ctx, 0, 0, 26, 13, P.lodo2);
+    elipseCheia(ctx, -2, -2, 21, 10, P.lodo);
+    if (longe) return;
+    ctx.strokeStyle = A(P.agua2, 0.5);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.ellipse(-4, -3, 9, 4, 0, 0, TAU);
+    ctx.stroke();
+    ctx.strokeStyle = P.junco;
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    for (let i = 0; i < 5; i++) {
+      const x = -14 + i * 7;
+      const h = 12 + (i % 3) * 5;
+      const b = Math.sin(t * 1.2 + i) * 1.5;
+      ctx.beginPath();
+      ctx.moveTo(x, -2);
+      ctx.quadraticCurveTo(x + b, -2 - h * 0.6, x + b * 2, -2 - h);
+      ctx.stroke();
+    }
+  },
+
+  // Montanha 2×2: maciço de rocha com neve no topo, ocupando quatro casas (o ponto do chão é o canto norte).
+  montanha(ctx, e, _t, longe) {
+    const p = e.progresso;
+    if (!longe) sombra(ctx, 32, 16, 44, 22, 6);
+    // silhueta: base losangular de 2×2 casas, cume acima do centro
+    ctx.fillStyle = P.rocha;
+    ctx.beginPath();
+    ctx.moveTo(-62, 2);
+    ctx.lineTo(0, -62);
+    ctx.lineTo(62, 2);
+    ctx.lineTo(32, 32);
+    ctx.lineTo(0, 16);
+    ctx.lineTo(-32, 32);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = P.rocha2;
+    ctx.beginPath();
+    ctx.moveTo(0, -62);
+    ctx.lineTo(62, 2);
+    ctx.lineTo(32, 32);
+    ctx.lineTo(0, 16);
+    ctx.closePath();
+    ctx.fill();
+    if (longe) return;
+    ctx.fillStyle = P.neve;
+    ctx.beginPath();
+    ctx.moveTo(0, -62);
+    ctx.lineTo(20, -40);
+    ctx.lineTo(10, -36);
+    ctx.lineTo(0, -44);
+    ctx.lineTo(-10, -36);
+    ctx.lineTo(-20, -40);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = P.rocha3;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, -62);
+    ctx.lineTo(0, 16);
+    ctx.stroke();
+    if (p !== undefined) barraProgresso(ctx, 0, -74, 44, p);
+  },
+
+  // Pico permanente: agulha de rocha alta com brilho de vento em volta.
+  pico(ctx, e, t, longe) {
+    if (!longe) sombra(ctx, 0, 0, 16, 7);
+    ctx.fillStyle = P.rocha;
+    ctx.beginPath();
+    ctx.moveTo(-16, 4);
+    ctx.lineTo(0, -56);
+    ctx.lineTo(16, 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = P.rocha2;
+    ctx.beginPath();
+    ctx.moveTo(0, -56);
+    ctx.lineTo(16, 4);
+    ctx.lineTo(0, 4);
+    ctx.closePath();
+    ctx.fill();
+    if (longe) return;
+    ctx.fillStyle = P.neve;
+    ctx.beginPath();
+    ctx.moveTo(0, -56);
+    ctx.lineTo(7, -38);
+    ctx.lineTo(0, -42);
+    ctx.lineTo(-7, -38);
+    ctx.closePath();
+    ctx.fill();
+    // rajadas: dois arcos que correm em 3 s
+    ctx.strokeStyle = A(P.sky, 0.45);
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    for (let i = 0; i < 2; i++) {
+      const k = frac(t / 3 + i * 0.5 + (e.fase ?? 0));
+      const y = -46 + k * 30;
+      const l = 10 + k * 14;
+      ctx.globalAlpha = 0.8 * (1 - k);
+      ctx.beginPath();
+      ctx.moveTo(12, y);
+      ctx.quadraticCurveTo(12 + l * 0.6, y - 3, 12 + l, y - 1);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  },
+
+  // Subestação: pórtico de dois postes com transformador, isoladores e um arco de energia quando escoa.
+  subestacao(ctx, e, t, longe) {
+    const nivel = Math.max(0, Math.round(e.nivel ?? 0));
+    if (!longe) sombra(ctx, 0, 0, 16, 7);
+    caixa(ctx, 0.3, 0.22, 14, P.tanque, D.bateriaSW, D.bateriaSE);
+    if (longe) {
+      rect(ctx, -1.5, -34, 3, 20, P.poste);
+      return;
+    }
+    contornoCaixa(ctx, 0.3, 0.22, 14, D.bateriaBorda);
+    // pórtico
+    rect(ctx, -11, -40, 3, 27, P.poste);
+    rect(ctx, 8, -40, 3, 27, P.poste);
+    rect(ctx, -11, -42, 22, 3, P.poste);
+    ctx.strokeStyle = D.fustePonto;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-9.5, -36);
+    ctx.lineTo(9.5, -36);
+    ctx.moveTo(-9.5, -30);
+    ctx.lineTo(9.5, -30);
+    ctx.stroke();
+    // isoladores: um por nível (0 → 1)
+    for (let i = 0; i <= nivel && i < 4; i++) circulo(ctx, -7 + i * 5, -44, 2, P.sun);
+    // arco de energia
+    const k = frac(t * 0.8);
+    ctx.strokeStyle = A(P.sun, 0.8 * (1 - Math.abs(k * 2 - 1)));
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-9, -39);
+    ctx.quadraticCurveTo(0, -33 - 4 * Math.sin(k * Math.PI), 9, -39);
+    ctx.stroke();
   },
 
   // Cristal: dois prismas `void` com halo chapado (fica em longe) e brilho piscante.

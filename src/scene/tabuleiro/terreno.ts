@@ -2,7 +2,7 @@
  * Desenho da ilha-tabuleiro em Canvas 2D (direção §4): sombra no espaço, penhasco, topo por região, lago,
  * caminhos da vila, plataforma elevada do Núcleo, regiões bloqueadas, minimapa e hit-test.
  *
- * Só desenha: a geometria vem de `sim/gerarIlha` e o estado (regiões desbloqueadas, lado jogável da grade)
+ * Só desenha: a geometria vem de `sim/gerarArquipelago` e o estado (ilhas abertas, lado jogável da grade)
  * chega por `opcoes`. Sem `Math.random`/`Date.now`: tudo sai de `rnd`/`ruido` e do `t` recebido.
  * Coordenadas: casa (x, y) inteira em [0, n); mundo em px no zoom 1 via `iso`. `desenharTerreno` aplica a
  * câmera a partir de `cam` e restaura a transformação do chamador ao sair.
@@ -13,7 +13,8 @@
  *  • silhueta do minimapa num offscreen 4×, refeita só se tamanho ou estado mudarem.
  * O único uso de DOM fica em `criarTela` (fallback quando não há `OffscreenCanvas`).
  */
-import { indiceCasa, naPlataforma, type Ilha, type Plataforma, type Regiao, type RegiaoId, type TipoRegiao } from "../../sim/ilha";
+import type { TipoTerreno } from "../../content/era1-arquipelago";
+import { indiceCasa, naPlataforma, type Arquipelago, type IlhaGerada, type IlhaId, type Plataforma } from "../../sim/arquipelago";
 import { ISO, PALETA, alfa, centro, clarear, desiso, elipse, escurecer, iso, lodDe, misturar, retArred, rnd, ruido, type Camera } from "./base";
 
 // ---------------------------------------------------------------------------------------------
@@ -24,26 +25,20 @@ const P = { ...PALETA, malha: "rgba(13,18,48,.07)" };
 const VEU_BLOQUEIO = alfa(P.navy2, 0.4);
 const HACHURA = alfa(P.ink, 0.1);
 const BORDA_BLOQUEIO = alfa(P.ink, 0.45);
-/** Tom do topo por tipo de região. */
-export const TOM: Record<TipoRegiao, string> = {
-  nucleo: P.grama,
-  vento: P.gramaVento,
-  sol: P.gramaSol,
-  vila: P.grama2,
-  lago: P.grama,
-  floresta: P.gramaFloresta,
-  livre: P.grama,
+/** Tom do topo por terreno dominante da ilha. */
+export const TOM: Record<TipoTerreno, string> = {
+  planicie: P.grama,
+  colina: P.gramaVento,
+  litoral: P.gramaSol,
+  rocha: P.gramaEsc,
 };
-/** Bloqueadas: M(tom, navy2, .6) mantém a matiz roxo-navy da paleta (nada de cinza-chumbo). */
+/** Fechadas: M(tom, navy2, .6) mantém a matiz roxo-navy da paleta (nada de cinza-chumbo). */
 const bloquear = (tom: string): string => misturar(tom, P.navy2, 0.6);
-const TOM_BLOQUEADO: Record<TipoRegiao, string> = {
-  nucleo: bloquear(TOM.nucleo),
-  vento: bloquear(TOM.vento),
-  sol: bloquear(TOM.sol),
-  vila: bloquear(TOM.vila),
-  lago: bloquear(TOM.lago),
-  floresta: bloquear(TOM.floresta),
-  livre: bloquear(TOM.livre),
+const TOM_BLOQUEADO: Record<TipoTerreno, string> = {
+  planicie: bloquear(TOM.planicie),
+  colina: bloquear(TOM.colina),
+  litoral: bloquear(TOM.litoral),
+  rocha: bloquear(TOM.rocha),
 };
 const COR_FACE = { sw: P.rocha, se: P.rocha2 };
 /** Anéis da plataforma, do centro para fora (o 3.º vale para os seguintes). */
@@ -100,7 +95,7 @@ export interface Bbox {
 
 export interface OpcoesTerreno {
   /** Regiões desbloqueadas: as outras recebem tom rebaixado, véu, hachura e contorno tracejado. */
-  desbloqueadas: ReadonlySet<RegiaoId>;
+  desbloqueadas: ReadonlySet<IlhaId>;
   /** Lado jogável da grade do Núcleo (5 ou 7): os anéis da plataforma além dele são desenhados bloqueados. */
   ladoGrade: number;
   /** Limita o dpr do offscreen do chão (a camada de transição usa 1). */
@@ -277,7 +272,7 @@ function pathDe(mapa: Map<string, Path2D>, cor: string): Path2D {
   return p;
 }
 
-const chaveConjunto = (s: ReadonlySet<RegiaoId>): string => Array.from(s).sort().join(",");
+const chaveConjunto = (s: ReadonlySet<IlhaId>): string => Array.from(s).sort().join(",");
 const chaveEstado = (o: OpcoesTerreno): string => `${o.ladoGrade}|${chaveConjunto(o.desbloqueadas)}`;
 
 // ---------------------------------------------------------------------------------------------
@@ -345,8 +340,8 @@ interface Tom {
   p: Path2D;
 }
 
-interface RegiaoCache {
-  r: Regiao;
+interface IlhaCache {
+  r: IlhaGerada;
   p: Path2D;
   tonsPerto: Tom[];
   tonsLonge: Tom[];
@@ -372,7 +367,7 @@ interface CacheTerreno {
   pUniaoSE: Path2D;
   pEstalactites: Path2D;
   cristais: Cristal[];
-  regioes: RegiaoCache[];
+  ilhas: IlhaCache[];
   pMalha: Path2D;
   pLago: Path2D;
   /** Centros (x, y intercalados) de 1 em cada 3 casas de água, para as ondulações. */
@@ -393,13 +388,13 @@ interface CacheTerreno {
   mini: Mini | null;
 }
 
-let caches = new WeakMap<Ilha, CacheTerreno>();
+let caches = new WeakMap<Arquipelago, CacheTerreno>();
 
-function cacheDe(ilha: Ilha): CacheTerreno {
-  let c = caches.get(ilha);
+function cacheDe(arq: Arquipelago): CacheTerreno {
+  let c = caches.get(arq);
   if (!c) {
-    c = montarCache(ilha);
-    caches.set(ilha, c);
+    c = montarCache(arq);
+    caches.set(arq, c);
   }
   return c;
 }
@@ -409,10 +404,12 @@ function garantirPadroes(c: CacheTerreno, ctx: CanvasRenderingContext2D): void {
   c.padroes = { sw: padraoPontos(ctx, COR_PONTO_SW), se: padraoPontos(ctx, COR_PONTO_SE), bloqueado: padraoPontos(ctx, COR_PONTO_BLOQUEADO) };
 }
 
-function montarCache(ilha: Ilha): CacheTerreno {
-  const { n, terra, agua, caminho, altura, plataforma: pl } = ilha;
-  const r = rnd(ilha.semente * 3 + 17);
-  const ruP = ruido(ilha.semente * 5 + 77);
+function montarCache(arq: Arquipelago): CacheTerreno {
+  const { n, terra, caminho, altura, plataforma: pl } = arq;
+  // O mar é a ausência de terra (v0.6): não há lago dentro das ilhas.
+  const agua = new Uint8Array(n * n);
+  const r = rnd(arq.semente * 3 + 17);
+  const ruP = ruido(arq.semente * 5 + 77);
   const eTerra = (i: number) => terra[i] === 1;
   const eAgua = (i: number) => agua[i] === 1;
   const eCaminho = (i: number) => caminho[i] === 1;
@@ -560,7 +557,7 @@ function montarCache(ilha: Ilha): CacheTerreno {
   }
 
   // --- regiões: contorno suavizado + tons de altura por casa (clipados pela região no desenho) + hachura
-  const regioes: RegiaoCache[] = ilha.regioes.map((reg) => {
+  const ilhas: IlhaCache[] = arq.ilhas.map((reg) => {
     const sr = new Set(reg.casas);
     const lacos = lacosDe(
       n,
@@ -577,7 +574,7 @@ function montarCache(ilha: Ilha): CacheTerreno {
       const nivel = Math.round((altura[i] - 0.5) * 6); // −3..3
       let cor = chaveTom.get(nivel);
       if (!cor) {
-        cor = misturar(TOM[reg.tipo], nivel > 0 ? "#ffffff" : P.gramaEsc, Math.abs(nivel) * 0.027);
+        cor = misturar(TOM[reg.terrenoDominante], nivel > 0 ? "#ffffff" : P.gramaEsc, Math.abs(nivel) * 0.027);
         chaveTom.set(nivel, cor);
       }
       if (nivel !== 0) losangoEm(pathDe(tonsLonge, cor), x, y, 0, 0);
@@ -689,7 +686,7 @@ function montarCache(ilha: Ilha): CacheTerreno {
     pUniaoSE,
     pEstalactites,
     cristais,
-    regioes,
+    ilhas,
     pMalha,
     pLago,
     aguaCentros,
@@ -759,7 +756,7 @@ function desenharCristal(ctx: CanvasRenderingContext2D, cr: Cristal, t: number, 
  * tracejado das bloqueadas) fica fora, em `desenharTerreno`. `lw(px)` converte px de tela em px de mundo.
  */
 function desenharChao(g: Ctx2D, c: CacheTerreno, perto: boolean, mapa: boolean, lw: (px: number) => number, opcoes: OpcoesTerreno): void {
-  const livre = (R: RegiaoCache) => opcoes.desbloqueadas.has(R.r.id);
+  const livre = (R: IlhaCache) => opcoes.desbloqueadas.has(R.r.id);
 
   // 1. sombra chapada da ilha no espaço (duas cópias, a segunda mais fraca e mais baixa)
   g.fillStyle = P.sombraIlha;
@@ -802,9 +799,9 @@ function desenharChao(g: Ctx2D, c: CacheTerreno, perto: boolean, mapa: boolean, 
   // 3. topo: base contínua, depois cada região (tom base + tons de altura clipados pelo contorno suavizado)
   g.fillStyle = P.grama;
   g.fill(c.pIlha);
-  for (const R of c.regioes) {
+  for (const R of c.ilhas) {
     const desbloqueada = livre(R);
-    g.fillStyle = desbloqueada ? TOM[R.r.tipo] : TOM_BLOQUEADO[R.r.tipo];
+    g.fillStyle = desbloqueada ? TOM[R.r.terrenoDominante] : TOM_BLOQUEADO[R.r.terrenoDominante];
     g.fill(R.p);
     if (!desbloqueada) continue;
     const tons = perto ? R.tonsPerto : R.tonsLonge;
@@ -900,7 +897,7 @@ function desenharChao(g: Ctx2D, c: CacheTerreno, perto: boolean, mapa: boolean, 
   }
 
   // 8. regiões bloqueadas: véu + hachura diagonal (clipada, 1,5 px de tela); o contorno tracejado anima e fica fora do cache
-  for (const R of c.regioes) {
+  for (const R of c.ilhas) {
     if (livre(R)) continue;
     g.fillStyle = VEU_BLOQUEIO;
     g.fill(R.p);
@@ -925,7 +922,7 @@ function desenharChao(g: Ctx2D, c: CacheTerreno, perto: boolean, mapa: boolean, 
 // ---------------------------------------------------------------------------------------------
 interface CacheChao {
   tela: Tela;
-  ilha: Ilha | null;
+  arq: Arquipelago | null;
   zc: number;
   wx0: number;
   wy0: number;
@@ -940,8 +937,8 @@ interface CacheChao {
 
 const chaos = new Map<HTMLCanvasElement, CacheChao>();
 
-export function desenharTerreno(ctx: CanvasRenderingContext2D, ilha: Ilha, cam: Camera, t: number, opcoes: OpcoesTerreno): void {
-  const c = cacheDe(ilha);
+export function desenharTerreno(ctx: CanvasRenderingContext2D, arq: Arquipelago, cam: Camera, t: number, opcoes: OpcoesTerreno): void {
+  const c = cacheDe(arq);
   garantirPadroes(c, ctx);
   const z = cam.zoom || 1;
   const perto = lodDe(z) === "perto";
@@ -964,10 +961,10 @@ export function desenharTerreno(ctx: CanvasRenderingContext2D, ilha: Ilha, cam: 
 
   let ch = chaos.get(cv);
   if (!ch) {
-    ch = { tela: criarTela(1, 1), ilha: null, zc: 0, wx0: 0, wy0: 0, inteira: false, perto: false, mapa: false, dpr: 0, W: 0, H: 0, chave: "" };
+    ch = { tela: criarTela(1, 1), arq: null, zc: 0, wx0: 0, wy0: 0, inteira: false, perto: false, mapa: false, dpr: 0, W: 0, H: 0, chave: "" };
     chaos.set(cv, ch);
   }
-  const mesmo = ch.ilha === ilha && ch.perto === perto && ch.mapa === mapa && ch.dpr === dpr && ch.W === W && ch.H === H && ch.chave === chave;
+  const mesmo = ch.arq === arq && ch.perto === perto && ch.mapa === mapa && ch.dpr === dpr && ch.W === W && ch.H === H && ch.chave === chave;
   let valido = false;
   if (mesmo) {
     const mesmoZoom = Math.abs(z - ch.zc) < 1e-9;
@@ -988,7 +985,7 @@ export function desenharTerreno(ctx: CanvasRenderingContext2D, ilha: Ilha, cam: 
     }
     ch.zc = zc;
     ch.inteira = inteira;
-    ch.ilha = ilha;
+    ch.arq = arq;
     ch.perto = perto;
     ch.mapa = mapa;
     ch.dpr = dpr;
@@ -1043,7 +1040,7 @@ export function desenharTerreno(ctx: CanvasRenderingContext2D, ilha: Ilha, cam: 
   DASH[1] = lw(8);
   ctx.setLineDash(DASH);
   ctx.lineDashOffset = perto ? -t * lw(8) : 0;
-  for (const R of c.regioes) if (!opcoes.desbloqueadas.has(R.r.id)) ctx.stroke(R.p);
+  for (const R of c.ilhas) if (!opcoes.desbloqueadas.has(R.r.id)) ctx.stroke(R.p);
   ctx.setLineDash([]);
   ctx.lineDashOffset = 0;
   ctx.restore();
@@ -1056,7 +1053,7 @@ export function liberarCacheTerreno(): void {
     ch.tela.canvas.height = 1;
   }
   chaos.clear();
-  caches = new WeakMap<Ilha, CacheTerreno>();
+  caches = new WeakMap<Arquipelago, CacheTerreno>();
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1073,7 +1070,7 @@ function ajusteMinimapa(c: CacheTerreno, w: number, h: number): { s: number; ox:
  * A silhueta (regiões, lago, plataforma) é desenhada uma vez num offscreen em 4× e reduzida com imageSmoothing: os contornos
  * suavizados (Chaikin) chegam ao minimapa sem escadinha. Só o retângulo da câmera e o ponto do Núcleo são por quadro.
  */
-function garantirMini(c: CacheTerreno, w: number, h: number, livres: ReadonlySet<RegiaoId>): Mini {
+function garantirMini(c: CacheTerreno, w: number, h: number, livres: ReadonlySet<IlhaId>): Mini {
   const chave = chaveConjunto(livres);
   if (c.mini && c.mini.w === w && c.mini.h === h && c.mini.chave === chave) return c.mini;
   const SS = 4;
@@ -1089,9 +1086,9 @@ function garantirMini(c: CacheTerreno, w: number, h: number, livres: ReadonlySet
   g.lineJoin = "round";
   g.fillStyle = P.grama;
   g.fill(c.pIlha);
-  for (const R of c.regioes) {
+  for (const R of c.ilhas) {
     const livre = livres.has(R.r.id);
-    g.fillStyle = livre ? TOM[R.r.tipo] : P.navy2;
+    g.fillStyle = livre ? TOM[R.r.terrenoDominante] : P.navy2;
     g.fill(R.p);
     if (!livre) {
       g.strokeStyle = MINI_BORDA;
@@ -1108,9 +1105,9 @@ function garantirMini(c: CacheTerreno, w: number, h: number, livres: ReadonlySet
 }
 
 /** Sem `desbloqueadas`, todas as regiões são desenhadas livres. */
-export function desenharMinimapa(ctx: CanvasRenderingContext2D, ilha: Ilha, cam: Camera, w: number, h: number, desbloqueadas?: ReadonlySet<RegiaoId>): void {
-  const c = cacheDe(ilha);
-  const livres = desbloqueadas ?? new Set(ilha.regioes.map((r) => r.id));
+export function desenharMinimapa(ctx: CanvasRenderingContext2D, arq: Arquipelago, cam: Camera, w: number, h: number, desbloqueadas?: ReadonlySet<IlhaId>): void {
+  const c = cacheDe(arq);
+  const livres = desbloqueadas ?? new Set(arq.ilhas.map((r) => r.id));
   const { s, ox, oy } = ajusteMinimapa(c, w, h);
   const mini = garantirMini(c, w, h, livres);
   ctx.save();
@@ -1118,7 +1115,7 @@ export function desenharMinimapa(ctx: CanvasRenderingContext2D, ilha: Ilha, cam:
   ctx.imageSmoothingQuality = "high";
   ctx.drawImage(mini.tela.canvas, 0, 0, w, h);
   ctx.restore();
-  const { meio } = ilha.plataforma;
+  const { meio } = arq.plataforma;
   const [nx, ny] = centro(meio, meio);
   ctx.fillStyle = P.sun;
   elipse(ctx, ox + nx * s, oy + ny * s, 3, 3);
@@ -1144,20 +1141,20 @@ export function desenharMinimapa(ctx: CanvasRenderingContext2D, ilha: Ilha, cam:
 }
 
 /** Ponto do minimapa (mx, my) → coordenadas de mundo (para arrastar a câmera pelo minimapa). */
-export function minimapaParaMundo(ilha: Ilha, mx: number, my: number, w: number, h: number): [number, number] {
-  const { s, ox, oy } = ajusteMinimapa(cacheDe(ilha), w, h);
+export function minimapaParaMundo(arq: Arquipelago, mx: number, my: number, w: number, h: number): [number, number] {
+  const { s, ox, oy } = ajusteMinimapa(cacheDe(arq), w, h);
   return [(mx - ox) / s, (my - oy) / s];
 }
 
 /** Limites da ilha em mundo: topo (para enquadrar) e total (com penhasco e sombra). */
-export function limitesIlha(ilha: Ilha): { topo: Bbox; total: Bbox } {
-  const c = cacheDe(ilha);
+export function limitesIlha(arq: Arquipelago): { topo: Bbox; total: Bbox } {
+  const c = cacheDe(arq);
   return { topo: c.bboxTopo, total: c.bbox };
 }
 
 /** Hit-test: plataforma (elevada) primeiro, depois o chão. Devolve [x, y] ou null. */
-export function casaEm(ilha: Ilha, wx: number, wy: number): [number, number] | null {
-  const pl = ilha.plataforma;
+export function casaEm(arq: Arquipelago, wx: number, wy: number): [number, number] | null {
+  const pl = arq.plataforma;
   let [fx, fy] = desiso(wx, wy + ELEV_PLAT);
   let x = Math.floor(fx);
   let y = Math.floor(fy);
@@ -1165,6 +1162,6 @@ export function casaEm(ilha: Ilha, wx: number, wy: number): [number, number] | n
   [fx, fy] = desiso(wx, wy);
   x = Math.floor(fx);
   y = Math.floor(fy);
-  if (x < 0 || y < 0 || x >= ilha.n || y >= ilha.n) return null;
-  return ilha.terra[indiceCasa(ilha.n, x, y)] ? [x, y] : null;
+  if (x < 0 || y < 0 || x >= arq.n || y >= arq.n) return null;
+  return arq.terra[indiceCasa(arq.n, x, y)] ? [x, y] : null;
 }

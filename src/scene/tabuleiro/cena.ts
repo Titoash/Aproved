@@ -1,17 +1,18 @@
 /**
- * Cena da ilha-tabuleiro (porte de `40-cena.js` da amostra): povoa a ilha a partir do estado do jogo —
- * colocações da Rede, peças do Núcleo, locais bloqueados — e desenha tudo em ordem do pintor, com culling pelo
- * viewport, LOD por zoom e modo mapa. Também cuida dos callouts e das placas em px de tela e dos efeitos da
- * Cascata (flash, brasas, tremor, onda de choque; o entulho vem do sim via `pecas`).
+ * Cena do arquipélago (v0.6): povoa o mapa a partir do estado do jogo — construções colocadas, obstáculos de
+ * pé, peças do Núcleo, ilhas fechadas — e desenha tudo em ordem do pintor, com culling pelo viewport, LOD por
+ * zoom e modo mapa. Também cuida dos callouts e das placas em px de tela, do alcance das subestações, do Bipe
+ * de manutenção em remoção e dos efeitos da Cascata (flash, brasas, tremor, onda de choque).
  *
  * Coordenadas de mundo em `desenharCena` (a câmera já está aplicada); `desenharCallouts` desenha em px de tela
  * (transformação base). Nada de `Math.random`/`Date.now`: povoamento por `rnd(semente)`, animação pelo `t` (s).
- * O cenário (floresta, lago, vila, cristais) nunca ocupa uma vaga de nenhuma região — ocupada ou não — para
- * nunca colidir com uma usina futura. No caminho quente nada é alocado: os objetos são mutados no lugar.
+ * No caminho quente nada é alocado: os objetos são mutados no lugar.
  */
-import { casaDoIndice, indiceCasa, naPlataforma, type Ilha, type Regiao, type RegiaoId } from "../../sim/ilha";
-import { vagasDaRegiao, type Colocacao } from "../../sim/tabuleiro";
+import type { IlhaId, TipoObstaculo } from "../../content/era1-arquipelago";
+import { indiceCasa, naPlataforma, type Arquipelago, type IlhaGerada } from "../../sim/arquipelago";
+import type { TipoConstrucao } from "../../sim/state";
 import { PALETA, alfa, centro, clamp01, corRampa, frac, iso, lodDe, movimentoReduzido, retArred, rnd, type Camera } from "./base";
+import { desenharAlcance, type CaboCena } from "./mar";
 import type { Reserva } from "./escalas";
 import { ALTURAS, desenharFeixe, desenharSprite, type EstadoSprite, type Feixe, type NomeSprite, type PapelBipe, type Teto } from "./sprites";
 import { ELEV_PLAT } from "./terreno";
@@ -54,8 +55,9 @@ export interface CalloutCena {
   ancora: AncoraCallout;
 }
 
+/** Placa de expedição de uma ilha fechada. */
 export interface PlacaCena {
-  regiao: RegiaoId;
+  ilha: IlhaId;
   nome: string;
   preco: string;
 }
@@ -64,22 +66,57 @@ export interface RealceCena {
   x: number;
   y: number;
   valido: boolean;
+  /** Motivo da recusa ou ressalva ("sem escoamento", "esteira −40 %"). */
+  texto: string | null;
+}
+
+/** Uma construção colocada, já na casa do arquipélago. */
+export interface ConstrucaoCena {
+  x: number;
+  y: number;
+  tipo: TipoConstrucao;
+  nivel: number;
+  /** Usina que produz sem ter para onde escoar (GDD §7). */
+  semEscoamento: boolean;
+}
+
+/** Um obstáculo ainda de pé (a montanha 2×2 vem uma vez, na casa noroeste). */
+export interface ObstaculoCena {
+  x: number;
+  y: number;
+  tipo: TipoObstaculo;
+  /** 0..1 enquanto o Bipe de manutenção derruba; ausente fora da fila. */
+  progresso?: number;
+}
+
+/** Alcance de subestação a desenhar (ao passar o ponteiro ou com a ferramenta de subestação). */
+export interface AlcanceCena {
+  x: number;
+  y: number;
+  alcance: number;
+  /** Teto cheio: o anel fica coral. */
+  cheio: boolean;
 }
 
 export interface EntradaCena {
-  ilha: Ilha;
+  arq: Arquipelago;
   semente: number;
-  desbloqueadas: readonly RegiaoId[];
-  colocacoes: readonly Colocacao[];
+  abertas: readonly IlhaId[];
+  construcoes: readonly ConstrucaoCena[];
+  obstaculos: readonly ObstaculoCena[];
+  cabos: readonly CaboCena[];
+  alcances: readonly AlcanceCena[];
   /** null = Núcleo ainda bloqueado: plataforma vazia. */
   nucleo: NucleoCena | null;
-  /** Locais bloqueados. */
+  /** Ilhas fechadas. */
   placas: readonly PlacaCena[];
   callouts: readonly CalloutCena[];
   /** 0..1 */
   bateriaCarga: number;
-  /** Casa da plataforma sob o ponteiro. */
+  /** Casa sob o ponteiro. */
   realce: RealceCena | null;
+  /** Casa do obstáculo em remoção (o Bipe de manutenção vai até lá). */
+  remocao: { x: number; y: number } | null;
   /** Tempo do jogo (para o pop do entulho). */
   tempoMs: number;
 }
@@ -138,7 +175,7 @@ interface Callout {
 }
 
 interface Placa {
-  regiao: RegiaoId;
+  ilha: IlhaId;
   nome: string;
   preco: string;
   /** "preço · nome", montado fora do frame. */
@@ -171,21 +208,27 @@ export interface Cena {
   /** `prefers-reduced-motion` lido na criação: sem tremor, onda curta. */
   reduzido: boolean;
   // — interno: mantido por criarCena/atualizarCena, não mexer de fora —
-  ilha: Ilha;
+  arq: Arquipelago;
   semente: number;
   tempoMs: number;
   casaOperador: [number, number];
-  cenario: Objeto[];
+  obstaculos: Objeto[];
+  obstaculosRef: readonly ObstaculoCena[] | null;
   bloqueio: Objeto[];
   rede: Objeto[];
   nucleo: Objeto[];
+  /** Cabos e alcances do frame (desenhados antes dos objetos). */
+  cabos: readonly CaboCena[];
+  alcances: readonly AlcanceCena[];
+  /** Bipe de manutenção: objeto único que anda até o obstáculo em remoção. */
+  manutencao: Objeto | null;
   /** Todos os grupos em ordem do pintor. */
   objetos: Objeto[];
   pecasRef: readonly PecaCena[] | null;
   /** Paralelo a `pecasRef`. */
   pecaObjetos: Objeto[];
-  colocacoesRef: readonly Colocacao[] | null;
-  /** Paralelo a `colocacoesRef`. */
+  construcoesRef: readonly ConstrucaoCena[] | null;
+  /** Paralelo a `construcoesRef`. */
   redeObjetos: Objeto[];
   placasRef: readonly PlacaCena[] | null;
   placas: Placa[];
@@ -288,53 +331,22 @@ function rampa(T: number): string {
 // Utilidades de grade
 // ---------------------------------------------------------------------------------------------
 
-type Casa = readonly [number, number];
+const cheb = (a: readonly [number, number], b: readonly [number, number]): number => Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]));
 
-const cheb = (a: Casa, b: Casa): number => Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]));
-
-function regiaoPorId(ilha: Ilha, id: RegiaoId): Regiao | undefined {
-  return ilha.regioes.find((r) => r.id === id);
+function ilhaPorId(arq: Arquipelago, id: IlhaId): IlhaGerada | undefined {
+  return arq.ilhas.find((i) => i.id === id);
 }
 
-function vizinho4(ilha: Ilha, x: number, y: number, mapa: Uint8Array): boolean {
-  const n = ilha.n;
-  return (x + 1 < n && mapa[indiceCasa(n, x + 1, y)] === 1) || (x > 0 && mapa[indiceCasa(n, x - 1, y)] === 1) || (y + 1 < n && mapa[indiceCasa(n, x, y + 1)] === 1) || (y > 0 && mapa[indiceCasa(n, x, y - 1)] === 1);
-}
-
-/** Terra sem água, sem caminho, fora da plataforma, sem vaga, sem outro objeto. */
-function casaLivre(ilha: Ilha, ocup: Uint8Array, x: number, y: number): boolean {
-  if (x < 0 || y < 0 || x >= ilha.n || y >= ilha.n) return false;
-  const i = indiceCasa(ilha.n, x, y);
-  return ilha.terra[i] === 1 && ilha.agua[i] === 0 && ilha.caminho[i] === 0 && ocup[i] === 0 && !naPlataforma(ilha.plataforma, x, y);
-}
-
-/** Todas as vagas de todas as regiões (ocupadas ou não): o cenário nunca pisa nelas. */
-function marcarVagas(ilha: Ilha, ocup: Uint8Array): void {
-  for (const r of ilha.regioes) {
-    const v = vagasDaRegiao(ilha, r.id);
-    for (const lista of [v.vento, v.sol, v.vila, v.bateria]) for (const vaga of lista) ocup[indiceCasa(ilha.n, vaga.x, vaga.y)] = 1;
-  }
-}
-
-/** Praça da região: a casa de caminho mais perto do centro; sem caminho, o próprio centro. */
-function pracaDe(ilha: Ilha, reg: Regiao): [number, number] {
-  let praca: [number, number] = [reg.centro[0], reg.centro[1]];
-  let dm = Infinity;
-  for (const i of reg.casas) {
-    if (ilha.caminho[i] !== 1) continue;
-    const [x, y] = casaDoIndice(ilha.n, i);
-    const d = Math.hypot(x + 0.5 - reg.centro[0], y + 0.5 - reg.centro[1]);
-    if (d < dm) {
-      dm = d;
-      praca = [x, y];
-    }
-  }
-  return praca;
+/** Terra sem caminho, fora da plataforma e sem objeto. */
+function casaLivre(arq: Arquipelago, ocup: Uint8Array, x: number, y: number): boolean {
+  if (x < 0 || y < 0 || x >= arq.n || y >= arq.n) return false;
+  const i = indiceCasa(arq.n, x, y);
+  return arq.terra[i] === 1 && arq.caminho[i] === 0 && ocup[i] === 0 && !naPlataforma(arq.plataforma, x, y);
 }
 
 /** Casa do Bipe operador: encostada na aresta frontal-esquerda da plataforma, fora dela. */
-function casaDoOperador(ilha: Ilha, ocup: Uint8Array): [number, number] {
-  const { x0, y0, lado, meio } = ilha.plataforma;
+function casaDoOperador(arq: Arquipelago, ocup: Uint8Array): [number, number] {
+  const { x0, y0, lado, meio } = arq.plataforma;
   const cand: [number, number][] = [
     [meio - 1, y0 + lado],
     [meio, y0 + lado],
@@ -343,139 +355,83 @@ function casaDoOperador(ilha: Ilha, ocup: Uint8Array): [number, number] {
     [x0 + lado, meio],
     [x0 - 1, meio + 1],
   ];
-  for (const [x, y] of cand) if (casaLivre(ilha, ocup, x, y)) return [x, y];
+  for (const [x, y] of cand) if (casaLivre(arq, ocup, x, y)) return [x, y];
   return cand[0];
 }
 
-function novoObjeto(ilha: Ilha, nome: NomeSprite, x: number, y: number, estado: EstadoSprite, jx = 0, jy = 0): Objeto {
+function novoObjeto(arq: Arquipelago, nome: NomeSprite, x: number, y: number, estado: EstadoSprite, jx = 0, jy = 0): Objeto {
   const c = centro(x + jx, y + jy);
-  const cy = naPlataforma(ilha.plataforma, x, y) ? c[1] - ELEV : c[1];
+  const cy = naPlataforma(arq.plataforma, x, y) ? c[1] - ELEV : c[1];
   return { nome, x, y, cx: c[0], cy, estado, alto: ALTO[nome] ?? 40, prof: x + y + jx + jy, massa: false, mapa: false, popPendente: false, desdeMs: 0 };
 }
 
 // ---------------------------------------------------------------------------------------------
-// Povoamento: cenário (uma vez), bloqueio, Rede e Núcleo (refeitos quando a estrutura muda)
+// Povoamento: obstáculos, ilhas fechadas, construções e Núcleo
 // ---------------------------------------------------------------------------------------------
 
-/** Floresta densa, lago com cientista, vila com manutenção e arbustos, cristais na borda, arbustos na faixa do Núcleo. */
-function construirCenario(ilha: Ilha, semente: number, ocup: Uint8Array): Objeto[] {
+const SPRITE_OBSTACULO: Record<TipoObstaculo, NomeSprite> = {
+  arbusto: "arbusto",
+  arvore: "arvore",
+  pedra: "pedra",
+  pantano: "pantano",
+  montanha: "montanha",
+  pico: "pico",
+};
+
+const SPRITE_CONSTRUCAO: Record<TipoConstrucao, NomeSprite> = {
+  cataVento: "cataVento",
+  turbinaEolica: "turbinaEolica",
+  painelSolar: "painelSolar",
+  vila: "casaVila",
+  bateria: "bateria",
+  subestacao: "subestacao",
+};
+
+/** Um sprite por obstáculo de pé. Árvores viram massa de copas em `longe`; a montanha ocupa 2×2. */
+function construirObstaculos(cena: Cena, obstaculos: readonly ObstaculoCena[]): void {
+  const { arq, semente } = cena;
   const r = rnd((semente >>> 0) * 97 + 13);
-  const { n, agua, caminho, distBorda } = ilha;
   const objetos: Objeto[] = [];
-  const livre = (x: number, y: number): boolean => casaLivre(ilha, ocup, x, y);
-  const regiaoDe = (tipo: Regiao["tipo"]): Regiao | undefined => ilha.regioes.find((q) => q.tipo === tipo);
-  const add = (nome: NomeSprite, x: number, y: number, estado: EstadoSprite, jx = 0, jy = 0): Objeto => {
-    const o = novoObjeto(ilha, nome, x, y, estado, jx, jy);
-    objetos.push(o);
-    ocup[indiceCasa(n, x, y)] = 1;
-    return o;
-  };
-  const variante = (): number => Math.floor(r() * 3);
-
-  // --- Vila: Bipe de manutenção a 2 passos da praça, arbustos e árvores longe dos caminhos (as casas vêm da Rede)
-  const vila = regiaoDe("vila");
-  if (vila) {
-    const praca = pracaDe(ilha, vila);
-    const cam: [number, number, number][] = [];
-    for (const i of vila.casas) {
-      if (caminho[i] !== 1) continue;
-      const [x, y] = casaDoIndice(n, i);
-      cam.push([x, y, Math.hypot(x - praca[0], y - praca[1])]);
-    }
-    cam.sort((a, b) => a[2] - b[2] || a[0] - b[0]);
-    const pm = cam[Math.min(2, cam.length - 1)] ?? praca;
-    add("bipe", pm[0], pm[1], { lod: "perto", papel: "manutencao", expressao: "neutro", fase: 0.6 });
-    for (const i of vila.casas) {
-      const [x, y] = casaDoIndice(n, i);
-      if (!livre(x, y) || distBorda[i] < 2 || vizinho4(ilha, x, y, caminho)) continue;
-      const k = r();
-      if (k < 0.05) add("arbusto", x, y, { lod: "perto" });
-      else if (k < 0.08) add("arvore", x, y, { lod: "perto", variante: variante(), escala: 0.9 });
-    }
+  for (const o of obstaculos) {
+    const nome = SPRITE_OBSTACULO[o.tipo];
+    const estado: EstadoSprite = { lod: "perto", variante: Math.floor(r() * 3), escala: o.tipo === "arvore" ? 0.8 + r() * 0.5 : 1, fase: r() };
+    if (o.progresso !== undefined) estado.progresso = o.progresso;
+    const jx = o.tipo === "arvore" || o.tipo === "arbusto" ? (r() - 0.5) * 0.4 : 0;
+    const jy = o.tipo === "arvore" || o.tipo === "arbusto" ? (r() - 0.5) * 0.4 : 0;
+    const obj = novoObjeto(arq, nome, o.x, o.y, estado, jx, jy);
+    obj.massa = o.tipo === "arvore" || o.tipo === "arbusto";
+    objetos.push(obj);
   }
-
-  // --- Lago: cientista na margem da frente, pedras e arbustos em volta
-  const lago = regiaoDe("lago");
-  if (lago) {
-    const margem: [number, number][] = [];
-    for (const i of lago.casas) {
-      const [x, y] = casaDoIndice(n, i);
-      if (livre(x, y) && vizinho4(ilha, x, y, agua)) margem.push([x, y]);
-    }
-    margem.sort((a, b) => b[0] + b[1] - (a[0] + a[1]) || a[0] - b[0]);
-    if (margem.length) add("bipe", margem[0][0], margem[0][1], { lod: "perto", papel: "cientista", expressao: "neutro", fase: 0.85 });
-    for (let k = 1; k < margem.length; k++) {
-      const [x, y] = margem[k];
-      const q = r();
-      if (q < 0.14) add("pedra", x, y, { lod: "perto", variante: variante() });
-      else if (q < 0.3) add("arbusto", x, y, { lod: "perto" });
-      else if (q < 0.36) add("arvore", x, y, { lod: "perto", variante: variante(), escala: 0.9 });
-    }
-  }
-
-  // --- Floresta densa (com jitter) + 3 cristais e pinheiros na borda
-  const flo = regiaoDe("floresta");
-  if (flo) {
-    const borda: [number, number][] = [];
-    for (const i of flo.casas) {
-      const [x, y] = casaDoIndice(n, i);
-      if (!livre(x, y)) continue;
-      if (distBorda[i] <= 1) {
-        borda.push([x, y]);
-        continue;
-      }
-      const q = r();
-      const jx = (r() - 0.5) * 0.6;
-      const jy = (r() - 0.5) * 0.6;
-      const esc = [0.7, 1, 1.3][Math.floor(r() * 3)];
-      if (q < 0.5) add("arvore", x, y, { lod: "perto", variante: variante(), escala: esc }, jx, jy).massa = true;
-      else if (q < 0.72) add("pinheiro", x, y, { lod: "perto", escala: 0.85 + r() * 0.35 }, jx, jy);
-      else if (q < 0.83) add("arbusto", x, y, { lod: "perto" }, jx, jy).massa = true;
-      else if (q < 0.89) add("pedra", x, y, { lod: "perto", variante: variante() });
-    }
-    for (let k = 0; k < 3 && borda.length; k++) {
-      const j = Math.floor(r() * borda.length);
-      const [x, y] = borda.splice(j, 1)[0];
-      add("cristal", x, y, { lod: "perto", escala: 0.9 + r() * 0.3, seed: r() * 6 });
-    }
-    for (const [x, y] of borda) if (r() < 0.3) add("pinheiro", x, y, { lod: "perto", escala: 0.8 });
-  }
-
-  // --- faixa de grama do Núcleo: alguns arbustos
-  const nuc = regiaoDe("nucleo");
-  if (nuc) {
-    for (const i of nuc.casas) {
-      const [x, y] = casaDoIndice(n, i);
-      if (livre(x, y) && r() < 0.05) add("arbusto", x, y, { lod: "perto" });
-    }
-  }
-
-  return objetos;
+  cena.obstaculos = objetos;
+  cena.obstaculosRef = obstaculos;
+  const [esc, clara] = construirMassa(objetos);
+  cena.massaEsc = esc;
+  cena.massaClara = clara;
 }
 
-/** Regiões bloqueadas: a moeda da placa + 6 fantasmas nas primeiras vagas de vento/sol da própria região. */
+/** Ilhas fechadas: placa de expedição no centro + 6 cata-ventos fantasmas em casas livres da própria ilha. */
 function construirBloqueio(cena: Cena, placas: readonly PlacaCena[]): void {
-  const { ilha, semente } = cena;
+  const { arq, semente } = cena;
   const objetos: Objeto[] = [];
   const lista: Placa[] = [];
   placas.forEach((pl, k) => {
-    const reg = regiaoPorId(ilha, pl.regiao);
-    if (!reg) return;
+    const ilha = ilhaPorId(arq, pl.ilha);
+    if (!ilha) return;
     const estado: EstadoSprite = { lod: "perto", preco: pl.preco, nome: pl.nome };
-    const o = novoObjeto(ilha, "placaBloqueio", reg.centro[0], reg.centro[1], estado);
+    const o = novoObjeto(arq, "placaBloqueio", ilha.centro[0], ilha.centro[1], estado);
     objetos.push(o);
-    lista.push({ regiao: pl.regiao, nome: pl.nome, preco: pl.preco, rotulo: `${pl.preco} · ${pl.nome}`, estado, cx: o.cx, cy: o.cy });
-    const vagas = vagasDaRegiao(ilha, pl.regiao);
-    let cat: "vento" | "sol" = k % 2 ? "sol" : "vento";
-    if (vagas[cat].length === 0) cat = cat === "sol" ? "vento" : "sol";
-    const nome: NomeSprite = cat === "sol" ? "painelSolar" : "cataVento";
+    lista.push({ ilha: pl.ilha, nome: pl.nome, preco: pl.preco, rotulo: `${pl.preco} · ${pl.nome}`, estado, cx: o.cx, cy: o.cy });
     const r = rnd((semente >>> 0) * 53 + k + 1);
-    let n = 0;
-    for (const v of vagas[cat]) {
-      if (n >= 6) break;
-      if (cheb([v.x, v.y], reg.centro) < 2) continue;
-      objetos.push(novoObjeto(ilha, nome, v.x, v.y, { lod: "perto", fase: r(), vel: 0.3, fantasma: true }));
-      n++;
+    const nome: NomeSprite = k % 2 ? "painelSolar" : "cataVento";
+    let postos = 0;
+    for (const i of ilha.casas) {
+      if (postos >= 6) break;
+      const x = i % arq.n;
+      const y = Math.floor(i / arq.n);
+      if (arq.obstaculos[i] !== 255 || arq.distBorda[i] < 2) continue;
+      if (cheb([x, y], ilha.centro) < 2 || (x + y) % 3 !== 0) continue;
+      objetos.push(novoObjeto(arq, nome, x, y, { lod: "perto", fase: r(), vel: 0.3, fantasma: true }));
+      postos++;
     }
   });
   cena.bloqueio = objetos;
@@ -483,41 +439,47 @@ function construirBloqueio(cena: Cena, placas: readonly PlacaCena[]): void {
   cena.placasRef = placas;
 }
 
-/** Uma usina/vila/bateria por colocação, com fase e velocidade determinísticas pela casa. */
-function construirRede(cena: Cena, colocacoes: readonly Colocacao[], carga: number): void {
-  const { ilha, semente } = cena;
+/** Um sprite por construção colocada, com fase e variante determinísticas pela casa. */
+function construirRede(cena: Cena, construcoes: readonly ConstrucaoCena[], carga: number): void {
+  const { arq, semente } = cena;
   const objetos: Objeto[] = [];
   let nVila = 0;
-  for (const c of colocacoes) {
-    const r = rnd((semente >>> 0) * 131 + indiceCasa(ilha.n, c.x, c.y) + 1);
-    let o: Objeto;
-    switch (c.item) {
+  for (const c of construcoes) {
+    const r = rnd((semente >>> 0) * 131 + indiceCasa(arq.n, c.x, c.y) + 1);
+    const estado: EstadoSprite = { lod: "perto" };
+    switch (c.tipo) {
       case "cataVento":
-        o = novoObjeto(ilha, "cataVento", c.x, c.y, { lod: "perto", fase: r(), vel: 0.7 + r() * 0.5 });
+        estado.fase = r();
+        estado.vel = 0.7 + r() * 0.5;
         break;
       case "turbinaEolica":
-        o = novoObjeto(ilha, "turbinaEolica", c.x, c.y, { lod: "perto", fase: r(), vel: 0.9 });
-        break;
-      case "painelSolar":
-        o = novoObjeto(ilha, "painelSolar", c.x, c.y, { lod: "perto" });
+        estado.fase = r();
+        estado.vel = 0.9;
         break;
       case "vila":
-        o = novoObjeto(ilha, "casaVila", c.x, c.y, { lod: "perto", teto: CICLO_TETOS[nVila++ % 3], variante: Math.floor(r() * 3) });
+        estado.teto = CICLO_TETOS[nVila++ % 3];
+        estado.variante = Math.floor(r() * 3);
         break;
       case "bateria":
-        o = novoObjeto(ilha, "bateria", c.x, c.y, { lod: "perto", carga });
+        estado.carga = carga;
+        break;
+      case "subestacao":
+        estado.nivel = c.nivel;
+        break;
+      default:
         break;
     }
-    objetos.push(o);
+    estado.semEscoamento = c.semEscoamento;
+    objetos.push(novoObjeto(arq, SPRITE_CONSTRUCAO[c.tipo], c.x, c.y, estado));
   }
   cena.rede = objetos;
   cena.redeObjetos = objetos;
-  cena.colocacoesRef = colocacoes;
+  cena.construcoesRef = construcoes;
 }
 
 /** Peças do Núcleo nas casas da plataforma, feixes dos espelhos e o Bipe operador ao lado da plataforma. */
 function construirNucleo(cena: Cena, nu: NucleoCena | null): void {
-  const { ilha } = cena;
+  const { arq } = cena;
   const objetos: Objeto[] = [];
   const pecaObjetos: Objeto[] = [];
   const feixes: Feixe[] = [];
@@ -529,25 +491,25 @@ function construirNucleo(cena: Cena, nu: NucleoCena | null): void {
       let o: Objeto;
       switch (p.tipo) {
         case "receptor":
-          o = novoObjeto(ilha, "receptor", p.x, p.y, { lod: "perto", T: nu.T, scram: nu.scram });
+          o = novoObjeto(arq, "receptor", p.x, p.y, { lod: "perto", T: nu.T, scram: nu.scram });
           cena.receptor = o.estado;
           break;
         case "heliostato":
           // fases bem distintas entre espelhos: a varredura de rastreamento não sincroniza
-          o = novoObjeto(ilha, "heliostato", p.x, p.y, { lod: "perto", anel: p.anel, alvo: cena.torre, rastreamento: nu.rastreamento, fase: k * 1.17 });
+          o = novoObjeto(arq, "heliostato", p.x, p.y, { lod: "perto", anel: p.anel, alvo: cena.torre, rastreamento: nu.rastreamento, fase: k * 1.17 });
           k++;
           break;
         case "turbina":
-          o = novoObjeto(ilha, "turbinaVapor", p.x, p.y, { lod: "perto", consumo: nu.consumo, scram: nu.scram });
+          o = novoObjeto(arq, "turbinaVapor", p.x, p.y, { lod: "perto", consumo: nu.consumo, scram: nu.scram });
           break;
         case "radiador":
-          o = novoObjeto(ilha, "radiador", p.x, p.y, { lod: "perto", atividade: nu.T });
+          o = novoObjeto(arq, "radiador", p.x, p.y, { lod: "perto", atividade: nu.T });
           break;
         case "tanque":
-          o = novoObjeto(ilha, "tanque", p.x, p.y, { lod: "perto", nivel: nu.T });
+          o = novoObjeto(arq, "tanque", p.x, p.y, { lod: "perto", nivel: nu.T });
           break;
         case "entulho":
-          o = novoObjeto(ilha, "entulho", p.x, p.y, { lod: "perto", gratis: p.gratis });
+          o = novoObjeto(arq, "entulho", p.x, p.y, { lod: "perto", gratis: p.gratis });
           o.popPendente = p.desdeMs !== undefined;
           o.desdeMs = p.desdeMs ?? 0;
           break;
@@ -562,7 +524,7 @@ function construirNucleo(cena: Cena, nu: NucleoCena | null): void {
       j++;
     }
     const [ox, oy] = cena.casaOperador;
-    const op = novoObjeto(ilha, "bipe", ox, oy, { lod: "perto", papel: "operador", expressao: "apontando", fase: 0.2 });
+    const op = novoObjeto(arq, "bipe", ox, oy, { lod: "perto", papel: "operador", expressao: "apontando", fase: 0.2 });
     objetos.push(op);
     cena.operador = op.estado;
   }
@@ -574,7 +536,7 @@ function construirNucleo(cena: Cena, nu: NucleoCena | null): void {
 
 /** Junta os grupos em ordem do pintor (x + y, y, x) e refaz os discos do modo mapa. */
 function montar(cena: Cena): void {
-  const objetos = cena.cenario.concat(cena.bloqueio, cena.rede, cena.nucleo);
+  const objetos = cena.obstaculos.concat(cena.bloqueio, cena.rede, cena.nucleo, cena.manutencao ? [cena.manutencao] : []);
   objetos.sort((a, b) => a.prof - b.prof || a.y - b.y || a.x - b.x);
   cena.objetos = objetos;
   const grupos = new Map<string, number[]>();
@@ -620,45 +582,33 @@ function construirMassa(cenario: readonly Objeto[]): [Path2D, Path2D] {
   return [esc, clara];
 }
 
-/** Âncoras dos callouts em mundo: Torre (esfera), Grade (vértice frontal; no celular o esquerdo), Vento (lado externo do parque), Vila (praça). */
-function construirAncoras(ilha: Ilha, torre: [number, number], esfera: [number, number]): Record<AncoraCallout, Ancora> {
-  const { x0, y0, lado } = ilha.plataforma;
+/**
+ * Âncoras dos callouts em mundo: Torre (esfera), Grade (vértice frontal; no celular o esquerdo),
+ * Vento (centro da ilha principal projetado para fora da plataforma) e Vila (praça dos caminhos).
+ */
+function construirAncoras(arq: Arquipelago, torre: [number, number], esfera: [number, number]): Record<AncoraCallout, Ancora> {
+  const { x0, y0, lado } = arq.plataforma;
   const e = iso(x0 + lado, y0 + lado);
   const m = iso(x0, y0 + lado);
   const grade: Ancora = { wx: e[0], wy: e[1] - ELEV + 4, lado: 1, torre: false, wxM: m[0] + 6, wyM: m[1] - ELEV - 2, ladoM: 1 };
 
-  // Vento: centro e raio de TODAS as vagas de vento da região (ocupadas ou não), projetado para fora do parque
-  const regVento = regiaoPorId(ilha, "vento");
-  let vento: Ancora;
-  const vagasVento = regVento ? vagasDaRegiao(ilha, "vento").vento : [];
-  if (regVento && vagasVento.length) {
-    let sx = 0;
-    let sy = 0;
-    for (const v of vagasVento) {
-      const p = centro(v.x, v.y);
-      sx += p[0];
-      sy += p[1];
-    }
-    const cx = sx / vagasVento.length;
-    const cy = sy / vagasVento.length;
-    let rm = 0;
-    for (const v of vagasVento) {
-      const p = centro(v.x, v.y);
-      rm = Math.max(rm, Math.hypot(p[0] - cx, (p[1] - cy) * 2));
-    }
-    const dx = cx - torre[0];
-    const dy = (cy - torre[1]) * 2;
-    const d = Math.hypot(dx, dy) || 1;
-    const ux = dx / d;
-    const uy = dy / d;
-    vento = { wx: cx + ux * (rm + 20), wy: cy + (uy * (rm + 20)) / 2 - 20, lado: ux >= 0 ? 1 : -1, torre: false };
-  } else {
-    const c = regVento ? centro(regVento.centro[0], regVento.centro[1]) : torre;
-    vento = { wx: c[0], wy: c[1] - 24, lado: 1, torre: false };
-  }
+  const principal = arq.ilhas[0];
+  const cv = centro(principal.centro[0], principal.centro[1]);
+  const vento: Ancora = { wx: cv[0], wy: cv[1] - 24, lado: cv[0] >= torre[0] ? 1 : -1, torre: false };
 
-  const regVila = regiaoPorId(ilha, "vila");
-  const praca = regVila ? pracaDe(ilha, regVila) : [ilha.plataforma.meio, ilha.plataforma.meio];
+  // praça: a casa de caminho mais perto do centro da plataforma
+  let praca: [number, number] = [arq.plataforma.meio, arq.plataforma.meio];
+  let dm = Infinity;
+  for (let i = 0; i < arq.n * arq.n; i++) {
+    if (arq.caminho[i] !== 1) continue;
+    const x = i % arq.n;
+    const y = Math.floor(i / arq.n);
+    const d = Math.hypot(x - arq.plataforma.meio, y - arq.plataforma.meio);
+    if (d < dm) {
+      dm = d;
+      praca = [x, y];
+    }
+  }
   const pv = centro(praca[0], praca[1]);
   return {
     torre: { wx: esfera[0] + 10, wy: esfera[1] - 14, lado: 1, torre: true },
@@ -683,13 +633,22 @@ function mesmasPecas(a: readonly PecaCena[] | null, b: readonly PecaCena[] | nul
   return true;
 }
 
-function mesmasColocacoes(a: readonly Colocacao[] | null, b: readonly Colocacao[]): boolean {
+function mesmasConstrucoes(a: readonly ConstrucaoCena[] | null, b: readonly ConstrucaoCena[]): boolean {
   if (a === b) return true;
   if (!a || a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) {
     const p = a[i];
     const q = b[i];
-    if (p.x !== q.x || p.y !== q.y || p.item !== q.item) return false;
+    if (p.x !== q.x || p.y !== q.y || p.tipo !== q.tipo) return false;
+  }
+  return true;
+}
+
+function mesmosObstaculos(a: readonly ObstaculoCena[] | null, b: readonly ObstaculoCena[]): boolean {
+  if (a === b) return true;
+  if (!a || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].x !== b[i].x || a[i].y !== b[i].y || a[i].tipo !== b[i].tipo) return false;
   }
   return true;
 }
@@ -697,7 +656,7 @@ function mesmasColocacoes(a: readonly Colocacao[] | null, b: readonly Colocacao[
 function mesmasPlacas(a: readonly PlacaCena[] | null, b: readonly PlacaCena[]): boolean {
   if (a === b) return true;
   if (!a || a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) if (a[i].regiao !== b[i].regiao) return false;
+  for (let i = 0; i < a.length; i++) if (a[i].ilha !== b[i].ilha) return false;
   return true;
 }
 
@@ -705,20 +664,16 @@ function mesmasPlacas(a: readonly PlacaCena[] | null, b: readonly PlacaCena[]): 
 // API: criar, atualizar
 // ---------------------------------------------------------------------------------------------
 
-/** Povoamento completo (cenário + objetos). Chamar quando a estrutura muda (ilha, semente). */
+/** Povoamento completo. Chamar quando a estrutura muda (arquipélago, semente). */
 export function criarCena(entrada: EntradaCena): Cena {
-  const { ilha, semente } = entrada;
-  const { meio } = ilha.plataforma;
+  const { arq, semente } = entrada;
+  const { meio } = arq.plataforma;
   const rc = centro(meio, meio);
   const torre: [number, number] = [rc[0], rc[1] - ELEV];
   const esfera: [number, number] = [torre[0], torre[1] - ALTURAS.esfera];
 
-  const ocup = new Uint8Array(ilha.n * ilha.n);
-  marcarVagas(ilha, ocup);
-  const casaOperador = casaDoOperador(ilha, ocup);
-  ocup[indiceCasa(ilha.n, casaOperador[0], casaOperador[1])] = 1;
-  const cenario = construirCenario(ilha, semente, ocup);
-  const [massaEsc, massaClara] = construirMassa(cenario);
+  const ocup = new Uint8Array(arq.n * arq.n);
+  const casaOperador = casaDoOperador(arq, ocup);
 
   const cena: Cena = {
     torre,
@@ -726,18 +681,22 @@ export function criarCena(entrada: EntradaCena): Cena {
     realce: null,
     cascata: null,
     reduzido: movimentoReduzido(),
-    ilha,
+    arq,
     semente,
     tempoMs: entrada.tempoMs,
     casaOperador,
-    cenario,
+    obstaculos: [],
+    obstaculosRef: null,
     bloqueio: [],
     rede: [],
     nucleo: [],
+    cabos: [],
+    alcances: [],
+    manutencao: null,
     objetos: [],
     pecasRef: null,
     pecaObjetos: [],
-    colocacoesRef: null,
+    construcoesRef: null,
     redeObjetos: [],
     placasRef: null,
     placas: [],
@@ -747,9 +706,9 @@ export function criarCena(entrada: EntradaCena): Cena {
     mapa: [],
     mapaFantasma: [],
     telhados: [],
-    massaEsc,
-    massaClara,
-    ancoras: construirAncoras(ilha, torre, esfera),
+    massaEsc: new Path2D(),
+    massaClara: new Path2D(),
+    ancoras: construirAncoras(arq, torre, esfera),
     callouts: [],
   };
   atualizarCena(cena, entrada);
@@ -789,12 +748,35 @@ export function atualizarCena(cena: Cena, entrada: EntradaCena): void {
   } else {
     cena.pecasRef = nu ? nu.pecas : null;
   }
-  if (!mesmasColocacoes(cena.colocacoesRef, entrada.colocacoes)) {
-    construirRede(cena, entrada.colocacoes, entrada.bateriaCarga);
+  if (!mesmasConstrucoes(cena.construcoesRef, entrada.construcoes)) {
+    construirRede(cena, entrada.construcoes, entrada.bateriaCarga);
     remontar = true;
   } else {
-    cena.colocacoesRef = entrada.colocacoes;
+    cena.construcoesRef = entrada.construcoes;
   }
+  if (!mesmosObstaculos(cena.obstaculosRef, entrada.obstaculos)) {
+    construirObstaculos(cena, entrada.obstaculos);
+    remontar = true;
+  } else {
+    cena.obstaculosRef = entrada.obstaculos;
+    // a barra de tempo muda todo frame
+    for (let i = 0; i < entrada.obstaculos.length; i++) cena.obstaculos[i].estado.progresso = entrada.obstaculos[i].progresso;
+  }
+
+  // --- Bipe de manutenção: existe enquanto houver remoção em curso, na casa do obstáculo
+  const rem = entrada.remocao;
+  if (!rem) {
+    if (cena.manutencao) {
+      cena.manutencao = null;
+      remontar = true;
+    }
+  } else if (!cena.manutencao || cena.manutencao.x !== rem.x || cena.manutencao.y !== rem.y) {
+    cena.manutencao = novoObjeto(cena.arq, "bipe", rem.x, rem.y, { lod: "perto", papel: "manutencao", expressao: "apontando", fase: 0.4 }, 0.55, 0.55);
+    remontar = true;
+  }
+
+  cena.cabos = entrada.cabos;
+  cena.alcances = entrada.alcances;
   if (remontar) montar(cena);
 
   // --- Núcleo: estado dinâmico por peça
@@ -829,10 +811,14 @@ export function atualizarCena(cena: Cena, entrada: EntradaCena): void {
     if (cena.operador) cena.operador.expressao = nu.scram || cena.cascata ? "alarmado" : "apontando";
   }
 
-  // --- Rede: carga das baterias
-  const colocacoes = entrada.colocacoes;
-  for (let i = 0; i < colocacoes.length; i++) {
-    if (colocacoes[i].item === "bateria") cena.redeObjetos[i].estado.carga = entrada.bateriaCarga;
+  // --- Rede: carga das baterias, nível das subestações e marca de "sem escoamento"
+  const construcoes = entrada.construcoes;
+  for (let i = 0; i < construcoes.length; i++) {
+    const c = construcoes[i];
+    const e = cena.redeObjetos[i].estado;
+    if (c.tipo === "bateria") e.carga = entrada.bateriaCarga;
+    if (c.tipo === "subestacao") e.nivel = c.nivel;
+    e.semEscoamento = c.semEscoamento;
   }
 
   // --- callouts: textos no lugar; lista refeita só se as chaves/âncoras mudarem
@@ -888,14 +874,14 @@ export function tremorCena(cena: Cena, t: number): [number, number] {
 }
 
 /** Placa de local bloqueado sob o ponto de mundo (wx, wy), com raio generoso; a mais próxima se houver mais de uma. */
-export function placaEm(cena: Cena, wx: number, wy: number): RegiaoId | null {
-  let melhor: RegiaoId | null = null;
+export function placaEm(cena: Cena, wx: number, wy: number): IlhaId | null {
+  let melhor: IlhaId | null = null;
   let dm = RAIO_PLACA;
   for (const pl of cena.placas) {
     const d = Math.hypot(wx - pl.cx, (wy - (pl.cy - 8)) * 2);
     if (d <= dm) {
       dm = d;
-      melhor = pl.regiao;
+      melhor = pl.ilha;
     }
   }
   return melhor;
@@ -927,20 +913,44 @@ export function desenharCena(ctx: CanvasRenderingContext2D, cena: Cena, cam: Cam
     dtc = -1;
     if (cena.operador) cena.operador.expressao = scram ? "alarmado" : "apontando";
   }
-  const { x0, y0, lado, meio } = cena.ilha.plataforma;
+  const { x0, y0, lado, meio } = cena.arq.plataforma;
   ctx.save();
   ctx.lineJoin = "round";
 
-  // 1. realce da casa da plataforma sob o ponteiro (chão)
+  // 1. realce da casa sob o ponteiro (chão): na plataforma usa a casa do Núcleo; fora dela, um losango
   const re = cena.realce;
-  if (re && !mapa && re.x >= x0 && re.x < x0 + lado && re.y >= y0 && re.y < y0 + lado) {
+  if (re && !mapa) {
+    const naPlat = re.x >= x0 && re.x < x0 + lado && re.y >= y0 && re.y < y0 + lado;
     const c = centro(re.x, re.y);
-    const a = Math.max(Math.abs(re.x - meio), Math.abs(re.y - meio)) + 1;
-    REALCE_PLAT.anel = a <= 1 ? 1 : a === 2 ? 2 : 3;
-    REALCE_PLAT.realce = re.valido ? "valido" : "invalido";
-    REALCE_PLAT.lod = lod;
-    desenharSprite("casaNucleo", ctx, c[0], c[1] - ELEV, 1, REALCE_PLAT, t);
+    if (naPlat) {
+      const a = Math.max(Math.abs(re.x - meio), Math.abs(re.y - meio)) + 1;
+      REALCE_PLAT.anel = a <= 1 ? 1 : a === 2 ? 2 : 3;
+      REALCE_PLAT.realce = re.valido ? "valido" : "invalido";
+      REALCE_PLAT.lod = lod;
+      desenharSprite("casaNucleo", ctx, c[0], c[1] - ELEV, 1, REALCE_PLAT, t);
+    } else {
+      const cor = re.valido ? P.leaf : P.coral;
+      ctx.save();
+      ctx.translate(c[0], c[1]);
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = alfa(cor, 0.25);
+      ctx.beginPath();
+      ctx.moveTo(0, -16);
+      ctx.lineTo(32, 0);
+      ctx.lineTo(0, 16);
+      ctx.lineTo(-32, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = cor;
+      ctx.lineWidth = 2 / z;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
   }
+
+  // 1b. alcance das subestações selecionadas (sob os objetos)
+  if (!mapa) for (const a of cena.alcances) desenharAlcance(ctx, a.x, a.y, a.alcance, cam, a.cheio);
 
   // 2. feixes (antes dos objetos; apagados no SCRAM)
   if (cena.receptor && !scram) {
@@ -1004,6 +1014,21 @@ export function desenharCena(ctx: CanvasRenderingContext2D, cena: Cena, cam: Cam
     o.estado.lod = lod;
     o.estado.zoom = z;
     desenharSprite(o.nome, ctx, o.cx, o.cy, 1, o.estado, t);
+    // marca de "sem escoamento" (GDD §7): um alerta coral pulsando acima da usina
+    if (perto && o.estado.semEscoamento) {
+      const py = o.cy - o.alto - 10;
+      ctx.globalAlpha = 0.65 + 0.35 * Math.sin(t * 3);
+      ctx.fillStyle = P.coral;
+      ctx.beginPath();
+      ctx.arc(o.cx, py, 7, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = P.navy;
+      ctx.beginPath();
+      ctx.rect(o.cx - 1, py - 4, 2, 5);
+      ctx.rect(o.cx - 1, py + 2, 2, 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
   }
 
   // 6. partículas de calor sobre a esfera, quantidade ∝ T (só perto, fora do SCRAM)
@@ -1217,6 +1242,38 @@ function desenharPlacas(ctx: CanvasRenderingContext2D, cena: Cena, cam: Camera, 
   }
 }
 
+/**
+ * Motivo do realce em px de tela (GDD §2.4, v0.6): "sem escoamento", "esteira −40 %", "Ilha fechada…".
+ * Pílula curta logo acima da casa sob o ponteiro, verde quando dá e coral quando não dá.
+ */
+function desenharMotivoRealce(ctx: CanvasRenderingContext2D, cena: Cena, cam: Camera, w: number, h: number): void {
+  const re = cena.realce;
+  if (!re || !re.texto) return;
+  const z = cam.zoom || 1;
+  const c = centro(re.x, re.y);
+  const sx = c[0] * z + cam.tx;
+  const sy = c[1] * z + cam.ty;
+  if (sx < 0 || sx > w || sy < 0 || sy > h) return;
+  const fonte = FONTE_COMPACTA;
+  const tw = largura(ctx, fonte, re.texto);
+  const bw = Math.ceil(tw) + 18;
+  const bh = 22;
+  const bx = Math.max(8, Math.min(w - bw - 8, Math.round(sx - bw / 2)));
+  const by = Math.max(8, Math.round(sy - 34 - bh));
+  reservar(bx, by, bw, bh);
+  retArred(ctx, bx, by, bw, bh, bh / 2);
+  ctx.fillStyle = COR_PILULA;
+  ctx.fill();
+  ctx.strokeStyle = alfa(re.valido ? P.leaf : P.coral, 0.8);
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.fillStyle = re.valido ? P.leaf : P.coral;
+  ctx.font = fonte;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(re.texto, bx + 9, by + bh / 2 + 0.5);
+}
+
 /** Lista de callouts do frame (reaproveitada: nada alocado por frame). */
 const LISTA: Callout[] = [];
 
@@ -1236,6 +1293,7 @@ export function desenharCallouts(ctx: CanvasRenderingContext2D, cena: Cena, cam:
   nRets = 0;
   if (reservas) for (const q of reservas) reservar(q[0], q[1], q[2], q[3]);
   desenharPlacas(ctx, cena, cam, w, h);
+  desenharMotivoRealce(ctx, cena, cam, w, h);
   if (a >= 0.35) {
     ctx.globalAlpha = a;
     ctx.font = FONTE_CALLOUT;
