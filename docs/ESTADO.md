@@ -53,6 +53,8 @@ Estão detalhadas em `docs/sessoes/sessao-8-relatorio.md`. Em resumo:
 6. **O decaimento de uma vareta em SCRAM vai para o Vaso**, e só o da vareta **gasta** vai para a piscina vizinha — é o que mantém a torre de resfriamento sendo a resposta ao SCRAM, como §5.2 escreve.
 
 ## Pendências
+Decisões da gestão sobre estas pendências: `docs/sessoes/sessao-8-ajustes.md` (a Sessão 9 aplica antes da parte A).
+
 - **Cortes assumidos da Era 2:** nenhum. Instituto, bateria de rede, rede inteligente, selo verde e distrito industrial (a ordem de corte da especificação) entraram todos.
 - **O distrito industrial e o instituto não aparecem no jogo do bot** dentro dos 75 minutos simulados: ele prioriza a saída da era. Os dois estão testados no Vitest e no roteiro Playwright, mas nunca foram vistos num playtest de ritmo.
 - **A Era 2 fecha em 60,9 min com o bot jogando para fechar.** Um jogador que evolua a cidade até o fim chega a 47 MW instalados mas demora mais: as duas rotas cabem na janela, e só o playtest humano diz qual é a natural.
