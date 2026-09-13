@@ -232,4 +232,4 @@ npm run dev -- --host 127.0.0.1 --port 5173
 NODE_PATH=/opt/node22/lib/node_modules node scripts/e2e/sessao-6.cjs
 ```
 
-`npm run typecheck`, `npx vitest run`, `npm run lint`, `npm run build` e `npm run build:artifact` passam.
+`npm run typecheck`, `npx vitest run` (279), `npm run lint`, `npm run build` e `npm run build:artifact` passam.
