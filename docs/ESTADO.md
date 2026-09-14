@@ -41,7 +41,7 @@ Atualizado ao fim da **Sessão 8** (Era 2: reator PWR com combustível finito e 
 - **Balanceamento (`npm run simular`):** o bot atravessa a Era 1, constrói o Reator aos 44 min e joga a Era 2. **A Era 2 fecha em 60,9 min** (alvo 50–70) e a receita líquida **nunca fica negativa**.
 
 ## Próxima sessão
-`docs/sessoes/sessao-9.md` (a escrever) — Era 3: Tokamak, balança de Contenção acoplada à Rede e a abertura do planeta (GDD Parte 1 §4.3 e §6; a Parte 2 ainda não especifica a Era 3).
+`docs/sessoes/sessao-9.md` — melhorias por tipo em dois degraus, cidade que evolui inteira, Núcleo com nível por peça, remoção rápida e em área, HUD limpo e "ver acontecendo" (GDD v0.8, `docs/correcoes-gdd-v0.8.md`). A Era 3 passa para a Sessão 10.
 
 ## Decisões da Sessão 8 que a gestão precisa confirmar
 Estão detalhadas em `docs/sessoes/sessao-8-relatorio.md`. Em resumo:

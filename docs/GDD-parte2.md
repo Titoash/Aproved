@@ -52,6 +52,8 @@ As três usinas da Era 1 continuam na paleta, com os mesmos números: são os "k
 
 Cabo submarino: níveis como hoje (₵ ×3ⁿ, teto ×2ⁿ, base 30 kW). O nó **"Cabo HVDC"** multiplica o teto de todos os cabos por 10 (o nível continua ×2 por cima). Sem ele, as ilhas de fora não escoam MW: é a trava certa, porque cabo é decisão contínua (Parte 1, §8.5).
 
+**v0.8 — níveis por tipo (Parte 1, §7.1).** Subestação de 138 kV e Subestação offshore sobem por tipo, como a subestação da Era 1: custo `base × 3ⁿ × N`, teto ×2ⁿ, máximo 3. Cabos: nível global (soma das rotas ligadas × 3ⁿ); o nó Cabo HVDC continua multiplicando o teto por 10. Usinas da Era 2 (eólica offshore, fazenda solar, térmica a gás) têm nível incremental como as da Era 1: custo `base × 3ⁿ`, +50 % por nível, máximo 5. Nó de era **"Escavadeiras"** (🔬 1 500, ramo Rede em MW): tempos de remoção ÷ 2 de novo.
+
 ## 4. Cidade da Era 2
 
 ### 4.1 Densidades 5 e 6
@@ -88,6 +90,8 @@ Mesmo motor da Torre Solar (Parte 1, §4.2, §5, §8.3): `T = Q ÷ capacidade`, 
 | **Piscina de resfriamento** | 1 | ₵ 20 000 | **+250 u** de capacidade compartilhada; varetas gastas nas 8 vizinhas **trocam na hora** e o calor de decaimento delas vai para a piscina, não para o Vaso |
 
 Pesquisa do Núcleo: 🔬/s = kW × **0,01** × multiplicador da faixa (a Era 1 usava 0,1; a potência subiu ×50, a pesquisa ×5).
+
+**Níveis das peças (v0.8, Parte 1 §7.1).** Vareta, Turbina de alta pressão, Torre e Piscina têm nível incremental por tipo, comprado no painel do Núcleo: custo `5 × custo da peça × 2ⁿ`, **+10 % por nível** (calor da vareta, kW por u, dissipação, capacidade), máximo 5. Barra de controle e Vaso não têm nível. Subir o nível das varetas sobe `Q*` e o decaimento junto (7 % do nominal, já com o nível). O painel do Núcleo ganha **"Trocar todas as gastas"** (uma ação, cobra a soma, só as que já podem).
 
 ### 5.2 Esgotamento e calor de decaimento
 - Cada vareta tem `combustivelS` (600 s; ×2 com barra vizinha; ×1,5 com o nó MOX). Consome só enquanto o reator está ligado.
@@ -153,8 +157,10 @@ Os nós da Era 1 continuam valendo (Lâminas, Torre mais alta etc. seguem multip
 - **🔬**: árvore de ≈ 🔬 190 mil, evoluções 5 e 6, saída da era.
 - **Espaço**: 2×2 em terra, mar raso finito, universidades a 1 por 2 000 habitantes.
 - **Calor**: combustível finito e decaimento fazem o reator pedir atenção periódica, não só na montagem.
+- **Melhorias incrementais** (v0.8): níveis de usina, de peça, de subestação e de cabo, e a evolução da cidade inteira, com custos que crescem ×3 por degrau — o ₵ do fim da era tem onde ir antes da Era 3.
 
 ---
 
 *v0.7 — Parte 2 criada com a Era 2 completa (transição, Rede, cidade, Reator PWR, árvore, capítulos, arte, sumidouros) para a Sessão 8.*
 *v0.7.1 — correções da produção da Sessão 8, medidas na simulação das duas eras: repartição por anel da tabela de §5.3 (a coluna "Entrada" não mudou); troca de vareta em 3 meias-vidas cheias (§5.2); curva de ₵ da densidade 5 (§4.1); quem paga a árvore da Era 2 (§6). **Ritmo medido: a Era 2 fecha em 60,9 min** (alvo 50–70), com a receita líquida do bot nunca negativa. Detalhes em `docs/sessoes/sessao-8-relatorio.md`.*
+*v0.8 — níveis por tipo nas usinas, subestações, cabos e peças da Era 2; "Trocar todas as gastas"; nó Escavadeiras; sumidouro das incrementais (§3.2, §5.1, §9). A Era 3 passa para a Sessão 10.*
