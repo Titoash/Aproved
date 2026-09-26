@@ -50,6 +50,8 @@ export interface PecaCena {
   gratis?: boolean;
   /** entulho: `tempoMs` do jogo em que nasceu (pop de 250 ms). */
   desdeMs?: number;
+  /** peça: nível do tipo (v0.8), desenhado como "Nv n" sob a peça; ausente ou 0 = sem selo. */
+  nivelPeca?: number;
 }
 
 export interface NucleoCena {
@@ -381,6 +383,9 @@ const FONTE_CALLOUT = FONTE(13);
 const FONTE_PLACA = FONTE(12);
 const FONTE_COMPACTA = FONTE(11);
 const FONTE_MOEDA = FONTE(9);
+const FONTE_NIVEL = FONTE(10);
+const TEXTO_NIVEL = ["", "Nv 1", "Nv 2", "Nv 3", "Nv 4", "Nv 5"];
+const COR_FUNDO_NIVEL = alfa(P.card, 0.92);
 const COR_GUIA = alfa(P.muted, 0.8);
 const COR_PILULA = alfa(P.card, 0.9);
 const COR_CAIXA = alfa(P.card, 0.85);
@@ -1454,6 +1459,40 @@ function desenharMotivoRealce(ctx: CanvasRenderingContext2D, cena: Cena, cam: Ca
 const LISTA: Callout[] = [];
 
 /**
+ * "Nv n" sob cada peça do Núcleo com nível (§8.3, v0.8): pílula de 13 px em px de tela, só de perto
+ * (zoom ≥ 0,7). Reserva o retângulo para os callouts desviarem. No máximo ~48 peças: um `measureText`
+ * por texto distinto, pelo cache.
+ */
+function desenharNiveisPecas(ctx: CanvasRenderingContext2D, cena: Cena, cam: Camera, w: number, h: number): void {
+  const pecas = cena.pecasRef;
+  const z = cam.zoom || 1;
+  if (!pecas || z < 0.7) return;
+  ctx.font = FONTE_NIVEL;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  for (let i = 0; i < pecas.length; i++) {
+    const nv = pecas[i].nivelPeca;
+    if (!nv) continue;
+    const o = cena.pecaObjetos[i];
+    if (!o) continue;
+    const sx = o.cx * z + cam.tx;
+    const sy = o.cy * z + cam.ty + 8;
+    if (sx < 0 || sx > w || sy < 0 || sy > h) continue;
+    const texto = TEXTO_NIVEL[Math.min(TEXTO_NIVEL.length - 1, nv)];
+    const bw = Math.ceil(largura(ctx, FONTE_NIVEL, texto)) + 8;
+    const bh = 13;
+    const bx = sx - bw / 2;
+    const by = sy - bh / 2;
+    retArred(ctx, bx, by, bw, bh, 6);
+    ctx.fillStyle = COR_FUNDO_NIVEL;
+    ctx.fill();
+    ctx.fillStyle = P.sun;
+    ctx.fillText(texto, sx, sy + 0.5);
+    reservar(bx, by, bw, bh);
+  }
+}
+
+/**
  * Callouts em px de tela: âncora r 3, guia 18 ↑ + 14 →, caixa `card` α .85; α = clamp((zoom − 0,55)/0,15), nada abaixo
  * de α .35; abaixo de zoom 0,7 só a Torre e o mais próximo do centro; no máximo 4; empurra ao colidir. Também as placas.
  * `reservas`: retângulos de tela (controles, minimapa) que nem callouts nem placas podem cobrir.
@@ -1470,6 +1509,7 @@ export function desenharCallouts(ctx: CanvasRenderingContext2D, cena: Cena, cam:
   if (reservas) for (const q of reservas) reservar(q[0], q[1], q[2], q[3]);
   desenharPlacas(ctx, cena, cam, w, h);
   desenharMotivoRealce(ctx, cena, cam, w, h);
+  desenharNiveisPecas(ctx, cena, cam, w, h);
   if (a >= 0.35) {
     ctx.globalAlpha = a;
     ctx.font = FONTE_CALLOUT;

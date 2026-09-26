@@ -93,7 +93,7 @@ Mesmo motor da Torre Solar (Parte 1, §4.2, §5, §8.3): `T = Q ÷ capacidade`, 
 
 Pesquisa do Núcleo: 🔬/s = kW × **0,01** × multiplicador da faixa (a Era 1 usava 0,1; a potência subiu ×50, a pesquisa ×5).
 
-**Níveis das peças (v0.8, Parte 1 §7.1).** Vareta, Turbina de alta pressão, Torre e Piscina têm nível incremental por tipo, comprado no painel do Núcleo: custo `5 × custo da peça × 2ⁿ`, **+10 % por nível** (calor da vareta, kW por u, dissipação, capacidade), máximo 5. Barra de controle e Vaso não têm nível. Subir o nível das varetas sobe `Q*` e o decaimento junto (7 % do nominal, já com o nível). O painel do Núcleo ganha **"Trocar todas as gastas"** (uma ação, cobra a soma, só as que já podem).
+**Níveis das peças (v0.8, Parte 1 §7.1).** Vareta, Turbina de alta pressão, Torre e Piscina têm nível incremental por tipo, comprado no painel do Núcleo: custo `5 × custo da peça × 2ⁿ`, **+10 % por nível** (calor da vareta, kW por u, dissipação, capacidade), máximo 5. Barra de controle e Vaso não têm nível. Subir o nível das varetas sobe `Q*` e o decaimento junto (7 % do nominal, já com o nível). O painel do Núcleo ganha **"Trocar todas as gastas"** (uma ação, cobra a soma, só as que já podem). *(Sessão 9: é tudo ou nada — sem ₵ para o lote inteiro, recusa, porque o GDD fala em cobrar a soma e não em troca parcial —, e um lote feito na zona de ouro conta **uma** troca em faixa para o capítulo "Troca escalonada": trocar tudo junto não é escalonar.)*
 
 ### 5.2 Esgotamento e calor de decaimento
 - Cada vareta tem `combustivelS` (600 s; ×2 com barra vizinha; ×1,5 com o nó MOX). Consome só enquanto o reator está ligado.

@@ -120,6 +120,8 @@ export interface GameStore {
   construirReator: () => boolean;
   /** Troca uma vareta gasta por uma nova (₵ 8 000). */
   trocarVareta: (indice: number) => boolean;
+  /** Troca todas as gastas que já podem sair, com um débito só (Parte 2 §5.1, v0.8). */
+  trocarTodasAsGastas: () => boolean;
   selecionarCasaNucleo: (indice: number | null) => void;
   setCasaSobPonteiro: (indice: number | null) => void;
   fecharRelatorioOffline: () => void;
@@ -387,6 +389,14 @@ export const useGameStore = create<GameStore>()((set, get) => {
       if (!proximo) {
         const v = nucleo.avaliarTrocaVareta(get().state, indice);
         avisar(indice, v.motivo ?? "Não dá para trocar esta vareta.");
+        return false;
+      }
+      return aplicar(proximo);
+    },
+    trocarTodasAsGastas() {
+      const proximo = nucleo.trocarTodasAsGastas(get().state);
+      if (!proximo) {
+        avisar(-1, nucleo.avaliarTrocarTodas(get().state).motivo ?? "Nenhuma vareta pronta para trocar.");
         return false;
       }
       return aplicar(proximo);

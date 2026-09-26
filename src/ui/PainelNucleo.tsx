@@ -2,7 +2,9 @@ import { useEffect, useRef } from "react";
 import { CASCATA, FAIXAS_CALOR, MODO_SEGURO, NUCLEO } from "../content/era1-nucleo";
 import { REATOR, SCRAM_ERA2, VARETA } from "../content/era2-nucleo";
 import { PECA_POR_ID, ordemDasPecas } from "../content/pecas";
-import { pecaDisponivel, podeDesbloquearNucleo } from "../sim/acoesNucleo";
+import { avaliarTrocarTodas, pecaDisponivel, podeDesbloquearNucleo } from "../sim/acoesNucleo";
+import { avaliarMelhoria, custoProximoNivel, nivelMaximo } from "../sim/melhorias";
+import { fatorPeca } from "../sim/niveis";
 import { avaliarConstruirReator, era3Pronta } from "../sim/era";
 import { contarReator, esperaParaTrocaMs } from "../sim/reator";
 import { equilibrioMotor, motorDoNucleo } from "../sim/motor";
@@ -11,7 +13,7 @@ import { custoReconstrucao, faltaParaLimpezaMs, podeLimparEntulho } from "../sim
 import { formatarCalor, formatarCreditos, formatarNumero, formatarPorcentagem, formatarPotencia, formatarSegundos } from "../sim/formatar";
 import { efeitosDe, type EfeitosArvore } from "../sim/arvore";
 import { contar, espelhosEfetivos } from "../sim/nucleo";
-import type { NucleoState } from "../sim/state";
+import type { NucleoState, PecaId } from "../sim/state";
 import { potenciaNucleoEfetivaKw } from "../sim/tick";
 import { setPalcoElement } from "../scene/layout";
 import { anexarPalco } from "../scene/tabuleiro/controle";
@@ -164,6 +166,35 @@ function BarraEstabilidade({ nucleo }: { nucleo: NucleoState }) {
   );
 }
 
+/**
+ * Botão do próximo nível de um tipo de peça (§8.3, Parte 2 §5.1, v0.8): irmão do rádio, nunca dentro dele,
+ * e sem o nome da peça no texto (o nome vai no `aria-label`) — o rádio continua sendo o alvo do clique.
+ */
+function BotaoNivelPeca({ id }: { id: PecaId }) {
+  const state = useGameStore((s) => s.state);
+  const melhorar = useGameStore((s) => s.melhorar);
+  const alvo = { tipo: "peca", id } as const;
+  const maximo = nivelMaximo(alvo);
+  if (maximo === 0) return null;
+  const n = state.melhorias.pecas[id];
+  if (maximo !== null && n >= maximo) return <span className="peca-nivel-max">máx.</span>;
+  const v = avaliarMelhoria(state, alvo);
+  const custo = custoProximoNivel(state, alvo);
+  return (
+    <button
+      type="button"
+      className="pilula pilula--mini peca-nivel"
+      data-acao="nivel-peca"
+      disabled={!v.ok}
+      aria-label={`Subir ${PECA_POR_ID[id].nome} para o nível ${n + 1}`}
+      title={v.motivo ?? `+10 % para todas as peças do tipo`}
+      onClick={() => melhorar(alvo)}
+    >
+      ↑ <span className={`pilula-custo ${state.creditos < custo ? "pilula-custo--caro" : ""}`}>{formatarCreditos(custo)}</span>
+    </button>
+  );
+}
+
 function SeletorPecas({ era }: { era: 1 | 2 }) {
   const state = useGameStore((s) => s.state);
   const ferramenta = useGameStore((s) => s.ferramenta);
@@ -179,28 +210,54 @@ function SeletorPecas({ era }: { era: 1 | 2 }) {
     { id: "remover" as Ferramenta, nome: "Remover", custo: null, descricao: "Tira a peça da casa (sem reembolso)." },
   ];
   const atual = opcoes.find((o) => o.id === ferramenta);
+  const nivelAtual = atual && atual.id !== "remover" ? state.melhorias.pecas[atual.id] : 0;
   return (
     <>
       <div className="seletor-pecas" role="radiogroup" aria-label="Peça para colocar">
         {opcoes.map((o) => (
-          <button
-            key={o.id}
-            type="button"
-            role="radio"
-            aria-checked={ferramenta === o.id}
-            disabled={o.bloqueada}
-            className={`pilula ${ferramenta === o.id ? "pilula--ativa" : ""}`}
-            title={o.bloqueada ? `${o.descricao} · pesquise o nó da árvore para liberar` : o.descricao}
-            onClick={() => selecionar(o.id)}
-          >
-            <span>{o.nome}</span>
-            {o.custo !== null ? <span className={`pilula-custo ${state.creditos < o.custo ? "pilula-custo--caro" : ""}`}>{formatarCreditos(o.custo)}</span> : null}
-          </button>
+          <div key={o.id} className="peca-carta">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={ferramenta === o.id}
+              disabled={o.bloqueada}
+              className={`pilula ${ferramenta === o.id ? "pilula--ativa" : ""}`}
+              title={o.bloqueada ? `${o.descricao} · pesquise o nó da árvore para liberar` : o.descricao}
+              onClick={() => selecionar(o.id)}
+            >
+              <span>{o.nome}</span>
+              {o.id !== "remover" && state.melhorias.pecas[o.id] > 0 ? <span className="marca-nivel">Nv {state.melhorias.pecas[o.id]}</span> : null}
+              {o.custo !== null ? <span className={`pilula-custo ${state.creditos < o.custo ? "pilula-custo--caro" : ""}`}>{formatarCreditos(o.custo)}</span> : null}
+            </button>
+            {o.id !== "remover" && !o.bloqueada ? <BotaoNivelPeca id={o.id} /> : null}
+          </div>
         ))}
       </div>
-      {/* Tooltip de uma frase com os números da peça selecionada (GDD §10, v0.6). */}
-      {atual ? <p className="seletor-dica">{atual.descricao}</p> : null}
+      {/* Tooltip de uma frase com os números da peça selecionada (GDD §10, v0.6), e o que o nível soma. */}
+      {atual ? (
+        <p className="seletor-dica">
+          {atual.descricao}
+          {nivelAtual > 0 ? ` · Nv ${nivelAtual}: +${formatarNumero((fatorPeca(nivelAtual) - 1) * 100, 0)} % para todas.` : ""}
+        </p>
+      ) : null}
     </>
+  );
+}
+
+/** "Trocar todas as gastas" (Parte 2 §5.1, v0.8): uma ação, a soma cobrada de uma vez, só as que já esfriaram. */
+function TrocarTodas() {
+  const state = useGameStore((s) => s.state);
+  const trocar = useGameStore((s) => s.trocarTodasAsGastas);
+  const a = avaliarTrocarTodas(state);
+  if (a.gastas === 0) return null;
+  const titulo = a.motivo ?? (a.proximaEmMs !== null ? `a próxima esfria em ${formatarSegundos(a.proximaEmMs)}` : undefined);
+  return (
+    <button type="button" className="pilula pilula--primaria" data-acao="trocar-todas" disabled={!a.ok} title={titulo} onClick={trocar}>
+      <span>
+        Trocar todas as gastas ({a.indices.length}/{a.gastas})
+      </span>
+      <span className={`pilula-custo ${state.creditos < a.custo ? "pilula-custo--caro" : ""}`}>{formatarCreditos(a.custo)}</span>
+    </button>
   );
 }
 
@@ -295,6 +352,7 @@ function Operacao({ nucleo }: { nucleo: NucleoState }) {
         {nucleo.cascatas > 0 ? <span>💥 {nucleo.cascatas} cascata{nucleo.cascatas > 1 ? "s" : ""}</span> : null}
       </p>
       <Entulhos nucleo={nucleo} tempoMs={state.tempoMs} />
+      {era2 ? <TrocarTodas /> : null}
       <SeletorPecas era={nucleo.era} />
       {aviso && state.tempoMs - aviso.emTempoMs < DURACAO_AVISO_MS ? <p className="aviso aviso--erro nucleo-aviso">{aviso.texto}</p> : null}
       <BarraEstabilidade nucleo={nucleo} />
@@ -316,7 +374,7 @@ function Operacao({ nucleo }: { nucleo: NucleoState }) {
         <p className="nucleo-dica-arvore">
           {era2
             ? `Cada vareta vale ${VARETA.combustivelS} s de combustível e depois fica quente: trocar custa ${formatarCreditos(VARETA.custoTroca)} e só depois de ${formatarSegundos(esperaParaTrocaMs())} — ou na hora, com uma piscina ao lado.`
-            : "As melhorias do Núcleo (Receptor cerâmico, Grade 7×7, níveis de peça) vivem na árvore de pesquisa, e agora custam 🔬 de verdade."}
+            : "Cada tipo de peça sobe de nível no seletor (↑): +10 % para todas, até o 5. Receptor cerâmico, Grade 7×7 e os degraus de era das peças vivem na árvore de pesquisa."}
         </p>
       </div>
     </div>

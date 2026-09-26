@@ -300,6 +300,23 @@ export function esperaParaTrocaMs(): number {
 }
 
 /**
+ * A vareta desta casa já pode sair, sem contar o dinheiro: está gasta e esfriou (3 meias-vidas, 180 s)
+ * ou tem Piscina nas 8 vizinhas. É a regra que "Trocar todas as gastas" usa para escolher o lote.
+ */
+export function prontaParaTroca(nucleo: NucleoState | null, indice: number, tempoMs: number): RecusaTroca {
+  const recusa = (motivo: string, faltaMs = 0): RecusaTroca => ({ ok: false, motivo, faltaMs });
+  if (!nucleo || nucleo.era !== 2) return recusa("O reator ainda não existe.");
+  const casa = nucleo.grade[indice];
+  if (!casa || casa.tipo !== "peca" || casa.id !== "vareta") return recusa("Só varetas se trocam.");
+  const v = casa.vareta;
+  if (!v || v.gastaDesdeMs === null) return recusa("A vareta ainda tem combustível.");
+  if (temPiscinaVizinha(nucleo.grade, indice, nucleo.lado)) return { ok: true, motivo: null, faltaMs: 0 };
+  const falta = esperaParaTrocaMs() - (tempoMs - v.gastaDesdeMs);
+  if (falta > 0) return recusa("Quente demais: espere o decaimento cair (ou ponha uma Piscina ao lado).", falta);
+  return { ok: true, motivo: null, faltaMs: 0 };
+}
+
+/**
  * Trocar uma vareta gasta custa ₵ 8 000 e só é permitido quando o decaimento dela caiu abaixo de 1 %
  * do nominal (3 meias-vidas, 180 s) — **ou na hora**, se houver Piscina nas 8 vizinhas.
  */

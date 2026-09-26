@@ -815,6 +815,25 @@ h2 {
   gap: 8px;
 }
 
+/* Carta de peça: o rádio de seleção e, ao lado, o botão do nível do tipo (v0.8). */
+.peca-carta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.peca-nivel {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.peca-nivel-max {
+  font-size: var(--t-12);
+  color: var(--muted);
+  padding: 0 4px;
+}
+
 .marca-comprado {
   font-size: var(--t-12);
   color: var(--leaf);

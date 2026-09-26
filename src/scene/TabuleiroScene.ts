@@ -178,6 +178,8 @@ export class TabuleiroScene extends Phaser.Scene {
             combustivel: v ? v.restanteS / VARETA.combustivelS : undefined,
             gasta: v ? v.gastaDesdeMs !== null : undefined,
             decaimento: v && v.gastaDesdeMs !== null ? fracaoDecaimento(state.tempoMs - v.gastaDesdeMs) : undefined,
+            // o nível é do tipo (v0.8): a cena só desenha o selo "Nv n"
+            nivelPeca: state.melhorias.pecas[casa.id] || undefined,
           });
         } else pecas.push({ x, y, tipo: "entulho", anel: a, gratis: podeLimparEntulho(casa, state.tempoMs), desdeMs: casa.desdeMs });
       });
