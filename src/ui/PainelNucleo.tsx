@@ -296,7 +296,7 @@ function ConstruirReator() {
   );
 }
 
-/** O aviso de fim de conteúdo: a Era 3 é a Sessão 9 (GDD Parte 2 §6). */
+/** O aviso de fim de conteúdo: a Era 3 ainda não existe (GDD Parte 1 §12, Parte 2 §6). */
 function FimDaEra2() {
   const state = useGameStore((s) => s.state);
   if (!era3Pronta(state)) return null;
