@@ -821,6 +821,19 @@ h2 {
   font-weight: 600;
 }
 
+/* "Nv n": o nível do tipo, onde a coisa está (GDD §7.1, v0.8) */
+.marca-nivel {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: var(--t-12);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--sun);
+  background: rgba(255, 210, 63, 0.12);
+}
+
 /* pop: só o número que mudou */
 .pop {
   display: inline-block;

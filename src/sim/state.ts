@@ -3,6 +3,7 @@ import { NOS_INICIAIS } from "../content/arvore";
 import { ECONOMIA } from "../content/era1";
 import { ILHAS_INICIAIS, type IlhaId, type TipoObstaculo } from "../content/era1-arquipelago";
 import { NUCLEO } from "../content/era1-nucleo";
+import type { TipoCiencia } from "../content/melhorias";
 import { arquipelagoDaEra1 } from "./gerarArquipelago";
 
 export type UsinaEra1Id = "cataVento" | "painelSolar" | "turbinaEolica";
@@ -40,12 +41,32 @@ export interface BateriaEstado {
 }
 
 /**
- * Rede guardada no save. As **contagens são derivadas** das construções do mundo (GDD §2.1, v0.6):
- * aqui só ficam o nível de melhoria de cada usina e a carga da bateria.
+ * Rede guardada no save. As **contagens são derivadas** das construções do mundo (GDD §2.1, v0.6) e os
+ * níveis das usinas moram em `melhorias` (v0.8): aqui só fica a carga da bateria.
  */
 export interface RedeState {
-  usinas: Record<UsinaId, { nivel: number }>;
   bateria: { kwh: number };
+}
+
+/** Os três tipos de subestação (GDD §8.5 e Parte 2 §3.2). */
+export type TipoSubestacao = "subestacao" | "subestacao138" | "subestacaoOffshore";
+
+/**
+ * Melhorias incrementais **por tipo** (GDD Parte 1 §7.1, v0.8): um nível por tipo, nunca por unidade.
+ * Os números (custos, efeitos, máximos) estão em `content/melhorias.ts`; as ações, em `sim/melhorias.ts`.
+ * Sempre substituída por um objeto novo, nunca mutada: os caches de `efeitosDe` e `analisar` dependem disso.
+ */
+export interface MelhoriasState {
+  /** Produção +50 % por nível. */
+  usinas: Record<UsinaId, number>;
+  /** +10 % na grandeza da peça (calor, kW por u, dissipação, capacidade). A Barra de controle fica em 0. */
+  pecas: Record<PecaId, number>;
+  /** Teto ×2 por nível, para todas as subestações do tipo. */
+  subestacoes: Record<TipoSubestacao, number>;
+  /** Teto ×2 por nível, para todos os cabos submarinos. */
+  cabos: number;
+  /** 🔬 +25 % por nível (v0.9). */
+  ciencia: Record<TipoCiencia, number>;
 }
 
 /** Forma derivada, com as contagens do mundo: é o que as fórmulas de §4.1 consomem. */
@@ -61,7 +82,7 @@ export interface RedeDerivada {
 
 export interface Construcao {
   tipo: TipoConstrucao;
-  /** Nível da construção: subestação (teto ×2ⁿ, custo ×3ⁿ) e bairro (densidade − 1, GDD §8.6). */
+  /** Densidade − 1 do bairro (GDD §8.6). Nas outras construções é sempre 0: os níveis são por tipo (v0.8). */
   nivel: number;
   colocadoEmMs: number;
 }
@@ -86,7 +107,7 @@ export interface MundoState {
   /** Casas de rocha com cristal, abertas por montanhas dinamitadas (GDD §8.6, §9). */
   cristais: number[];
   ilhasAbertas: IlhaId[];
-  /** Ilhas ligadas à rede principal por cabo submarino → nível do cabo (0 = recém-ligado). */
+  /** Ilhas ligadas à rede principal por cabo submarino. O valor é sempre 0: o nível é global (v0.8). */
   cabos: Partial<Record<IlhaId, number>>;
 }
 
@@ -169,7 +190,9 @@ export type EventoJogo =
   | { tipo: "eraMudou"; era: 2 }
   | { tipo: "varetaEsgotada"; indice: number }
   | { tipo: "varetaTrocada"; indice: number }
-  | { tipo: "scram"; era: 1 | 2 };
+  | { tipo: "scram"; era: 1 | 2 }
+  /** Um tipo subiu de nível (v0.8): o diário da cena registra. */
+  | { tipo: "melhoria"; alvo: AlvoMelhoria; nivel: number };
 
 export interface GameState {
   versao: number;
@@ -184,6 +207,8 @@ export interface GameState {
   /** Era em curso (GDD Parte 2 §2). Fonte da verdade; `nucleo.era` é o espelho. */
   era: 1 | 2;
   rede: RedeState;
+  /** Níveis por tipo (v0.8). */
+  melhorias: MelhoriasState;
   mundo: MundoState;
   /** `null` enquanto o Núcleo não foi desbloqueado. */
   nucleo: NucleoState | null;
@@ -196,7 +221,7 @@ export interface GameState {
 }
 
 /** Versão do formato de save. Incrementar ao mudar a forma do estado. */
-export const VERSAO_SAVE = 8;
+export const VERSAO_SAVE = 9;
 
 /** Índice do Receptor: o centro de uma grade `lado × lado` (lado ímpar). */
 export function indiceReceptor(lado: number): number {
@@ -234,6 +259,25 @@ export function nucleoInicial(): NucleoState {
 }
 
 /** A ilha principal nasce com a aldeia e uma subestação ao lado (GDD §8.5). */
+/** O que um nível compra: um tipo inteiro, nunca uma unidade (v0.8). */
+export type AlvoMelhoria =
+  | { tipo: "usina"; id: UsinaId }
+  | { tipo: "peca"; id: PecaId }
+  | { tipo: "subestacao"; id: TipoSubestacao }
+  | { tipo: "cabos" }
+  | { tipo: "ciencia"; id: TipoCiencia };
+
+/** Todos os tipos no nível 0. */
+export function melhoriasIniciais(): MelhoriasState {
+  return {
+    usinas: { cataVento: 0, painelSolar: 0, turbinaEolica: 0, eolicaOffshore: 0, fazendaSolar: 0, termicaGas: 0 },
+    pecas: { heliostato: 0, turbina: 0, radiador: 0, tanque: 0, vareta: 0, barraControle: 0, turbinaAlta: 0, torreResfriamento: 0, piscina: 0 },
+    subestacoes: { subestacao: 0, subestacao138: 0, subestacaoOffshore: 0 },
+    cabos: 0,
+    ciencia: { laboratorio: 0, universidade: 0, institutoPesquisa: 0 },
+  };
+}
+
 export function mundoInicial(): MundoState {
   const arq = arquipelagoDaEra1();
   const construcoes: Record<number, Construcao> = {};
@@ -251,17 +295,8 @@ export function estadoInicial(): GameState {
     pesquisados: [...NOS_INICIAIS],
     capitulos: [],
     era: 1,
-    rede: {
-      usinas: {
-        cataVento: { nivel: 0 },
-        painelSolar: { nivel: 0 },
-        turbinaEolica: { nivel: 0 },
-        eolicaOffshore: { nivel: 0 },
-        fazendaSolar: { nivel: 0 },
-        termicaGas: { nivel: 0 },
-      },
-      bateria: { kwh: 0 },
-    },
+    rede: { bateria: { kwh: 0 } },
+    melhorias: melhoriasIniciais(),
     mundo: mundoInicial(),
     nucleo: null,
     salvoEmMs: 0,

@@ -9,13 +9,14 @@ import { NUCLEO } from "../content/era1-nucleo";
 import { USINAS } from "../content/usinas";
 import { BAIRRO } from "../content/cidade-era1";
 import { faixaDeCalor, temperaturaNucleo } from "../sim/calor";
+import { efeitosDe } from "../sim/efeitos";
 import { emScram, podeLimparEntulho } from "../sim/cascata";
 import { formatarCreditos, formatarNumero, formatarPorcentagem, formatarPotencia } from "../sim/formatar";
 import { arquipelagoDaEra1 } from "../sim/gerarArquipelago";
 import { potenciaInstaladaW } from "../sim/kardashev";
 import { avaliarCasa, avaliarRemocaoObstaculo, ancoraDoObstaculo, ancoraEm, casasDoObstaculo, custoExpedicao, ilhaAberta, rotaDoCabo, temCabo } from "../sim/mundo";
 import { anel, podeColocar, podeRemover } from "../sim/nucleo";
-import { analisar, ehDeAgua, ladoConstrucao, obstaculoEm } from "../sim/producao";
+import { analisar, ehDeAgua, ehSubestacao, ladoConstrucao, obstaculoEm } from "../sim/producao";
 import { VARETA } from "../content/era2-nucleo";
 import { fracaoDecaimento } from "../sim/reator";
 import type { GameState } from "../sim/state";
@@ -180,7 +181,7 @@ export class TabuleiroScene extends Phaser.Scene {
           });
         } else pecas.push({ x, y, tipo: "entulho", anel: a, gratis: podeLimparEntulho(casa, state.tempoMs), desdeMs: casa.desdeMs });
       });
-      const T = temperaturaNucleo(nucleo);
+      const T = temperaturaNucleo(nucleo, efeitosDe(state));
       const scram = emScram(nucleo);
       const comTorre = nucleo.grade.some((c) => c?.tipo === "peca" && c.id === "torreResfriamento");
       nucleoCena = {
@@ -217,7 +218,8 @@ export class TabuleiroScene extends Phaser.Scene {
         x: i % n,
         y: Math.floor(i / n),
         tipo: c.tipo,
-        nivel: c.nivel,
+        // Bairro: a densidade. Subestação: o nível do tipo (v0.8, as bolinhas valem para todas).
+        nivel: ehSubestacao(c.tipo) ? state.melhorias.subestacoes[c.tipo] : c.nivel,
         lado: ladoConstrucao(c.tipo),
         semEscoamento: !!u && u.escoadoKw < u.brutoKw - 1e-9,
       });
@@ -265,7 +267,7 @@ export class TabuleiroScene extends Phaser.Scene {
     // --- callouts
     const callouts: CalloutCena[] = [];
     if (nucleo) {
-      const T = temperaturaNucleo(nucleo);
+      const T = temperaturaNucleo(nucleo, efeitosDe(state));
       const nomeNucleo = nucleo.era === 2 ? "Reator PWR" : "Torre Solar";
       callouts.push({ chave: "torre", ancora: "torre", texto: `${nomeNucleo} · ${formatarPorcentagem(T)} · ${faixaDeCalor(T).nome.toLowerCase()}` });
       callouts.push({ chave: "grade", ancora: "grade", texto: `Grade ${nucleo.lado}×${nucleo.lado} · ${nucleo.lado * nucleo.lado} casas` });
@@ -342,7 +344,7 @@ export class TabuleiroScene extends Phaser.Scene {
     if (construcao) {
       const ilhaId = this.arq.ilhas[this.arq.ilha[i]]?.id;
       if (construcao.tipo === ferramenta && (ferramenta === "subestacao" || ferramenta === "subestacao138" || ferramenta === "subestacaoOffshore")) {
-        return { x, y, valido: true, texto: "melhorar subestação" };
+        return { x, y, valido: true, texto: "subir o nível das subestações (todas)" };
       }
       return { x, y, valido: false, texto: ilhaId ? "casa ocupada" : null };
     }

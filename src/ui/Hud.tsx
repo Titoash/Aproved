@@ -3,6 +3,8 @@ import { faixaDeCalor, pesquisaPorSegundo, temperaturaNucleo } from "../sim/calo
 import { formatarCreditos, formatarNumero, formatarPorcentagem, formatarPotencia, formatarTaxa } from "../sim/formatar";
 import { proximoNo } from "../sim/arvore";
 import { progressoDoAtivo } from "../sim/capitulos";
+import { efeitosDe } from "../sim/efeitos";
+import { motorDoNucleo } from "../sim/motor";
 import { analisar } from "../sim/producao";
 import { balancoDoEstado, potenciaNucleoEfetivaKw } from "../sim/tick";
 import { corDaRampaCss } from "../scene/rampa";
@@ -34,10 +36,14 @@ export function Hud() {
   const balanco = balancoDoEstado(state);
   const analise = analisar(state);
   const nucleo = state.nucleo;
-  const t = nucleo ? temperaturaNucleo(nucleo) : null;
+  // Os efeitos do estado entram em tudo o que o Núcleo mostra: sem eles a T, a potência e a 🔬 do HUD
+  // saíam diferentes das do tick (Tanque de dois sais, turbinas de alta pressão, fator de 🔬 da Era 2).
+  const efeitos = efeitosDe(state);
+  const t = nucleo ? temperaturaNucleo(nucleo, efeitos) : null;
   const faixaCalor = t !== null ? faixaDeCalor(t) : null;
-  const potenciaNucleo = potenciaNucleoEfetivaKw(nucleo);
-  const pesquisaTaxa = nucleo && nucleo.scramRestanteMs === 0 && t !== null ? pesquisaPorSegundo(potenciaNucleo, t) : 0;
+  const potenciaNucleo = potenciaNucleoEfetivaKw(nucleo, efeitos, state.tempoMs);
+  const pesquisaTaxa =
+    nucleo && nucleo.scramRestanteMs === 0 && t !== null ? pesquisaPorSegundo(potenciaNucleo, t, motorDoNucleo(nucleo, efeitos, state.tempoMs).pesquisaPorKw) : 0;
   const corCalor = t !== null ? corDaRampaCss(Math.min(1, t)) : "var(--muted)";
   const proximo = proximoNo(state);
   const capitulo = progressoDoAtivo(state);

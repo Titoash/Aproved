@@ -252,5 +252,7 @@ export function cardParaEvento(evento: EventoJogo): string | null {
       return null;
     case "scram":
       return evento.era === 2 ? "scramEra2" : null;
+    case "melhoria":
+      return null;
   }
 }

@@ -165,14 +165,14 @@ export function fissionando(nucleo: NucleoState): boolean {
   return nucleo.grade.some((casa) => !!casa && casa.tipo === "peca" && casa.id === "vareta" && !!casa.vareta && casa.vareta.gastaDesdeMs === null);
 }
 
-/** Capacidade do Vaso: 500 u + 250 u por Piscina adjacente (GDD Parte 2 §5.1). */
-export function capacidadeReatorU(grade: readonly Casa[]): number {
-  return REATOR.capacidadeVasoU + contarReator(grade).piscinas * REATOR.capacidadePiscinaU;
+/** Capacidade do Vaso: 500 u + 250 u por Piscina adjacente (GDD Parte 2 §5.1), +10 % por nível da piscina. */
+export function capacidadeReatorU(grade: readonly Casa[], efeitos: EfeitosArvore = efeitosNeutros()): number {
+  return REATOR.capacidadeVasoU + contarReator(grade).piscinas * efeitos.capacidadePiscinaU;
 }
 
-/** Dissipação das torres de resfriamento adjacentes, em u/s. */
-export function dissipacaoReatorUs(grade: readonly Casa[]): number {
-  return contarReator(grade).torres * REATOR.dissipacaoTorre;
+/** Dissipação das torres de resfriamento adjacentes, em u/s (30 cada, +10 % por nível da torre). */
+export function dissipacaoReatorUs(grade: readonly Casa[], efeitos: EfeitosArvore = efeitosNeutros()): number {
+  return contarReator(grade).torres * efeitos.dissipacaoTorreUs;
 }
 
 /**

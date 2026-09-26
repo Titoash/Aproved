@@ -55,12 +55,6 @@ export const ECONOMIA = {
   kwhPorKwSegundo: 1,
 } as const;
 
-/** Melhoria por nível (GDD §7): custo `custoBase × 3^nível`, produção `× (1 + 0,5 × nível)`. */
-export const MELHORIA = {
-  crescimento: 3,
-  bonusPorNivel: 0.5,
-} as const;
-
 /** GDD §8.2. */
 export const USINAS_ERA1: Record<UsinaEra1Id, UsinaDef> = {
   cataVento: {

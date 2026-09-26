@@ -104,7 +104,7 @@ const TEXTO_DICA: Record<1 | 2, Record<"adicionarEspelhos" | "tirarEspelho", str
 };
 
 function BarraCalor({ nucleo, efeitos, tempoMs }: { nucleo: NucleoState; efeitos: EfeitosArvore; tempoMs: number }) {
-  const t = temperaturaNucleo(nucleo);
+  const t = temperaturaNucleo(nucleo, efeitos);
   const faixa = faixaDeCalor(t);
   const motor = motorDoNucleo(nucleo, efeitos, tempoMs);
   const capacidade = motor.capacidadeU;
@@ -259,7 +259,7 @@ function Operacao({ nucleo }: { nucleo: NucleoState }) {
 
   const efeitos = efeitosDe(state);
   const potencia = potenciaNucleoEfetivaKw(nucleo, efeitos, state.tempoMs);
-  const t = temperaturaNucleo(nucleo);
+  const t = temperaturaNucleo(nucleo, efeitos);
   const emScram = nucleo.scramRestanteMs > 0;
   const era2 = nucleo.era === 2;
   const motor = motorDoNucleo(nucleo, efeitos, state.tempoMs);

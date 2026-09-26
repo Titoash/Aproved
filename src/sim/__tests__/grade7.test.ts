@@ -94,11 +94,12 @@ describe("Grade 7×7 (Parte D)", () => {
     const s0 = estadoInicial();
     s0.creditos = 1234;
     s0.pesquisa = 77;
-    s0.rede.usinas.painelSolar = { nivel: 1 };
     s0.pesquisa = 77;
     s0.nucleo = { ...nucleoInicial(), grade: configuracao(5), calorU: 80, estabilidade: 12, cascatas: 2 };
     const v3 = JSON.parse(JSON.stringify(s0));
     v3.melhorias = { laminasDeFibra: true };
+    // um v3 guardava o nível das usinas na rede (a v0.8 levou para `melhorias`)
+    v3.rede.usinas = { painelSolar: { nivel: 1 } };
     delete v3.cardsVistos;
     delete v3.eventos;
     delete v3.nucleo.lado;
@@ -108,7 +109,7 @@ describe("Grade 7×7 (Parte D)", () => {
     expect(s.versao).toBe(VERSAO_SAVE);
     expect(s.creditos).toBe(1234);
     expect(s.pesquisa).toBe(77);
-    expect(s.rede.usinas.painelSolar).toEqual({ nivel: 1 });
+    expect(s.melhorias.usinas.painelSolar).toBe(1);
     // 🔬 77 já passava dos limiares antigos (🔬 40 e 🔬 20): os dois nós entram sem cobrar (v6 → v7)
     expect(s.pesquisados).toEqual(["laboratorio", "laminasDeFibra", "turbinaEolica", "bateria"]);
     expect(s.nucleo!.lado).toBe(5);

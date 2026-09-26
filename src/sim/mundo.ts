@@ -111,11 +111,6 @@ export function temCabo(mundo: MundoState, id: IlhaId): boolean {
   return id === "principal" || mundo.cabos[id] !== undefined;
 }
 
-/** Nível do cabo da ilha (0 = recém-ligado); `null` quando não há cabo. */
-export function nivelCabo(mundo: MundoState, id: IlhaId): number | null {
-  return mundo.cabos[id] ?? null;
-}
-
 export { tetoCabo };
 
 export function removendo(mundo: MundoState, indice: number): boolean {
@@ -298,44 +293,7 @@ export function remover(state: GameState, indice: number, arq: Arquipelago = arq
   return comMundo(state, { ...state.mundo, construcoes }, state.creditos + valor);
 }
 
-/* --- Subestações das duas eras: nível (custo ×3ⁿ, teto ×2ⁿ, com nível máximo) --- */
-
-/** Custo do próximo nível de uma subestação do tipo: custo base × 3^(nível + 1) (GDD §8.5). */
-export function custoNivelDe(tipo: keyof typeof ESCOAMENTO, nivel: number): number {
-  const def = ESCOAMENTO[tipo];
-  return def.custoBase * Math.pow(def.custoNivel, nivel + 1);
-}
-
-export function custoNivelSubestacao(nivel: number): number {
-  return custoNivelDe("subestacao", nivel);
-}
-
-/** Nível máximo da subestação do tipo (ajuste 2 da Sessão 7: a da Era 1 para em 3 → teto 320 kW). */
-export function nivelMaximoSubestacao(tipo: keyof typeof ESCOAMENTO = "subestacao"): number {
-  return ESCOAMENTO[tipo].nivelMax;
-}
-
-export function avaliarMelhoriaSubestacao(state: GameState, indice: number): { ok: boolean; motivo: string | null } {
-  const c = construcaoEm(state.mundo, indice);
-  if (!c || !ehSubestacao(c.tipo)) return { ok: false, motivo: "Não é uma subestação" };
-  const def = ESCOAMENTO[c.tipo];
-  if (c.nivel >= def.nivelMax) return { ok: false, motivo: `Nível máximo (${def.nivelMax + 1}): ponha outra subestação` };
-  if (state.creditos < custoNivelDe(c.tipo, c.nivel)) return { ok: false, motivo: "₵ insuficientes" };
-  return { ok: true, motivo: null };
-}
-
-export function podeMelhorarSubestacao(state: GameState, indice: number): boolean {
-  return avaliarMelhoriaSubestacao(state, indice).ok;
-}
-
-export function melhorarSubestacao(state: GameState, indice: number): GameState | null {
-  if (!podeMelhorarSubestacao(state, indice)) return null;
-  const c = state.mundo.construcoes[indice];
-  if (!ehSubestacao(c.tipo)) return null;
-  const custo = custoNivelDe(c.tipo, c.nivel);
-  const construcoes = { ...state.mundo.construcoes, [indice]: { ...c, nivel: c.nivel + 1 } };
-  return comMundo(state, { ...state.mundo, construcoes }, state.creditos - custo);
-}
+/* --- Subestações: o nível é do tipo (v0.8), em `sim/melhorias.ts`; aqui só os tetos --- */
 
 export const tetoDaSubestacao = tetoSubestacao;
 export { tetoDeSubestacao };
@@ -440,24 +398,9 @@ export function podeLigarCabo(state: GameState, id: IlhaId): boolean {
   return ilhaAberta(state.mundo, id) && !temCabo(state.mundo, id) && state.creditos >= custoCabo(id);
 }
 
+/** Liga a ilha à rede principal. O cabo nasce no nível global dos cabos (v0.8, `melhorias.cabos`). */
 export function ligarCabo(state: GameState, id: IlhaId): GameState | null {
   if (!podeLigarCabo(state, id)) return null;
   return comMundo(state, { ...state.mundo, cabos: { ...state.mundo.cabos, [id]: 0 } }, state.creditos - custoCabo(id));
 }
 
-/** Nível do cabo: custo da rota × 3^(nível + 1), teto × 2 (GDD §8.5). */
-export function custoNivelCabo(id: IlhaId, nivel: number, arq: Arquipelago = arquipelagoDaEra1()): number {
-  return custoCabo(id, arq) * Math.pow(CABO.custoNivel, nivel + 1);
-}
-
-export function podeMelhorarCabo(state: GameState, id: IlhaId): boolean {
-  const nivel = nivelCabo(state.mundo, id);
-  return nivel !== null && state.creditos >= custoNivelCabo(id, nivel);
-}
-
-export function melhorarCabo(state: GameState, id: IlhaId): GameState | null {
-  const nivel = nivelCabo(state.mundo, id);
-  if (nivel === null || !podeMelhorarCabo(state, id)) return null;
-  const custo = custoNivelCabo(id, nivel);
-  return comMundo(state, { ...state.mundo, cabos: { ...state.mundo.cabos, [id]: nivel + 1 } }, state.creditos - custo);
-}

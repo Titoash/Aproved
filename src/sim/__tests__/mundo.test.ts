@@ -10,14 +10,7 @@ import {
   comprarIlha,
   custoCabo,
   custoColocar,
-  custoNivelCabo,
-  custoNivelSubestacao,
   ligarCabo,
-  melhorarCabo,
-  avaliarMelhoriaSubestacao,
-  melhorarSubestacao,
-  nivelCabo,
-  tetoCabo,
   obstaculoEm,
   passoRemocoes,
   podeColocar,
@@ -25,7 +18,7 @@ import {
   removerObstaculo,
   valorRemocao,
 } from "../mundo";
-import { quantidadeDe, temCristal, terrenoDeJogo, tetoSubestacao } from "../producao";
+import { quantidadeDe, temCristal, terrenoDeJogo } from "../producao";
 import { avancarTicks } from "../tick";
 import { estadoLimpo } from "./ajuda";
 
@@ -104,35 +97,6 @@ describe("colocar e remover (GDD §2.1, §7, v0.6)", () => {
     expect(avaliarCasa(s, fechada, "cataVento").motivo).toBe("Ilha fechada: faça a expedição");
     expect(avaliarCasa({ ...s, creditos: 0 }, casaLivre(0, 3), "cataVento").motivo).toBe("₵ insuficientes");
     expect(podeColocar(s, mar, "cataVento")).toBe(false);
-  });
-
-  it("a subestação sobe de nível por ₵ × 3ⁿ e dobra o teto", () => {
-    const s0 = estadoLimpo(100_000);
-    const casa = casaLivre(0);
-    const s1 = colocar(s0, casa, "subestacao")!;
-    expect(custoNivelSubestacao(0)).toBe(SUBESTACAO.custoBase * 3);
-    const s2 = melhorarSubestacao(s1, casa)!;
-    expect(s2.mundo.construcoes[casa].nivel).toBe(1);
-    expect(s1.creditos - s2.creditos).toBeCloseTo(SUBESTACAO.custoBase * 3, 10);
-    expect(custoNivelSubestacao(1)).toBe(SUBESTACAO.custoBase * 9);
-  });
-
-  it("a subestação para no nível máximo 3 (teto 320 kW), e a segunda volta a ser decisão", () => {
-    // Ajuste 2 da Sessão 7: sem teto de nível, uma subestação melhorada cobria a ilha inteira.
-    expect(SUBESTACAO.nivelMax).toBe(3);
-    let s = estadoLimpo(10_000_000);
-    const casa = casaLivre(0);
-    s = colocar(s, casa, "subestacao")!;
-    for (let nivel = 0; nivel < SUBESTACAO.nivelMax; nivel++) {
-      expect(avaliarMelhoriaSubestacao(s, casa).ok).toBe(true);
-      s = melhorarSubestacao(s, casa)!;
-    }
-    expect(s.mundo.construcoes[casa].nivel).toBe(SUBESTACAO.nivelMax);
-    expect(tetoSubestacao(SUBESTACAO.nivelMax)).toBe(320);
-    const v = avaliarMelhoriaSubestacao(s, casa);
-    expect(v.ok).toBe(false);
-    expect(v.motivo).toContain("Nível máximo");
-    expect(melhorarSubestacao(s, casa)).toBeNull();
   });
 });
 
@@ -219,20 +183,6 @@ describe("expedição e cabo (GDD §8.5)", () => {
     expect(aberta.creditos - ligada.creditos).toBe(custo);
     expect(ligada.mundo.cabos).toEqual({ ventania: 0 });
     expect(ligarCabo(ligada, "ventania")).toBeNull();
-  });
-
-  it("o cabo tem nível: custo da rota × 3ⁿ e teto × 2ⁿ (GDD §8.5)", () => {
-    const aberta = comprarIlha(estadoLimpo(1e9), "ventania")!;
-    const ligada = ligarCabo(aberta, "ventania")!;
-    expect(nivelCabo(ligada.mundo, "ventania")).toBe(0);
-    expect(tetoCabo(0)).toBe(CABO.tetoKw);
-    expect(tetoCabo(2)).toBe(CABO.tetoKw * 4);
-    const custo = custoNivelCabo("ventania", 0);
-    expect(custo).toBe(custoCabo("ventania") * CABO.custoNivel);
-    const nivel1 = melhorarCabo(ligada, "ventania")!;
-    expect(ligada.creditos - nivel1.creditos).toBe(custo);
-    expect(nivelCabo(nivel1.mundo, "ventania")).toBe(1);
-    expect(melhorarCabo(estadoLimpo(10), "ventania")).toBeNull(); // sem cabo, sem nível
   });
 
   it("passoRemocoes não muda nada com a fila vazia", () => {

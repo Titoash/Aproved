@@ -52,7 +52,7 @@ As três usinas da Era 1 continuam na paleta, com os mesmos números: são os "k
 
 Cabo submarino: níveis como hoje (₵ ×3ⁿ, teto ×2ⁿ, base 30 kW). O nó **"Cabo HVDC"** multiplica o teto de todos os cabos por 10 (o nível continua ×2 por cima). Sem ele, as ilhas de fora não escoam MW: é a trava certa, porque cabo é decisão contínua (Parte 1, §8.5).
 
-**v0.8 — níveis por tipo (Parte 1, §7.1).** Subestação de 138 kV e Subestação offshore sobem por tipo, como a subestação da Era 1: custo `base × 3ⁿ × N`, teto ×2ⁿ, máximo 3. Cabos: nível global (soma das rotas ligadas × 3ⁿ); o nó Cabo HVDC continua multiplicando o teto por 10. Usinas da Era 2 (eólica offshore, fazenda solar, térmica a gás) têm nível incremental como as da Era 1: custo `base × 3ⁿ`, +50 % por nível, máximo 5. Nó de era **"Escavadeiras"** (🔬 1 500, ramo Rede em MW): tempos de remoção ÷ 2 de novo.
+**v0.8 — níveis por tipo (Parte 1, §7.1).** Subestação de 138 kV e Subestação offshore sobem por tipo, como a subestação da Era 1: custo `base × 3ⁿ × N`, teto ×2ⁿ, máximo 3 (a offshore para no 2, como a tabela acima). Cabos: nível global (soma das rotas ligadas × 3ⁿ); o nó Cabo HVDC continua multiplicando o teto por 10. Usinas da Era 2 (eólica offshore, fazenda solar, térmica a gás) têm nível incremental como as da Era 1: custo `base × 3ⁿ`, +50 % por nível, máximo 5. Nó de era **"Escavadeiras"** (🔬 1 500, ramo Rede em MW): tempos de remoção ÷ 2 de novo.
 
 ## 4. Cidade da Era 2
 
@@ -74,7 +74,7 @@ A curva de ₵ continua ×2,5 por degrau e dá **um salto de escala na entrada d
 
 Laboratório e universidade continuam. Universidade rende pelos **alunos** (ajuste 3 da Sessão 7): 🔬 0,5/s × √(pop ÷ n_universidades ÷ 1 000), 1 por 2 000 habitantes. Com arcologias, 1 por 2 000 habitantes vira uma pressão real de espaço: é intencional.
 
-**Ciência com nível (v0.9, Parte 1 §7.1).** Laboratório, universidade e instituto de pesquisa têm nível incremental por tipo: +25 % de 🔬 por nível, custo `base × 3ⁿ × N` (Instituto ₵ 20 000 de base), máximo 5. É o destino do caixa do fim da era: na simulação o bot passa os minutos 50–61 com ₵ 3–7,6 milhões parados, esperando 🔬 para o Reator 7×7 e a Fusão básica. Com 25 universidades, os cinco níveis custam ₵ 10 000 + 30 000 + 90 000 + 270 000 + 810 000 ≈ ₵ 1,2 milhão e levam a ciência delas a ×2,25.
+**Ciência com nível (v0.9, Parte 1 §7.1).** Laboratório, universidade e instituto de pesquisa têm nível incremental por tipo: +25 % de 🔬 por nível, custo `base × 3ⁿ × N` (Instituto ₵ 20 000 de base), máximo 5. É o destino do caixa do fim da era: na simulação o bot passa os minutos 50–61 com ₵ 3–7,6 milhões parados, esperando 🔬 para o Reator 7×7 e a Fusão básica. Com 25 universidades, os cinco níveis custam ₵ 30 000 + 90 000 + 270 000 + 810 000 + 2 430 000 ≈ ₵ 3,6 milhões (o nível 1 custa a base × 3, Parte 1 §7.1) e levam a ciência delas a ×2,25.
 
 ## 5. Núcleo da Era 2: Reator PWR (grade 5×5 na plataforma 7×7, Vaso fixo no centro)
 

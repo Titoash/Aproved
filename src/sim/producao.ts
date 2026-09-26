@@ -1,7 +1,8 @@
 /**
  * O que o mundo produz e o que a rede consegue escoar (GDD §2.4, §7, v0.6; Parte 2 §3). TypeScript puro.
  *
- * Produção de uma usina = base × nível × melhorias × terreno × esteira × sombra × picos.
+ * Produção de uma usina = base × nível do tipo × nós da árvore × terreno × esteira × sombra × picos.
+ * Os níveis são **por tipo** (v0.8, `state.melhorias`): usinas, subestações, cabos e ciência.
  * Uma usina só vende se estiver no alcance de uma subestação com folga no teto; o resto é desperdiçado e
  * aparece como "sem escoamento" (o sumidouro de §7). Um bairro só pede energia se tiver subestação no
  * alcance. Ilha sem cabo submarino só alimenta os bairros dela mesma.
@@ -12,7 +13,7 @@
  * ₵/s enquanto liga, e isso entra no extrato como despesa).
  *
  * As contagens da Rede são **derivadas** daqui. O resultado é memoizado por identidade de
- * `mundo`/`rede`/`melhorias`: o tick não recalcula à toa.
+ * `mundo`/`melhorias`/efeitos: o tick não recalcula à toa.
  */
 import { BATERIA } from "../content/era1";
 import { USINAS } from "../content/usinas";
@@ -22,10 +23,10 @@ import { LABORATORIO, UNIVERSIDADE } from "../content/cidade-era1";
 import { CABO, OBSTACULOS, ORDEM_OBSTACULOS, SUBESTACAO, TERRENOS, VIZINHANCA, type IlhaId, type TipoObstaculo, type TipoTerreno } from "../content/era1-arquipelago";
 import { densidadeDe, limiteUniversidades, pesquisaUniversidade } from "./cidade";
 import { ORDEM_TERRENOS, indiceCasa, type Arquipelago } from "./arquipelago";
-import { fatorMelhoria } from "./custos";
+import { fatorCiencia, fatorUsina } from "./niveis";
 import { efeitosDe, efeitosNeutros, type EfeitosArvore } from "./efeitos";
 import { arquipelagoDaEra1 } from "./gerarArquipelago";
-import type { Construcao, GameState, MundoState, RedeDerivada, RedeState, TipoConstrucao, UsinaId } from "./state";
+import type { Construcao, GameState, MelhoriasState, MundoState, RedeDerivada, TipoConstrucao, UsinaId } from "./state";
 
 const USINAS_VENTO: readonly UsinaId[] = ["cataVento", "turbinaEolica", "eolicaOffshore"];
 const USINAS_SOL: readonly UsinaId[] = ["painelSolar", "fazendaSolar"];
@@ -348,7 +349,7 @@ export function tetoCabo(nivel: number, efeitos: EfeitosArvore = efeitosNeutros(
 export const alcanceSubestacao = (efeitos: EfeitosArvore = efeitosNeutros()): number => efeitos.alcanceSubestacao;
 
 /** Análise completa do mundo. Use `analisar(state)`: esta versão não usa cache. */
-export function analisarMundo(mundo: MundoState, rede: RedeState, efeitos: EfeitosArvore = efeitosNeutros(), arq: Arquipelago = arquipelagoDaEra1()): AnaliseMundo {
+export function analisarMundo(mundo: MundoState, melhorias: MelhoriasState, efeitos: EfeitosArvore = efeitosNeutros(), arq: Arquipelago = arquipelagoDaEra1()): AnaliseMundo {
   const n = arq.n;
   const { demandaBairroFator: fatorDemandaBairro, tarifaFator: fatorTarifa } = efeitos;
   const ilhaDe = ilhaEfetivaDe(arq);
@@ -377,12 +378,14 @@ export function analisarMundo(mundo: MundoState, rede: RedeState, efeitos: Efeit
     else if (c.tipo === "laboratorio" || c.tipo === "universidade" || c.tipo === "institutoPesquisa") ciencia.push(i);
     else if (ehSubestacao(c.tipo)) {
       const def = ESCOAMENTO[c.tipo];
+      // O nível é do tipo, não da unidade (v0.8): todas as subestações do tipo sobem juntas.
+      const nivel = melhorias.subestacoes[c.tipo];
       subestacoes.push({
         indice: i,
         tipo: c.tipo,
-        nivel: c.nivel,
+        nivel,
         alcance: c.tipo === "subestacao" ? efeitos.alcanceSubestacao : def.alcance,
-        tetoKw: tetoDeSubestacao(c.tipo, c.nivel),
+        tetoKw: tetoDeSubestacao(c.tipo, nivel),
         usadoKw: 0,
       });
     }
@@ -418,7 +421,7 @@ export function analisarMundo(mundo: MundoState, rede: RedeState, efeitos: Efeit
     const fatorEsteira = vento ? Math.max(VIZINHANCA.esteiraMinima, 1 - efeitos.esteiraPorVizinho * eolicosVizinhos) : 1;
     const fatorSombra = sol ? Math.max(VIZINHANCA.sombraMinima, 1 - VIZINHANCA.sombraPorVizinho * altosVizinhos) : 1;
     const fatorPico = vento ? 1 + VIZINHANCA.ventoPorPico * picosVizinhos : 1;
-    const base = USINAS[c.tipo].potenciaKw * fatorMelhoria(rede.usinas[c.tipo].nivel) * efeitos.potencia[c.tipo];
+    const base = USINAS[c.tipo].potenciaKw * fatorUsina(melhorias.usinas[c.tipo]) * efeitos.potencia[c.tipo];
     const analise: UsinaAnalise = {
       indice: i,
       tipo: c.tipo,
@@ -570,8 +573,10 @@ export function analisarMundo(mundo: MundoState, rede: RedeState, efeitos: Efeit
     const ilhaC = ilhaDe[i];
     if (!temSubestacaoPerto(i)) continue;
     const bonus = casasDaConstrucao(i, c.tipo, n).some((casa) => cristais.has(casa)) ? 1 + CRISTAL.bonusCiencia : 1;
+    // Nível do tipo de ciência (v0.9): +25 % de 🔬 por nível, antes do cristal.
+    const nivelCiencia = c.tipo === "laboratorio" || c.tipo === "universidade" || c.tipo === "institutoPesquisa" ? melhorias.ciencia[c.tipo] : 0;
     const somar = (pesquisa: number, consumo: number) => {
-      pesquisaPorSegundo += pesquisa * bonus;
+      pesquisaPorSegundo += pesquisa * fatorCiencia(nivelCiencia) * bonus;
       demandaPorIlha.set(ilhaC, (demandaPorIlha.get(ilhaC) ?? 0) + consumo);
       demandaConsumidoresKw += consumo;
     };
@@ -608,11 +613,12 @@ export function analisarMundo(mundo: MundoState, rede: RedeState, efeitos: Efeit
     const local = Math.min(oferta, demanda);
     ofertaKw += local;
     demandaEfetiva += local;
-    const nivel = mundo.cabos[ilhaId];
-    if (nivel === undefined) {
+    if (mundo.cabos[ilhaId] === undefined) {
       if (oferta > local || demanda > local) ilhasIsoladas.push(ilhaId);
       continue;
     }
+    // Todos os cabos no mesmo nível (v0.8): `mundo.cabos` só marca quem está ligado.
+    const nivel = melhorias.cabos;
     const teto = tetoCabo(nivel, efeitos);
     const exportado = Math.min(oferta - local, teto);
     const importado = Math.min(demanda - local, teto);
@@ -648,27 +654,24 @@ export function analisarMundo(mundo: MundoState, rede: RedeState, efeitos: Efeit
 /* ------------------------------------------------------------------ */
 
 interface Entrada {
-  /** Só o que muda a produção: os níveis das usinas e os efeitos da árvore. A carga da bateria não entra. */
-  niveis: string;
+  /** Só o que muda a produção: os níveis por tipo e os efeitos da árvore. A carga da bateria não entra. */
+  melhorias: MelhoriasState;
   efeitos: EfeitosArvore;
   analise: AnaliseMundo;
 }
 
 const cache = new WeakMap<MundoState, Entrada>();
 
-const niveisDe = (rede: RedeState): string => (Object.keys(USINAS) as UsinaId[]).map((id) => rede.usinas[id]?.nivel ?? 0).join("|");
-
 /**
- * Análise do mundo do estado, memoizada enquanto o objeto `mundo`, os níveis das usinas e as melhorias não
- * mudarem. O tick troca `rede` a cada passo (a carga da bateria), então a chave não pode ser a identidade dela.
+ * Análise do mundo do estado, memoizada enquanto o objeto `mundo`, as melhorias e os efeitos da árvore não
+ * mudarem de identidade. O tick troca `rede` a cada passo (a carga da bateria), e ela não entra na chave.
  */
 export function analisar(state: GameState): AnaliseMundo {
   const pronto = cache.get(state.mundo);
-  const niveis = niveisDe(state.rede);
   const efeitos = efeitosDe(state);
-  if (pronto && pronto.niveis === niveis && pronto.efeitos === efeitos) return pronto.analise;
-  const analise = analisarMundo(state.mundo, state.rede, efeitos);
-  cache.set(state.mundo, { niveis, efeitos, analise });
+  if (pronto && pronto.melhorias === state.melhorias && pronto.efeitos === efeitos) return pronto.analise;
+  const analise = analisarMundo(state.mundo, state.melhorias, efeitos);
+  cache.set(state.mundo, { melhorias: state.melhorias, efeitos, analise });
   return analise;
 }
 
@@ -701,7 +704,7 @@ export function derivarRede(state: GameState, analise: AnaliseMundo = analisar(s
   const bat = bateriaDoMundo(analise, efeitos);
   const usinas = {} as RedeDerivada["usinas"];
   for (const id of Object.keys(USINAS) as UsinaId[]) {
-    usinas[id] = { quantidade: analise.contagem[id], nivel: state.rede.usinas[id]?.nivel ?? 0 };
+    usinas[id] = { quantidade: analise.contagem[id], nivel: state.melhorias.usinas[id] };
   }
   return {
     usinas,

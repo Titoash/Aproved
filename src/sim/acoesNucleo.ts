@@ -131,7 +131,7 @@ export function trocarVareta(state: GameState, indice: number): GameState | null
   if (!state.nucleo || !podeTrocarVareta(state, indice)) return null;
   const grade: Casa[] = state.nucleo.grade.slice();
   grade[indice] = { tipo: "peca", id: "vareta", vareta: varetaNova() };
-  const naFaixa = faixaDeCalor(temperaturaNucleo(state.nucleo)).id === "ouro";
+  const naFaixa = faixaDeCalor(temperaturaNucleo(state.nucleo, efeitosDe(state))).id === "ouro";
   const proximo = comNucleo(
     state,
     { ...state.nucleo, grade, trocasEmFaixa: state.nucleo.trocasEmFaixa + (naFaixa ? 1 : 0) },

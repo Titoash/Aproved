@@ -29,13 +29,13 @@ function saveV6(extra: Record<string, unknown> = {}) {
 }
 
 describe("migração v6 → v7 (GDD §8.5, §8.6, v0.6)", () => {
-  it("a versão é 8", () => {
-    expect(VERSAO_SAVE).toBe(8);
+  it("a versão é 9", () => {
+    expect(VERSAO_SAVE).toBe(9);
   });
 
   it("os cabos viram ilha → nível, começando no nível 0", () => {
     const s = desserializar(JSON.stringify(saveV6()), 2000);
-    expect(s.versao).toBe(8);
+    expect(s.versao).toBe(VERSAO_SAVE);
     expect(s.mundo.cabos).toEqual({ ventania: 0 });
     expect(CABO.tetoKw).toBe(30);
   });
@@ -82,12 +82,13 @@ describe("migração v6 → v7 (GDD §8.5, §8.6, v0.6)", () => {
     const casa = Object.keys(s0.mundo.construcoes).map(Number).find((i) => s0.mundo.construcoes[i].tipo === "bairro")!;
     const cheio = {
       ...s0,
+      melhorias: { ...s0.melhorias, cabos: 2 },
       pesquisa: 42,
       pesquisados: ["laboratorio", "laminasDeFibra", "subestacaoAltaTensao"],
       mundo: {
         ...s0.mundo,
         cristais: [casa + 1],
-        cabos: { ventania: 2 },
+        cabos: { ventania: 0 },
         ilhasAbertas: ["principal", "ventania"] as IlhaId[],
         construcoes: { ...s0.mundo.construcoes, [casa]: { ...s0.mundo.construcoes[casa], nivel: 2 } },
       },
@@ -96,7 +97,8 @@ describe("migração v6 → v7 (GDD §8.5, §8.6, v0.6)", () => {
     expect(lido.pesquisa).toBe(42);
     expect(lido.pesquisados).toEqual(["laboratorio", "laminasDeFibra", "subestacaoAltaTensao"]);
     expect(lido.mundo.cristais).toEqual([casa + 1]);
-    expect(lido.mundo.cabos).toEqual({ ventania: 2 });
+    expect(lido.mundo.cabos).toEqual({ ventania: 0 });
+    expect(lido.melhorias.cabos).toBe(2);
     expect(lido.mundo.construcoes[casa].nivel).toBe(2);
     expect(analisar(lido).populacao).toBe(1600);
     // o alcance do nó comprado sobrevive à ida e volta

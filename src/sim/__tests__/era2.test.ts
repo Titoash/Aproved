@@ -106,9 +106,9 @@ describe("transição para a Era 2 (GDD Parte 2 §2)", () => {
   });
 });
 
-describe("save v8 (GDD Parte 2 §2)", () => {
-  it("a versão é 8 e a era faz a ida e a volta", () => {
-    expect(VERSAO_SAVE).toBe(8);
+describe("save da era (GDD Parte 2 §2)", () => {
+  it("a versão é 9 e a era faz a ida e a volta", () => {
+    expect(VERSAO_SAVE).toBe(9);
     const depois = construirReator(prontoParaOReator())!;
     const comVareta = colocarPeca(avancarTicks(depois, 100), 6, "vareta")!;
     const lido = desserializar(serializar(comVareta, 1000), 1000);
@@ -134,7 +134,7 @@ describe("save v8 (GDD Parte 2 §2)", () => {
       cardsVistos: [],
     };
     const s = desserializar(JSON.stringify(v7), 1000);
-    expect(s.versao).toBe(8);
+    expect(s.versao).toBe(VERSAO_SAVE);
     expect(s.era).toBe(1);
     expect(s.nucleo!.era).toBe(1);
     expect(s.nucleo!.estabilidade).toBe(40);

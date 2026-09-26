@@ -41,14 +41,9 @@ import {
   custoColocar,
   custoExpedicao,
   ligarCabo,
-  melhorarCabo,
-  custoNivelDe,
-  melhorarSubestacao,
   obstaculoEm,
   podeComprarIlha,
   podeLigarCabo,
-  podeMelhorarCabo,
-  podeMelhorarSubestacao,
   removerObstaculo,
   tetoCabo,
 } from "../src/sim/mundo";
@@ -59,6 +54,7 @@ import { contarReator, varetaNova } from "../src/sim/reator";
 import { REATOR, VARETA } from "../src/content/era2-nucleo";
 import { limparEntulho, podeTrocarVareta, removerPeca, trocarVareta } from "../src/sim/acoesNucleo";
 import { analisar, ehMarRaso, terrenoDeJogo } from "../src/sim/producao";
+import { custoProximoNivel, melhorar, podeMelhorar } from "../src/sim/melhorias";
 import { estadoInicial, indiceReceptor, type GameState, type PecaId, type TipoConstrucao } from "../src/sim/state";
 import { balancoDoEstado, tick, TICK_MS } from "../src/sim/tick";
 
@@ -222,8 +218,9 @@ function decidir(state: GameState, compras: Map<string, number>): GameState {
   if (analise.semEscoamentoKw > 1 || analise.bairrosSemEscoamento > 0) {
     const cheia = analise.subestacoes.find((x) => x.usadoKw >= x.tetoKw - 0.01);
     const custoNova = custoColocar(s, "subestacao");
-    if (cheia && podeMelhorarSubestacao(s, cheia.indice) && s.creditos > custoNova * 2) {
-      s = aplicar(melhorarSubestacao(s, cheia.indice), "nível de subestação") ?? s;
+    const alvoSub = cheia ? ({ tipo: "subestacao", id: cheia.tipo } as const) : null;
+    if (alvoSub && podeMelhorar(s, alvoSub) && s.creditos > custoNova * 2) {
+      s = aplicar(melhorar(s, alvoSub), "nível de subestação") ?? s;
     } else {
       const casa = casaParaSubestacao(s);
       if (casa !== null && s.creditos >= custoNova) s = aplicar(colocar(s, casa, "subestacao"), "subestação") ?? s;
@@ -317,10 +314,10 @@ function decidir(state: GameState, compras: Map<string, number>): GameState {
     }
   }
   // cabo no teto: subir o nível em vez de deixar energia parada
-  for (const cabo of analisar(s).cabos) {
-    if (cabo.usadoKw < cabo.tetoKw - 0.01) continue;
-    if (podeMelhorarCabo(s, cabo.ilha) && s.creditos > tetoCabo(cabo.nivel) * 40) {
-      s = aplicar(melhorarCabo(s, cabo.ilha), `nível de cabo ${cabo.ilha}`) ?? s;
+  // cabo no teto: subir o nível de todos os cabos (v0.8) em vez de deixar energia parada
+  if (analisar(s).cabos.some((cabo) => cabo.usadoKw >= cabo.tetoKw - 0.01)) {
+    if (podeMelhorar(s, { tipo: "cabos" }) && s.creditos > tetoCabo(s.melhorias.cabos) * 40) {
+      s = aplicar(melhorar(s, { tipo: "cabos" }), "nível dos cabos") ?? s;
     }
   }
   return s;
@@ -515,8 +512,9 @@ function decidirEra2(state: GameState, compras: Map<string, number>, rota: Rota 
   // 2. escoamento em MW: sem 138 kV nada de offshore nem de térmica
   if (analise.semEscoamentoKw > 10 || analise.bairrosSemEscoamento > 0 || analise.distritosSemEscoamento > 0) {
     const cheia = analise.subestacoes.find((x) => x.usadoKw >= x.tetoKw - 0.01);
-    if (cheia && podeMelhorarSubestacao(s, cheia.indice) && s.creditos > custoNivelDe(cheia.tipo, cheia.nivel) * 2) {
-      s = aplicar(melhorarSubestacao(s, cheia.indice), "nível de subestação") ?? s;
+    const alvoSub = cheia ? ({ tipo: "subestacao", id: cheia.tipo } as const) : null;
+    if (alvoSub && podeMelhorar(s, alvoSub) && s.creditos > custoProximoNivel(s, alvoSub) * 2) {
+      s = aplicar(melhorar(s, alvoSub), "nível de subestação") ?? s;
     } else if (s.pesquisados.includes("subestacaoDe138kV")) {
       const casa = melhorCasa(s, "subestacao138", false);
       if (casa !== null && s.creditos >= custoColocar(s, "subestacao138") * 1.5) {
@@ -646,10 +644,9 @@ function decidirEra2(state: GameState, compras: Map<string, number>, rota: Rota 
     }
     if (podeLigarCabo(s, def.id) && s.creditos >= custoCabo(def.id) * 2) s = aplicar(ligarCabo(s, def.id), `cabo ${def.nome}`) ?? s;
   }
-  for (const cabo of analisar(s).cabos) {
-    if (cabo.usadoKw < cabo.tetoKw - 0.01) continue;
-    if (podeMelhorarCabo(s, cabo.ilha) && s.creditos > tetoCabo(cabo.nivel, efeitosDe(s)) * 30) {
-      s = aplicar(melhorarCabo(s, cabo.ilha), `nível de cabo ${cabo.ilha}`) ?? s;
+  if (analisar(s).cabos.some((cabo) => cabo.usadoKw >= cabo.tetoKw - 0.01)) {
+    if (podeMelhorar(s, { tipo: "cabos" }) && s.creditos > tetoCabo(s.melhorias.cabos, efeitosDe(s)) * 30) {
+      s = aplicar(melhorar(s, { tipo: "cabos" }), "nível dos cabos") ?? s;
     }
   }
   return s;
@@ -966,6 +963,9 @@ function imprimirEstado(s: GameState, pesquisaGanha: number, titulo: string): vo
   }
   const capitulo = capituloAtivo(s);
   console.log(`  capítulo ativo: ${capitulo ? capitulo.titulo : "todos concluídos"}`);
-  console.log(`  subestações: ${a.subestacoes.length} · alcance ${efeitosDe(s).alcanceSubestacao} · cabos ${a.cabos.map((c) => `${c.ilha} n${c.nivel}`).join(", ") || "—"}`);
+  const m = s.melhorias;
+  console.log(
+    `  subestações: ${a.subestacoes.length} · alcance ${efeitosDe(s).alcanceSubestacao} · níveis ${m.subestacoes.subestacao}/${m.subestacoes.subestacao138}/${m.subestacoes.subestacaoOffshore} · cabos ${a.cabos.map((c) => c.ilha).join(", ") || "—"} no nível ${m.cabos}`,
+  );
   console.log(`  ilhas abertas: ${s.mundo.ilhasAbertas.join(", ")}\n`);
 }

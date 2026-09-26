@@ -9,17 +9,17 @@ import { cardParaEvento, CARDS } from "../content/cards-era1";
 import { OFFLINE } from "../content/era1";
 import { OBSTACULOS, type IlhaId } from "../content/era1-arquipelago";
 import type { NivelId } from "../content/escalas";
-import * as acoes from "../sim/acoes";
 import * as nucleo from "../sim/acoesNucleo";
 import { construirReator } from "../sim/era";
 import { cardVisto, marcarCardVisto } from "../sim/cards";
 import { pesquisar } from "../sim/arvore";
 import { avaliarEvolucao, evoluirBairro } from "../sim/cidade";
 import * as mundo from "../sim/mundo";
-import { analisar as analisarMundo } from "../sim/producao";
+import { avaliarMelhoria, melhorar } from "../sim/melhorias";
+import { analisar as analisarMundo, ehSubestacao } from "../sim/producao";
 import { calcularOffline, type RelatorioOffline } from "../sim/offline";
 import { carregar, exportarJson, importarJson, INTERVALO_SAVE_MS, limpar, salvar } from "../sim/save";
-import { estadoInicial, type GameState, type PecaId, type TipoConstrucao, type UsinaId } from "../sim/state";
+import { estadoInicial, type AlvoMelhoria, type GameState, type PecaId, type TipoConstrucao } from "../sim/state";
 import { avancarTicks } from "../sim/tick";
 
 /** O que o clique numa casa da grade do Núcleo faz. */
@@ -81,7 +81,8 @@ export interface GameStore {
   avancarTicks: (n: number) => void;
 
   // Rede e mundo
-  melhorarUsina: (id: UsinaId) => boolean;
+  /** Sobe o nível de um tipo inteiro (v0.8): usina, peça, subestação, cabos ou ciência. Avisa se recusado. */
+  melhorar: (alvo: AlvoMelhoria) => boolean;
   /** Compra um nó da árvore de pesquisa: gasta 🔬 (e ₵, quando o nó cobra). */
   pesquisar: (id: string) => boolean;
   /** Evolui um bairro: gasta ₵ + 🔬 e sobe a densidade (GDD §8.6). */
@@ -94,8 +95,6 @@ export interface GameStore {
   desmatar: (indice: number) => boolean;
   comprarIlha: (id: IlhaId) => boolean;
   ligarCabo: (id: IlhaId) => boolean;
-  melhorarCabo: (id: IlhaId) => boolean;
-  melhorarSubestacao: (indice: number) => boolean;
   setCasaMundoSobPonteiro: (indice: number | null) => void;
   selecionarCasa: (indice: number | null) => void;
   abrirArvore: () => void;
@@ -228,7 +227,14 @@ export const useGameStore = create<GameStore>()((set, get) => {
       if (proximo.tempoMs - salvoEmTempoMs >= INTERVALO_SAVE_MS) salvarEstado(proximo);
     },
 
-    melhorarUsina: (id) => aplicar(acoes.melhorarUsina(get().state, id)),
+    melhorar(alvo) {
+      const proximo = melhorar(get().state, alvo);
+      if (!proximo) {
+        avisar(-1, avaliarMelhoria(get().state, alvo).motivo ?? "Não dá para subir este nível.");
+        return false;
+      }
+      return aplicar(proximo);
+    },
     pesquisar: (id) => aplicar(pesquisar(get().state, id)),
     evoluirBairro(indice) {
       const proximo = evoluirBairro(get().state, indice);
@@ -280,10 +286,11 @@ export const useGameStore = create<GameStore>()((set, get) => {
         if (ferramentaMundo === "bairro") return get().evoluirBairro(indice);
         return false;
       }
-      if (construcao?.tipo === "subestacao" && ferramentaMundo === "subestacao") {
-        if (aplicar(mundo.melhorarSubestacao(state, indice))) return true;
-        const v = mundo.avaliarMelhoriaSubestacao(state, indice);
-        avisar(indice, v.motivo ?? "₵ insuficientes para o próximo nível da subestação.");
+      // Com o mesmo tipo de subestação na paleta, tocar numa subestação sobe o nível do **tipo** (v0.8).
+      if (construcao && ehSubestacao(construcao.tipo) && ferramentaMundo === construcao.tipo) {
+        const alvo: AlvoMelhoria = { tipo: "subestacao", id: construcao.tipo };
+        if (aplicar(melhorar(state, alvo))) return true;
+        avisar(indice, avaliarMelhoria(state, alvo).motivo ?? "₵ insuficientes para o próximo nível das subestações.");
         return false;
       }
       if (construcao) return false;
@@ -314,15 +321,6 @@ export const useGameStore = create<GameStore>()((set, get) => {
       }
       return aplicar(proximo);
     },
-    melhorarCabo(id) {
-      const proximo = mundo.melhorarCabo(get().state, id);
-      if (!proximo) {
-        avisar(-1, "₵ insuficientes para o próximo nível do cabo.");
-        return false;
-      }
-      return aplicar(proximo);
-    },
-    melhorarSubestacao: (indice) => aplicar(mundo.melhorarSubestacao(get().state, indice)),
     selecionarCasa: (indice) => set({ casaSelecionada: indice }),
     abrirArvore: () => set({ arvoreAberta: true }),
     fecharArvore: () => set({ arvoreAberta: false }),

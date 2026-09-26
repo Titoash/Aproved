@@ -57,10 +57,10 @@ export function motorEra2(nucleo: NucleoState, efeitos: EfeitosArvore = efeitosN
   const emScram = nucleo.scramRestanteMs > 0;
   return {
     entradaUs: entradaReatorUs(nucleo, efeitos, tempoMs),
-    dissipacaoUs: dissipacaoReatorUs(nucleo.grade),
+    dissipacaoUs: dissipacaoReatorUs(nucleo.grade, efeitos),
     fatorTurbina: emScram ? 0 : REATOR.consumoTurbina * c.turbinas,
     kwPorU: efeitos.reatorKwPorUnidade,
-    capacidadeU: capacidadeReatorU(nucleo.grade),
+    capacidadeU: capacidadeReatorU(nucleo.grade, efeitos),
     turbinas: c.turbinas,
     consumoKwFixo: 0,
     pesquisaPorKw: REATOR.pesquisaPorKw,
@@ -95,5 +95,5 @@ export function passoMotor(m: MotorCalor, calorU: number, dtS: number): number {
 
 /** Capacidade do componente crítico da era: Receptor (+ tanques) ou Vaso (+ piscinas). */
 export function capacidadeDoNucleo(nucleo: NucleoState, efeitos: EfeitosArvore = efeitosNeutros()): number {
-  return nucleo.era === 2 ? capacidadeReatorU(nucleo.grade) : capacidadeU(nucleo.grade, nucleo.receptorCeramico, efeitos);
+  return nucleo.era === 2 ? capacidadeReatorU(nucleo.grade, efeitos) : capacidadeU(nucleo.grade, nucleo.receptorCeramico, efeitos);
 }

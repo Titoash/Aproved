@@ -4,7 +4,8 @@ import { DENSIDADES } from "../../content/cidade";
 import { CABO, SUBESTACAO, TERRENOS, VIZINHANCA } from "../../content/era1-arquipelago";
 import { ORDEM_TERRENOS, indiceCasa, naPlataforma, type TipoTerreno } from "../arquipelago";
 import { arquipelagoDaEra1 } from "../gerarArquipelago";
-import { comprarIlha, ligarCabo, melhorarCabo, obstaculoEm } from "../mundo";
+import { comprarIlha, ligarCabo, obstaculoEm } from "../mundo";
+import { melhorar } from "../melhorias";
 import { analisar, derivarRede } from "../producao";
 import type { Construcao, GameState, TipoConstrucao } from "../state";
 import { balancoDoEstado } from "../tick";
@@ -42,10 +43,18 @@ function casaDe(terreno: TipoTerreno, q = 0, pular = 0): number {
 }
 
 /** Põe construções direto no mundo, sem custo: o teste controla exatamente a vizinhança. */
+/**
+ * Monta construções direto no mundo. O número opcional é a densidade − 1 do bairro; numa subestação ele
+ * sobe o nível **do tipo** (v0.8) — nos testes sem o teto de nível, para o escoamento não limitar a medição.
+ */
 function montar(pares: [number, TipoConstrucao, number?][], base: GameState = estadoLimpo()): GameState {
   const construcoes: Record<number, Construcao> = { ...base.mundo.construcoes };
-  for (const [i, tipo, nivel] of pares) construcoes[i] = { tipo, nivel: nivel ?? 0, colocadoEmMs: 0 };
-  return { ...base, mundo: { ...base.mundo, construcoes } };
+  const subestacoes = { ...base.melhorias.subestacoes };
+  for (const [i, tipo, nivel] of pares) {
+    construcoes[i] = { tipo, nivel: tipo === "bairro" ? (nivel ?? 0) : 0, colocadoEmMs: 0 };
+    if (nivel !== undefined && (tipo === "subestacao" || tipo === "subestacao138" || tipo === "subestacaoOffshore")) subestacoes[tipo] = Math.max(subestacoes[tipo], nivel);
+  }
+  return { ...base, melhorias: { ...base.melhorias, subestacoes }, mundo: { ...base.mundo, construcoes } };
 }
 
 /** Subestação de teto alto na própria casa vizinha, para o escoamento não limitar a medição. */
@@ -248,7 +257,7 @@ describe("escoamento por subestação (GDD §2.4, §7)", () => {
     expect(a.semEscoamentoKw).toBeCloseTo(a.brutoKw - CABO.tetoKw, 10);
     expect(a.cabos).toEqual([{ ilha: "ventania", nivel: 0, tetoKw: CABO.tetoKw, usadoKw: CABO.tetoKw }]);
 
-    const nivel1 = melhorarCabo(ligada, "ventania")!;
+    const nivel1 = melhorar(ligada, { tipo: "cabos" })!;
     expect(analisar(nivel1).ofertaKw).toBeCloseTo(Math.min(a.brutoKw, CABO.tetoKw * CABO.tetoNivel), 10);
   });
 });

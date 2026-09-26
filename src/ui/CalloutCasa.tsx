@@ -1,7 +1,8 @@
 /**
  * Callout de toque da cena (ajuste 5 da Sessão 7): a construção selecionada no tabuleiro ganha um cartão
- * flutuante sobre o palco, com os números dela e as ações que cabem — "Evoluir" no bairro, "Melhorar" na
- * subestação, "Remover" em tudo. No celular o painel da Cidade abaixo do tabuleiro vira segunda via.
+ * flutuante sobre o palco, com os números dela e as ações que cabem — "Evoluir" no bairro, o próximo
+ * nível **do tipo** em usinas, subestações e ciência (v0.8), "Remover" em tudo. No celular o painel da
+ * Cidade abaixo do tabuleiro vira segunda via.
  *
  * Só lê o sim e despacha ações pelo store: nenhuma regra aqui.
  */
@@ -12,10 +13,19 @@ import { BATERIA } from "../content/era1";
 import { USINAS } from "../content/usinas";
 import { avaliarEvolucao, custoEvolucao, densidadeDe } from "../sim/cidade";
 import { formatarCreditos, formatarNumero, formatarPotencia } from "../sim/formatar";
-import { avaliarMelhoriaSubestacao, custoNivelSubestacao, nomeConstrucao, valorRemocao } from "../sim/mundo";
+import { nomeConstrucao, valorRemocao } from "../sim/mundo";
 import { analisar, ehSubestacao, ehUsina, ilhaDaCasa } from "../sim/producao";
-import type { GameState } from "../sim/state";
+import type { AlvoMelhoria, GameState, TipoConstrucao } from "../sim/state";
 import { useGameStore } from "../store/gameStore";
+import { BotaoNivel } from "./LinhaNivel";
+
+/** O nível que vale para esta construção: o do tipo dela (v0.8). `null` = o tipo não tem nível. */
+function alvoDoTipo(tipo: TipoConstrucao): AlvoMelhoria | null {
+  if (ehUsina(tipo)) return { tipo: "usina", id: tipo };
+  if (ehSubestacao(tipo)) return { tipo: "subestacao", id: tipo };
+  if (tipo === "laboratorio" || tipo === "universidade" || tipo === "institutoPesquisa") return { tipo: "ciencia", id: tipo };
+  return null;
+}
 
 function detalhe(state: GameState, indice: number): string {
   const c = state.mundo.construcoes[indice];
@@ -26,7 +36,7 @@ function detalhe(state: GameState, indice: number): string {
   }
   if (ehSubestacao(c.tipo)) {
     const s = analise.subestacoes.find((x) => x.indice === indice);
-    const numeros = `nível ${c.nivel + 1} · ${formatarPotencia(s?.usadoKw ?? 0)} de ${formatarPotencia(s?.tetoKw ?? 0)} · alcance ${s?.alcance ?? 0}`;
+    const numeros = `Nv ${s?.nivel ?? 0} · ${formatarPotencia(s?.usadoKw ?? 0)} de ${formatarPotencia(s?.tetoKw ?? 0)} · alcance ${s?.alcance ?? 0}`;
     // A subestação offshore é a única construção do mar, e é a ilha dona dela que paga o teto do cabo
     // (ajuste 2 da Sessão 8, GDD Parte 2 §3.2).
     if (c.tipo !== "subestacaoOffshore") return numeros;
@@ -51,7 +61,6 @@ export function CalloutCasa() {
   const indice = useGameStore((s) => s.casaSelecionada);
   const selecionar = useGameStore((s) => s.selecionarCasa);
   const evoluirBairro = useGameStore((s) => s.evoluirBairro);
-  const melhorarSubestacao = useGameStore((s) => s.melhorarSubestacao);
   const removerConstrucao = useGameStore((s) => s.removerConstrucao);
   if (indice === null) return null;
   const c = state.mundo.construcoes[indice];
@@ -61,7 +70,7 @@ export function CalloutCasa() {
   const custo = c.tipo === "bairro" ? custoEvolucao(c.nivel) : null;
   const proxima = c.tipo === "bairro" ? DENSIDADES[Math.min(DENSIDADES.length - 1, c.nivel + 1)] : null;
   const evolucao = c.tipo === "bairro" ? avaliarEvolucao(state, indice) : null;
-  const melhoria = c.tipo === "subestacao" ? avaliarMelhoriaSubestacao(state, indice) : null;
+  const alvo = alvoDoTipo(c.tipo);
 
   return (
     <div className="callout-casa" role="dialog" aria-label={`Construção selecionada: ${nome}`}>
@@ -79,11 +88,7 @@ export function CalloutCasa() {
           </button>
         ) : null}
         {c.tipo === "bairro" && !custo ? <span className="marca-comprado">✔ densidade máxima</span> : null}
-        {melhoria ? (
-          <button type="button" className="pilula pilula--mini" disabled={!melhoria.ok} title={melhoria.motivo ?? undefined} onClick={() => melhorarSubestacao(indice)}>
-            Nível {c.nivel + 2} <span className="pilula-custo">{formatarCreditos(custoNivelSubestacao(c.nivel))}</span>
-          </button>
-        ) : null}
+        {alvo ? <BotaoNivel alvo={alvo} /> : null}
         <button
           type="button"
           className="pilula pilula--mini"
