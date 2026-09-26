@@ -60,10 +60,12 @@ Cabo submarino: níveis como hoje (₵ ×3ⁿ, teto ×2ⁿ, base 30 kW). O nó *
 
 | Densidade | Nome | Demanda | População | Tarifa | Evoluir para ela (₵ + 🔬) | Exige |
 |---|---|---|---|---|---|---|
-| 5 | **Megacidade** | 400 kW | 25 000 | ×1,7 | ₵ 97 650 + 🔬 3 000 | nó "Megacidade" |
-| 6 | **Arcologia** | 1 500 kW | 100 000 | ×2,0 | ₵ 244 000 + 🔬 15 000 | nó "Arcologia" |
+| 5 | **Megacidade** | 400 kW | 25 000 | ×1,7 | ₵ 97 650 + 🔬 1 000 | nó "Megacidade" |
+| 6 | **Arcologia** | 1 500 kW | 100 000 | ×2,0 | ₵ 244 000 + 🔬 3 000 | nó "Arcologia" |
 
-A curva de ₵ continua ×2,5 por degrau e dá **um salto de escala na entrada da megacidade**: ₵ 1 562 → ₵ 97 650 é ×62,5, ou seja ×2,5 com um ×25 por cima — a era subiu ×100 em potência. Da 5 para a 6 volta ao ×2,5 (₵ 97 650 → ₵ 244 000). A de 🔬 continua ×5 em toda a escada. Bairros novos nascem na densidade da cidade e custam ₵ 40 × 1,25ⁿ mais o acumulado das evoluções por bairro, em ₵ e 🔬 (Parte 1 §8.6): na megacidade, ₵ 100 087 + 🔬 3 780 além da aldeia; na arcologia, ₵ 344 087 + 🔬 18 780. É o mesmo total de evoluir a cidade com o bairro já construído. *(Sessão 8: o texto anterior dizia "×10 fixo", que daria ₵ 39 050 e não bate com a tabela; os números da tabela são o contrato e continuam como estavam.)*
+A curva de ₵ continua ×2,5 por degrau e dá **um salto de escala na entrada da megacidade**: ₵ 1 562 → ₵ 97 650 é ×62,5, ou seja ×2,5 com um ×25 por cima — a era subiu ×100 em potência. Da 5 para a 6 volta ao ×2,5 (₵ 97 650 → ₵ 244 000). A de 🔬 sobe ×5 até a metrópole e fica mais baixa na Era 2 (🔬 1 000 e 3 000 por bairro; eram 3 000 e 15 000, ver a nota da Sessão 9 abaixo). Bairros novos nascem na densidade da cidade e custam ₵ 40 × 1,25ⁿ mais o acumulado das evoluções por bairro, em ₵ e 🔬 (Parte 1 §8.6): na megacidade, ₵ 100 087 + 🔬 1 780 além da aldeia; na arcologia, ₵ 344 087 + 🔬 4 780. É o mesmo total de evoluir a cidade com o bairro já construído. *(Sessão 8: o texto anterior dizia "×10 fixo", que daria ₵ 39 050 e não bate com a tabela; os números da tabela são o contrato e continuam como estavam.)*
+
+*(Sessão 9, parte G — 🔬 da megacidade e da arcologia recalibradas.)* A tabela foi calibrada na v0.7 **por bairro**, quando o bot evoluía um bairro só. Com a cidade evoluindo inteira (v0.8), a 🔬 multiplica pelos N bairros, e a rota cidade tem 30–50 deles na Era 2. Com os valores antigos, a megacidade custava 🔬 90–150 mil e a arcologia 🔬 450–750 mil, contra 🔬 250–540 mil ganhos na era inteira. Resultado medido: a arcologia nunca acontecia, e a rota cidade não fechava a era em 75 min. Com 🔬 1 000 e 3 000 por bairro, a simulação da rota cidade chega à megacidade aos 37,7 min e à arcologia aos 69,8 min, e fecha a Era 2 em 70,5 min. O ₵ não mudou: na Era 2 ele é o que trava a evolução, como deve (a cidade é o sumidouro de ₵ da era).
 
 ### 4.2 Consumidores e ciência novos
 

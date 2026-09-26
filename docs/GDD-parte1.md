@@ -247,6 +247,14 @@ Estabilidade 100 % + pesquisa "Fissão básica" (🔬 3 000) + ₵ 50 000 → Er
 
 **Ritmo medido (Sessão 7, parte F).** Um bot jogando bem fecha a Era 1 em **≈ 41 min**, e quem manda é a Estabilidade: +2,5 pontos/min na zona de ouro dá 40 minutos de piso para qualquer jogador que acerte a grade logo. A meta de era de §7 (50–70 min recusando as Ocorrências) vale para jogo humano (com paradas, erros de proporção e Cascatas), não para jogo perfeito. Se a gestão quiser o piso em 50–70 também no jogo perfeito, o ajuste é na taxa de Estabilidade (ouro 2,5 → ~1,8/min), que esta sessão não podia tocar. *(v0.9: o playtest do autor apontou a espera, o que reabre o ajuste 1 da Sessão 7. A taxa passa a 1,8/min no ouro e 1,2/min fora dele, e as Ocorrências de §4.4 devolvem o ritmo a quem joga: ≈ 42 min jogando, ≈ 56 min deixando rodar.)*
 
+**Ritmo medido (Sessão 9, parte G, ainda com 2,5/1,5).** O bot passou a comprar níveis (turbina, ciência, usinas, Equipe), a evoluir a cidade inteira e a pôr bairro onde há subestação no alcance. Resultados:
+- A Era 1 fecha no piso da Estabilidade nas duas rotas: 41,5 min na corrida e 42,3 na cidade (o Reator sai aos 48 e 43, depois de juntar os ₵ 200 000 do Vaso).
+- A Era 2 corrida fecha em 46,5 min, também no piso da 🛡. Sem a ciência com nível ela fechava em 58,4: a ciência com nível acabou com a espera por 🔬, que era a dominante (Parte 2 §4.2).
+- A Era 2 cidade fecha em 70,5 min, com a arcologia aos 69,8.
+- Minutos parados (potência e população paradas, ₵ subindo) até o fechamento: 17 de 95 na corrida e 24 de 114 na cidade. Na medida da v0.9 eram ≈ 36 de ≈ 105.
+
+A Era 2 corrida abaixo de 50 min não é defeito da Sessão 9: é o piso da Estabilidade, que a Sessão 10 sobe para ≈ 56 min com 1,8/1,2 e devolve a quem joga as Ocorrências.
+
 ---
 
 ### 8.5 Arquipélago da Era 1 (v0.6)
