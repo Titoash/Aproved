@@ -9,12 +9,12 @@
 import { UNIVERSIDADE, LABORATORIO } from "../content/cidade-era1";
 import { INSTITUTO } from "../content/era2";
 import { CABO, ILHAS } from "../content/era1-arquipelago";
-import { NIVEL_CIENCIA, NIVEL_PECA, NIVEL_USINA, PECAS_SEM_NIVEL, type TipoCiencia } from "../content/melhorias";
+import { NIVEL_CIENCIA, NIVEL_EQUIPE, NIVEL_PECA, NIVEL_USINA, PECAS_SEM_NIVEL, type TipoCiencia } from "../content/melhorias";
 import { PECA_POR_ID } from "../content/pecas";
 import { USINAS } from "../content/usinas";
 import { pecaDisponivel } from "./acoesNucleo";
-import { custoCabo } from "./mundo";
-import { custoDegrauTriplo, custoNivelPeca } from "./niveis";
+import { bipesDe, custoCabo, iniciarRemocoesLivres } from "./mundo";
+import { custoDegrauTriplo, custoNivelEquipe, custoNivelPeca } from "./niveis";
 import { ESCOAMENTO, analisar } from "./producao";
 import type { AlvoMelhoria, GameState, MelhoriasState } from "./state";
 
@@ -40,6 +40,8 @@ export function nivelDe(state: GameState, alvo: AlvoMelhoria): number {
       return m.cabos;
     case "ciencia":
       return m.ciencia[alvo.id];
+    case "equipe":
+      return m.equipe;
   }
 }
 
@@ -56,6 +58,8 @@ export function nivelMaximo(alvo: AlvoMelhoria): number | null {
       return null;
     case "ciencia":
       return NIVEL_CIENCIA.maximo;
+    case "equipe":
+      return NIVEL_EQUIPE.maximo;
   }
 }
 
@@ -75,6 +79,8 @@ export function unidadesDe(state: GameState, alvo: AlvoMelhoria): number {
       return state.nucleo ? state.nucleo.grade.filter((c) => c?.tipo === "peca" && c.id === alvo.id).length : 0;
     case "cabos":
       return ilhasComCabo(state).length;
+    case "equipe":
+      return bipesDe(state);
   }
 }
 
@@ -100,6 +106,8 @@ export function custoProximoNivel(state: GameState, alvo: AlvoMelhoria): number 
     }
     case "ciencia":
       return custoDegrauTriplo(BASE_CIENCIA[alvo.id], n, NIVEL_CIENCIA.crescimento, unidadesDe(state, alvo));
+    case "equipe":
+      return custoNivelEquipe(n);
   }
 }
 
@@ -122,6 +130,7 @@ export function avaliarMelhoria(state: GameState, alvo: AlvoMelhoria): RecusaMel
   if (unidadesDe(state, alvo) === 0) return recusa(alvo.tipo === "cabos" ? "Ligue um cabo primeiro" : "Coloque um primeiro");
   if (maximo !== null && n >= maximo) {
     if (alvo.tipo === "subestacao") return recusa(`Nível máximo (${maximo}): ponha outra subestação`);
+    if (alvo.tipo === "equipe") return recusa(`Nível máximo (${maximo}): ${bipesDe(state)} Bipes`);
     return recusa(`Nível máximo (${maximo}): o próximo degrau é da árvore`);
   }
   if (state.creditos < custoProximoNivel(state, alvo)) return recusa("₵ insuficientes");
@@ -145,6 +154,8 @@ function comNivel(m: MelhoriasState, alvo: AlvoMelhoria, nivel: number): Melhori
       return { ...m, cabos: nivel };
     case "ciencia":
       return { ...m, ciencia: { ...m.ciencia, [alvo.id]: nivel } };
+    case "equipe":
+      return { ...m, equipe: nivel };
   }
 }
 
@@ -153,10 +164,12 @@ export function melhorar(state: GameState, alvo: AlvoMelhoria): GameState | null
   if (!podeMelhorar(state, alvo)) return null;
   const custo = custoProximoNivel(state, alvo);
   const nivel = nivelDe(state, alvo) + 1;
-  return {
+  const depois: GameState = {
     ...state,
     creditos: state.creditos - custo,
     melhorias: comNivel(state.melhorias, alvo, nivel),
     eventos: [...state.eventos, { tipo: "melhoria", alvo, nivel }],
   };
+  // O Bipe novo pega a fila na hora, não no próximo tick: o resultado não depende do tamanho do tick.
+  return alvo.tipo === "equipe" ? iniciarRemocoesLivres(depois) : depois;
 }

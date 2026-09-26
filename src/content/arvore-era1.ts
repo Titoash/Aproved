@@ -194,6 +194,17 @@ export const NOS_ERA1: readonly NoDef[] = [
     efeitos: [{ tipo: "capacidadeBateria", fator: 1.5 }],
   },
   {
+    id: "maquinasPesadas",
+    ramo: "rede",
+    era: 1,
+    nome: "Máquinas pesadas",
+    efeitoTexto: "Os Bipes removem obstáculos na metade do tempo.",
+    fisica:
+      "Uma retroescavadeira move em uma hora a terra que uma equipe com pás leva um dia para mover: o motor a diesel entrega dezenas de kW contínuos, e um trabalhador braçal sustenta uns 75 W.",
+    pesquisa: 120,
+    efeitos: [{ tipo: "tempoRemocao", fator: 0.5 }],
+  },
+  {
     id: "universidade",
     ramo: "rede",
     era: 1,

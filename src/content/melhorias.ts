@@ -40,5 +40,17 @@ export const NIVEL_CIENCIA = {
   maximo: 5,
 } as const;
 
+/**
+ * Equipe de manutenção (§8.5, v0.8): dois Bipes de nascença e um a mais por nível. Degrau ×2: o nível
+ * `n + 1` custa `₵ 150 × 2ⁿ` (150, 300, 600, 1 200), máximo 4 (seis Bipes).
+ */
+export const NIVEL_EQUIPE = {
+  custoBase: 150,
+  crescimento: 2,
+  maximo: 4,
+  bipesIniciais: 2,
+  bipesPorNivel: 1,
+} as const;
+
 /** A ordem em que as usinas aparecem nos níveis (a mesma da paleta). */
 export const USINAS_COM_NIVEL: readonly UsinaId[] = ["cataVento", "painelSolar", "turbinaEolica", "eolicaOffshore", "fazendaSolar", "termicaGas"];

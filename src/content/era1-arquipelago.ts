@@ -95,17 +95,17 @@ export interface ObstaculoDef {
 }
 
 export const OBSTACULOS: Record<TipoObstaculo, ObstaculoDef> = {
-  arbusto: { id: "arbusto", nome: "Arbusto", descricao: "Mato rasteiro. Sai num puxão.", custo: 3, tempoMs: 1_000, lado: 1 },
-  arvore: { id: "arvore", nome: "Árvore", descricao: "Derrubada vira planície — e faz sombra enquanto está de pé.", custo: 8, tempoMs: 3_000, lado: 1, alto: true },
-  pedra: { id: "pedra", nome: "Pedra", descricao: "Um matacão. Precisa de máquina.", custo: 25, tempoMs: 8_000, lado: 1 },
-  pantano: { id: "pantano", nome: "Pântano", descricao: "Drenar leva tempo e deixa planície.", custo: 60, tempoMs: 10_000, lado: 1 },
+  arbusto: { id: "arbusto", nome: "Arbusto", descricao: "Mato rasteiro. Sai num puxão.", custo: 3, tempoMs: 500, lado: 1 },
+  arvore: { id: "arvore", nome: "Árvore", descricao: "Derrubada vira planície — e faz sombra enquanto está de pé.", custo: 8, tempoMs: 1_500, lado: 1, alto: true },
+  pedra: { id: "pedra", nome: "Pedra", descricao: "Um matacão. Precisa de máquina.", custo: 25, tempoMs: 4_000, lado: 1 },
+  pantano: { id: "pantano", nome: "Pântano", descricao: "Drenar leva tempo e deixa planície.", custo: 60, tempoMs: 5_000, lado: 1 },
   montanha: {
     id: "montanha",
     nome: "Montanha",
     descricao: "Quatro casas de rocha. Explosivos, engenharia — e cristais no meio do entulho.",
     custo: 400,
     pesquisa: 20,
-    tempoMs: 30_000,
+    tempoMs: 15_000,
     lado: 2,
     alto: true,
     devolvePesquisa: 40,
@@ -113,6 +113,9 @@ export const OBSTACULOS: Record<TipoObstaculo, ObstaculoDef> = {
   },
   pico: { id: "pico", nome: "Pico", descricao: "Permanente. Acelera o vento: +30 % em cada vizinho.", custo: 0, tempoMs: 0, lado: 1, permanente: true, alto: true },
 };
+
+/** Seleção em área (§8.5, v0.8): até 8×8 casas por vez. */
+export const SELECAO_AREA = { ladoMax: 8 } as const;
 
 export const ORDEM_OBSTACULOS: readonly TipoObstaculo[] = ["arbusto", "arvore", "pedra", "pantano", "montanha", "pico"];
 

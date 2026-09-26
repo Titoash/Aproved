@@ -57,6 +57,8 @@ export interface EfeitosArvore {
   marFundo: boolean;
   /** Peças do Núcleo liberadas por nós (barra de controle, piscina). */
   pecasLiberadas: readonly PecaId[];
+  /** Tempo de remoção de obstáculos × este fator (Máquinas pesadas, Escavadeiras). */
+  tempoRemocaoFator: number;
 }
 
 export function efeitosNeutros(): EfeitosArvore {
@@ -86,6 +88,7 @@ export function efeitosNeutros(): EfeitosArvore {
     bateriaRedeFator: 1,
     marFundo: false,
     pecasLiberadas: [],
+    tempoRemocaoFator: 1,
   };
 }
 
@@ -176,6 +179,9 @@ export function efeitosDos(pesquisados: readonly string[], pecas: NiveisDePecas 
           break;
         case "marFundo":
           e.marFundo = true;
+          break;
+        case "tempoRemocao":
+          e.tempoRemocaoFator *= ef.fator;
           break;
       }
     }

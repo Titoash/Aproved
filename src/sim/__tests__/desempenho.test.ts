@@ -3,9 +3,10 @@
  * 16 ms com as 2048 casas ocupadas. Mede também a análise do mundo sem o cache.
  */
 import { describe, expect, it } from "vitest";
-import { ILHAS } from "../../content/era1-arquipelago";
+import { ILHAS, ORDEM_OBSTACULOS } from "../../content/era1-arquipelago";
 import { naPlataforma } from "../arquipelago";
 import { arquipelagoDaEra1 } from "../gerarArquipelago";
+import { removerArea, removerObstaculo } from "../mundo";
 import { analisarMundo } from "../producao";
 import { efeitosDe } from "../efeitos";
 import { anel } from "../nucleo";
@@ -103,6 +104,32 @@ describe("desempenho do tick", () => {
     const ms = (performance.now() - t0) / N;
     console.log(`análise completa do mundo: ${ms.toFixed(3)} ms`);
     expect(ms).toBeLessThan(16);
+  });
+
+  it("seis Bipes derrubando uma fila de 64 no mundo cheio ficam abaixo de 16 ms por tick (Sessão 9, parte D)", () => {
+    const cheio = mundoCheio();
+    // 64 obstáculos de uma casa de pé de novo, sem a construção em cima, todos na fila
+    const alvos = Array.from({ length: n * n }, (_, i) => i)
+      .filter((i) => arq.obstaculos[i] !== 255 && ["arbusto", "arvore", "pedra"].includes(ORDEM_OBSTACULOS[arq.obstaculos[i]]))
+      .slice(0, 64);
+    const construcoes = { ...cheio.mundo.construcoes };
+    for (const i of alvos) delete construcoes[i];
+    const fora = new Set(alvos);
+    const base: GameState = {
+      ...cheio,
+      pesquisados: [...cheio.pesquisados, "maquinasPesadas", "escavadeiras"],
+      melhorias: { ...cheio.melhorias, equipe: 4 },
+      mundo: { ...cheio.mundo, construcoes, removidos: cheio.mundo.removidos.filter((i) => !fora.has(i)) },
+    };
+    const comFila = removerArea(base, { x0: 0, y0: 0, x1: n - 1, y1: n - 1 }) ?? alvos.reduce((s, i) => removerObstaculo(s, i) ?? s, base);
+    expect(comFila.mundo.remocoes.length).toBeGreaterThan(0);
+    const t0 = performance.now();
+    const N = 60;
+    const s = avancarTicks(comFila, N);
+    const msPorTick = (performance.now() - t0) / N;
+    console.log(`tick com 6 Bipes e fila de ${comFila.mundo.remocoes.length}: ${msPorTick.toFixed(3)} ms`);
+    expect(msPorTick).toBeLessThan(16);
+    expect(s.mundo.removidos.length).toBeGreaterThan(base.mundo.removidos.length);
   });
 
   it("um tick sem mudança de estrutura não recalcula a análise", () => {

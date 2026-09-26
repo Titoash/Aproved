@@ -34,6 +34,7 @@ import { arquipelagoDaEra1 } from "../src/sim/gerarArquipelago";
 import {
   avaliarCasa,
   avaliarRemocaoObstaculo,
+  bipesDe,
   colocar,
   comprarIlha,
   custoCabo,
@@ -301,7 +302,7 @@ function decidir(state: GameState, compras: Map<string, number>): GameState {
   }
 
   // 7. Espaço: desmatar quando não há casa boa para a próxima usina.
-  if (melhorCasa(s, "cataVento") === null && s.mundo.remocoes.length < 3) {
+  if (melhorCasa(s, "cataVento") === null && s.mundo.remocoes.length < bipesDe(s) + 1) {
     for (const id of s.mundo.ilhasAbertas) {
       const q = ILHAS.findIndex((i) => i.id === id);
       const alvo = casasDe(q).find((casa) => obstaculoEm(s.mundo, casa, arq) && avaliarRemocaoObstaculo(s, casa, arq).ok && temEscoamento(s, casa));
@@ -634,7 +635,7 @@ function decidirEra2(state: GameState, compras: Map<string, number>, rota: Rota 
   }
 
   // 7. espaço e ilhas, como na Era 1
-  if (melhorCasa(s, "fazendaSolar") === null && s.mundo.remocoes.length < 3) {
+  if (melhorCasa(s, "fazendaSolar") === null && s.mundo.remocoes.length < bipesDe(s) + 1) {
     for (const id of s.mundo.ilhasAbertas) {
       const q = ILHAS.findIndex((i) => i.id === id);
       const alvo = casasDe(q).find((casa) => obstaculoEm(s.mundo, casa, arq) && avaliarRemocaoObstaculo(s, casa, arq).ok);

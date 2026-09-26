@@ -5,11 +5,13 @@
  */
 import { NOS_INICIAIS, NO_POR_ID } from "../content/arvore";
 import { CAPITULO_POR_ID } from "../content/capitulos";
-import { ILHAS, ORDEM_OBSTACULOS, type IlhaId, type TipoObstaculo } from "../content/era1-arquipelago";
+import { ILHAS, ORDEM_OBSTACULOS, type IlhaId } from "../content/era1-arquipelago";
 import { NUCLEO } from "../content/era1-nucleo";
 import { VARETA } from "../content/era2-nucleo";
 import { PECA_POR_ID, ordemDasPecas } from "../content/pecas";
-import { NIVEL_CIENCIA, NIVEL_PECA, PECAS_SEM_NIVEL, TIPOS_CIENCIA } from "../content/melhorias";
+import { NIVEL_CIENCIA, NIVEL_EQUIPE, NIVEL_PECA, PECAS_SEM_NIVEL, TIPOS_CIENCIA } from "../content/melhorias";
+import { bipesNoNivel } from "./niveis";
+import type { Arquipelago } from "./arquipelago";
 import { DENSIDADES, type Densidade } from "../content/cidade";
 import { ESCOAMENTO, ehDeAgua } from "./producao";
 import { arquipelagoDaEra1 } from "./gerarArquipelago";
@@ -216,23 +218,7 @@ function normalizarMundo(bruto: unknown): MundoState {
     ? Array.from(new Set(m.cristais.filter((i): i is number => Number.isInteger(i) && i >= 0 && i < arq.n * arq.n && arq.terra[i] === 1)))
     : [];
 
-  const remocoes: RemocaoEmCurso[] = Array.isArray(m.remocoes)
-    ? m.remocoes
-        .map((bruta) => {
-          const r = objeto(bruta);
-          const indice = inteiro(r.indice, -1);
-          const tipoBruto = r.tipo;
-          const valido =
-            indice >= 0 &&
-            indice < arq.n * arq.n &&
-            arq.obstaculos[indice] !== 255 &&
-            typeof tipoBruto === "string" &&
-            (ORDEM_OBSTACULOS as readonly string[]).includes(tipoBruto);
-          if (!valido) return null;
-          return { indice, tipo: tipoBruto as TipoObstaculo, inicioMs: numero(r.inicioMs, 0), fimMs: numero(r.fimMs, 0) };
-        })
-        .filter((r): r is RemocaoEmCurso => r !== null)
-    : [];
+  const remocoes = normalizarRemocoes(m.remocoes, new Set(removidos), arq);
 
   const abertas = Array.isArray(m.ilhasAbertas) ? m.ilhasAbertas.filter(ehIlhaId) : [];
   const ilhasAbertas: IlhaId[] = [];
@@ -245,6 +231,46 @@ function normalizarMundo(bruto: unknown): MundoState {
   }
 
   return { construcoes, removidos, remocoes, cristais, ilhasAbertas, cabos };
+}
+
+/** Mais Bipes do que a Equipe no máximo dá é índice inválido. */
+const BIPES_MAX = bipesNoNivel(NIVEL_EQUIPE.maximo);
+
+/**
+ * Fila de remoção (§8.5, v0.8): descarta casa inválida, repetida, já removida ou com tipo diferente do
+ * mapa. Cada remoção em curso fica com um Bipe próprio; um save v8 (um Bipe só, sem o campo) recebe o 0,
+ * e o primeiro tick põe o segundo Bipe na próxima da fila. O `fimMs` antigo é mantido.
+ */
+function normalizarRemocoes(bruto: unknown, removidos: ReadonlySet<number>, arq: Arquipelago): RemocaoEmCurso[] {
+  if (!Array.isArray(bruto)) return [];
+  const vistas = new Set<number>();
+  const usados = new Set<number>();
+  const fila: RemocaoEmCurso[] = [];
+  for (const item of bruto) {
+    const r = objeto(item);
+    const indice = inteiro(r.indice, -1);
+    if (indice < 0 || indice >= arq.n * arq.n || vistas.has(indice) || removidos.has(indice)) continue;
+    const o = arq.obstaculos[indice];
+    if (o === 255 || r.tipo !== ORDEM_OBSTACULOS[o]) continue;
+    vistas.add(indice);
+    const fimMs = numero(r.fimMs, 0);
+    const remocao: RemocaoEmCurso = { indice, tipo: ORDEM_OBSTACULOS[o], inicioMs: fimMs > 0 ? numero(r.inicioMs, 0) : 0, fimMs };
+    if (fimMs > 0) {
+      const pedido = inteiro(r.bipe, -1);
+      remocao.bipe = pedido >= 0 && pedido < BIPES_MAX && !usados.has(pedido) ? pedido : -1;
+      if (remocao.bipe >= 0) usados.add(remocao.bipe);
+    }
+    fila.push(remocao);
+  }
+  // Em curso sem Bipe válido: o menor livre.
+  for (const r of fila) {
+    if (r.bipe !== -1) continue;
+    let b = 0;
+    while (usados.has(b)) b++;
+    r.bipe = b;
+    usados.add(b);
+  }
+  return fila;
 }
 
 /** Capítulos concluídos: só ids conhecidos, sem repetição. */
@@ -278,7 +304,8 @@ function normalizarMelhorias(bruto: unknown): MelhoriasState {
   for (const t of Object.keys(subestacoes) as (keyof typeof subestacoes)[]) subestacoes[t] = Math.min(ESCOAMENTO[t].nivelMax, inteiro(subestacoesBrutas[t], 0));
   const ciencia = { ...base.ciencia };
   for (const t of TIPOS_CIENCIA) ciencia[t] = Math.min(NIVEL_CIENCIA.maximo, inteiro(cienciaBruta[t], 0));
-  return { usinas, pecas, subestacoes, cabos: inteiro(m.cabos, 0), ciencia };
+  const equipe = Math.min(NIVEL_EQUIPE.maximo, inteiro(m.equipe, 0));
+  return { usinas, pecas, subestacoes, cabos: inteiro(m.cabos, 0), ciencia, equipe };
 }
 
 /** Preenche campos ausentes com o estado inicial e sanitiza números. `agoraMs` vira o carimbo de saves sem `salvoEmMs`. */

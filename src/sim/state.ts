@@ -68,6 +68,8 @@ export interface MelhoriasState {
   cabos: number;
   /** 🔬 +25 % por nível (v0.9). */
   ciencia: Record<TipoCiencia, number>;
+  /** Equipe de manutenção: um Bipe a mais por nível (§8.5, v0.8). */
+  equipe: number;
 }
 
 /** Forma derivada, com as contagens do mundo: é o que as fórmulas de §4.1 consomem. */
@@ -91,7 +93,10 @@ export interface Construcao {
   colocadoEmMs: number;
 }
 
-/** Uma remoção de obstáculo na fila; só a primeira está em curso (um Bipe de manutenção de cada vez). */
+/**
+ * Uma remoção de obstáculo na fila. Cada Bipe livre pega a próxima que espera (§8.5, v0.8); as que têm
+ * `fimMs > 0` estão em curso, uma por Bipe.
+ */
 export interface RemocaoEmCurso {
   indice: number;
   tipo: TipoObstaculo;
@@ -99,6 +104,8 @@ export interface RemocaoEmCurso {
   inicioMs: number;
   /** `tempoMs` do jogo em que termina; 0 = ainda esperando a vez. */
   fimMs: number;
+  /** Qual Bipe trabalha nela (0, 1, …); só nas em curso. A cena usa para saber quem anda até onde. */
+  bipe?: number;
 }
 
 export interface MundoState {
@@ -106,7 +113,7 @@ export interface MundoState {
   construcoes: Record<number, Construcao>;
   /** Casas cujo obstáculo de nascença já saiu. O que resta é o do mapa menos estas. */
   removidos: number[];
-  /** Fila de remoção; a primeira está em curso. */
+  /** Fila de remoção, em ordem de chegada; as com `fimMs > 0` estão em curso. */
   remocoes: RemocaoEmCurso[];
   /** Casas de rocha com cristal, abertas por montanhas dinamitadas (GDD §8.6, §9). */
   cristais: number[];
@@ -203,7 +210,7 @@ export interface GameState {
   versao: number;
   tempoMs: number;
   creditos: number;
-  /** Saldo de Pesquisa (🔬). É **gasto** na árvore, nas evoluções de bairro e nas montanhas (v0.6). */
+  /** Saldo de Pesquisa (🔬). É **gasto** na árvore, na evolução da cidade e nas montanhas (v0.6). */
   pesquisa: number;
   /** Nós da árvore já comprados (GDD §8.6). Substituiu as melhorias nomeadas. */
   pesquisados: string[];
@@ -281,7 +288,8 @@ export type AlvoMelhoria =
   | { tipo: "peca"; id: PecaId }
   | { tipo: "subestacao"; id: TipoSubestacao }
   | { tipo: "cabos" }
-  | { tipo: "ciencia"; id: TipoCiencia };
+  | { tipo: "ciencia"; id: TipoCiencia }
+  | { tipo: "equipe" };
 
 /** Todos os tipos no nível 0. */
 export function melhoriasIniciais(): MelhoriasState {
@@ -291,6 +299,7 @@ export function melhoriasIniciais(): MelhoriasState {
     subestacoes: { subestacao: 0, subestacao138: 0, subestacaoOffshore: 0 },
     cabos: 0,
     ciencia: { laboratorio: 0, universidade: 0, institutoPesquisa: 0 },
+    equipe: 0,
   };
 }
 

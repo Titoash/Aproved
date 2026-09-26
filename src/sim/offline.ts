@@ -17,6 +17,7 @@ import { VARETA } from "../content/era2-nucleo";
 import { avancarVaretasOffline, fatorVidaVareta, fissionando } from "./reator";
 import type { EfeitosArvore } from "./efeitos";
 import { analisar, derivarRede } from "./producao";
+import { passoRemocoes } from "./mundo";
 import { balancoRede } from "./rede";
 import type { GameState, NucleoState } from "./state";
 
@@ -30,6 +31,10 @@ export interface RelatorioOffline {
   nucleoDesligado: boolean;
   /** `T*` do equilíbrio da grade salva (`null` sem Núcleo). */
   tEquilibrio: number | null;
+  /** Obstáculos que os Bipes terminaram de remover durante a ausência (a fila anda offline, §7). */
+  obstaculosRemovidos: number;
+  /** Uma montanha caiu e deixou cristal. */
+  cristal: boolean;
 }
 
 /** `min(agora − salvoEmMs, 8 h)`; relógio para trás ou save sem carimbo contam como 0. */
@@ -166,14 +171,22 @@ export function calcularOffline(state: GameState, agoraMs: number): { state: Gam
   }
   const estabilidade = nucleo && state.nucleo ? nucleo.estabilidade - state.nucleo.estabilidade : 0;
 
+  // A fila de remoção anda offline: é trabalho já pago, não produção (§7, Sessão 9). Os eventos das
+  // conclusões não vão para os cards; o relatório conta.
+  const depois: GameState = {
+    ...state,
+    tempoMs: state.tempoMs + duracaoMs,
+    creditos: state.creditos + creditos,
+    pesquisa: state.pesquisa + pesquisa,
+    nucleo,
+  };
+  const comFila = passoRemocoes(depois);
+  const concluidas = comFila.eventos.slice(depois.eventos.length).filter((e) => e.tipo === "obstaculoRemovido");
+  const obstaculosRemovidos = concluidas.length;
+  const cristal = concluidas.some((e) => e.tipo === "obstaculoRemovido" && e.cristal);
+
   return {
-    state: {
-      ...state,
-      tempoMs: state.tempoMs + duracaoMs,
-      creditos: state.creditos + creditos,
-      pesquisa: state.pesquisa + pesquisa,
-      nucleo,
-    },
-    relatorio: { duracaoMs, creditos, pesquisa, estabilidade, nucleoDesligado, tEquilibrio },
+    state: comFila === depois ? depois : { ...comFila, eventos: depois.eventos },
+    relatorio: { duracaoMs, creditos, pesquisa, estabilidade, nucleoDesligado, tEquilibrio, obstaculosRemovidos, cristal },
   };
 }

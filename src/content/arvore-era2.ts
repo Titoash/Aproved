@@ -242,6 +242,18 @@ export const NOS_ERA2: readonly NoDef[] = [
     pre: ["caboHvdc"],
     efeitos: [{ tipo: "bateriaRede", fator: 2 }],
   },
+  {
+    id: "escavadeiras",
+    ramo: "rede2",
+    era: 2,
+    nome: "Escavadeiras",
+    efeitoTexto: "Os Bipes removem obstáculos na metade do tempo, de novo.",
+    fisica:
+      "Uma escavadeira de mineração enche um caminhão de 200 toneladas em quatro ou cinco conchadas. A escala muda o que dá para mover: é assim que se abre uma mina a céu aberto, e não com mais gente.",
+    pesquisa: 1_500,
+    pre: ["maquinasPesadas"],
+    efeitos: [{ tipo: "tempoRemocao", fator: 0.5 }],
+  },
 
   /* -------------------------------------------------------------- Cidade */
   {

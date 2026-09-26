@@ -6,7 +6,7 @@ import { INSTITUTO } from "../content/era2";
 import { efeitosDe } from "../sim/efeitos";
 import { formatarNumero, formatarPotencia } from "../sim/formatar";
 import { nivelDe } from "../sim/melhorias";
-import { fatorCiencia, fatorPeca, fatorUsina } from "../sim/niveis";
+import { bipesNoNivel, fatorCiencia, fatorPeca, fatorUsina } from "../sim/niveis";
 import { ESCOAMENTO, tetoCabo, tetoDeSubestacao } from "../sim/producao";
 import type { AlvoMelhoria, GameState } from "../sim/state";
 import type { ItemIcone } from "./icones";
@@ -27,6 +27,8 @@ export function descreverNivel(state: GameState, alvo: AlvoMelhoria): { nome: st
       return { nome: "Cabos submarinos", icone: null, efeito: `teto ${formatarPotencia(tetoCabo(n, efeitosDe(state)))} cada` };
     case "ciencia":
       return { nome: NOME_CIENCIA[alvo.id], icone: alvo.id, efeito: `🔬 ×${formatarNumero(fatorCiencia(n), 2)}` };
+    case "equipe":
+      return { nome: "Equipe de manutenção", icone: null, efeito: `${bipesNoNivel(n)} Bipes` };
   }
 }
 

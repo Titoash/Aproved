@@ -119,22 +119,26 @@ describe("obstáculos (GDD §8.5)", () => {
     expect(podeColocar(fim, arvore, "cataVento")).toBe(true);
   });
 
-  it("a fila roda uma remoção de cada vez", () => {
+  it("dois Bipes em paralelo: o terceiro espera e começa quando o primeiro termina", () => {
     const s0 = estadoLimpo(1000);
-    const a = casaComObstaculo("arbusto");
-    const b = arq.ilhas[0].casas.find((i) => i !== a && obstaculoEm(s0.mundo, i) === "arbusto")!;
-    const s1 = removerObstaculo(removerObstaculo(s0, a)!, b)!;
-    expect(s1.mundo.remocoes.map((r) => r.indice)).toEqual([a, b]);
-    expect(s1.mundo.remocoes[1].fimMs).toBe(0);
+    const [a, b, c] = arq.ilhas[0].casas.filter((i) => obstaculoEm(s0.mundo, i) === "arbusto").slice(0, 3);
+    const s1 = removerObstaculo(removerObstaculo(removerObstaculo(s0, a)!, b)!, c)!;
+    expect(s1.mundo.remocoes.map((r) => [r.indice, r.bipe, r.fimMs])).toEqual([
+      [a, 0, OBSTACULOS.arbusto.tempoMs],
+      [b, 1, OBSTACULOS.arbusto.tempoMs],
+      [c, undefined, 0],
+    ]);
     const depois = avancarTicks(s1, OBSTACULOS.arbusto.tempoMs / 100);
     expect(obstaculoEm(depois.mundo, a)).toBeNull();
-    expect(obstaculoEm(depois.mundo, b)).toBe("arbusto");
-    expect(depois.mundo.remocoes[0].fimMs).toBeGreaterThan(depois.tempoMs);
+    expect(obstaculoEm(depois.mundo, b)).toBeNull();
+    expect(depois.mundo.remocoes).toEqual([
+      { indice: c, tipo: "arbusto", inicioMs: OBSTACULOS.arbusto.tempoMs, fimMs: 2 * OBSTACULOS.arbusto.tempoMs, bipe: 0 },
+    ]);
     const fim = avancarTicks(depois, OBSTACULOS.arbusto.tempoMs / 100);
-    expect(obstaculoEm(fim.mundo, b)).toBeNull();
+    expect(obstaculoEm(fim.mundo, c)).toBeNull();
   });
 
-  it("a montanha 2×2 sai inteira, exige 🔬 20, devolve 🔬 40 e deixa cristal", () => {
+  it("a montanha 2×2 sai inteira, gasta 🔬 20, devolve 🔬 40 e deixa cristal", () => {
     const ancora = arq.montanhas[0];
     const s0 = estadoLimpo(1000);
     expect(removerObstaculo(s0, ancora)).toBeNull(); // ilha fechada
@@ -144,6 +148,9 @@ describe("obstáculos (GDD §8.5)", () => {
     const s1 = removerObstaculo(comCiencia, ancora + n + 1)!; // toca no canto sudeste
     expect(s1.mundo.remocoes[0].indice).toBe(ancora);
     expect(comCiencia.creditos - s1.creditos).toBe(OBSTACULOS.montanha.custo);
+    expect(s1.pesquisa).toBe(0);
+    // qualquer das quatro casas diz que a montanha já está na fila
+    expect(avaliarCasa(s1, ancora + 1, "cataVento").motivo).toBe("Removendo…");
     const fim = avancarTicks(s1, OBSTACULOS.montanha.tempoMs / 100);
     for (const casa of [ancora, ancora + 1, ancora + n, ancora + n + 1]) {
       expect(obstaculoEm(fim.mundo, casa)).toBeNull();
@@ -151,7 +158,7 @@ describe("obstáculos (GDD §8.5)", () => {
       expect(temCristal(fim.mundo, casa)).toBe(true);
       expect(terrenoDeJogo(fim.mundo, casa)).toBe("rocha");
     }
-    expect(fim.pesquisa).toBe(comCiencia.pesquisa + OBSTACULOS.montanha.devolvePesquisa!);
+    expect(fim.pesquisa).toBe(comCiencia.pesquisa - OBSTACULOS.montanha.pesquisa! + OBSTACULOS.montanha.devolvePesquisa!);
   });
 
   it("pico é permanente", () => {

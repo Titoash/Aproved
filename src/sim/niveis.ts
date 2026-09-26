@@ -2,7 +2,7 @@
  * Fórmulas puras dos níveis por tipo (GDD Parte 1 §7.1, v0.8). Folha do sim: só lê `content/`, para que
  * a produção, o motor e os efeitos possam usá-la sem ciclo de imports. As ações ficam em `sim/melhorias.ts`.
  */
-import { NIVEL_CIENCIA, NIVEL_PECA, NIVEL_USINA } from "../content/melhorias";
+import { NIVEL_CIENCIA, NIVEL_EQUIPE, NIVEL_PECA, NIVEL_USINA } from "../content/melhorias";
 
 /** Produção de uma usina no nível: `× (1 + 0,5 n)` (§7). */
 export function fatorUsina(nivel: number): number {
@@ -41,6 +41,16 @@ export function custoAcumuladoTriplo(base: number, nivel: number, crescimento: n
 /** Degrau ×2 das peças: o nível `n + 1` custa `5 × custo da peça × 2ⁿ` (Heliostato: 150, 300, 600, 1 200, 2 400). */
 export function custoNivelPeca(custoDaPeca: number, nivelAtual: number): number {
   return NIVEL_PECA.fatorCusto * custoDaPeca * Math.pow(NIVEL_PECA.crescimento, nivelAtual);
+}
+
+/** Degrau ×2 da Equipe de manutenção: o nível `n + 1` custa `₵ 150 × 2ⁿ` (150, 300, 600, 1 200). */
+export function custoNivelEquipe(nivelAtual: number): number {
+  return NIVEL_EQUIPE.custoBase * Math.pow(NIVEL_EQUIPE.crescimento, nivelAtual);
+}
+
+/** Bipes de manutenção no nível da Equipe: dois de nascença e um por nível (§8.5). */
+export function bipesNoNivel(nivel: number): number {
+  return NIVEL_EQUIPE.bipesIniciais + NIVEL_EQUIPE.bipesPorNivel * nivel;
 }
 
 /** Teto no nível: `teto base × fator^n` (subestações e cabos). */
