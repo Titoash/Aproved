@@ -17,7 +17,7 @@ O que a era ensina, nesta ordem: (1) potência nuclear é enorme e regular, mas 
 1. Card "Calor de decaimento" (3 telas, ver §7).
 2. A Torre Solar é desmontada: cada peça devolve 50 % do custo; a plataforma 7×7 recebe o **Vaso** no centro. A grade volta a ser 5×5 (o nó "Reator 7×7" reabre o 7×7).
 3. **Estabilidade zera.** Ela é da era, não do jogador.
-4. Fica tudo o resto: ilhas abertas, cabos, subestações, usinas da Era 1 (continuam produzindo os mesmos kW), bairros, laboratórios, universidades, ₵, 🔬, nós da Era 1 e seus efeitos.
+4. Fica tudo o resto: ilhas abertas, cabos, subestações, usinas da Era 1 (continuam produzindo os mesmos kW), bairros, laboratórios, universidades, ₵, 🔬, nós da Era 1 e seus efeitos, e os níveis por tipo (Parte 1 §7.1).
 5. Paleta "entardecer": céu e mar um tom mais escuros, luzes quentes nos bairros, o Sol baixo na água. A escada de escalas não muda (Eras 1 e 2 vivem no arquipélago, Parte 1 §2.4).
 6. O capítulo "O Vaso" assume o HUD.
 
@@ -63,7 +63,7 @@ Cabo submarino: níveis como hoje (₵ ×3ⁿ, teto ×2ⁿ, base 30 kW). O nó *
 | 5 | **Megacidade** | 400 kW | 25 000 | ×1,7 | ₵ 97 650 + 🔬 3 000 | nó "Megacidade" |
 | 6 | **Arcologia** | 1 500 kW | 100 000 | ×2,0 | ₵ 244 000 + 🔬 15 000 | nó "Arcologia" |
 
-A curva de ₵ continua ×2,5 por degrau e dá **um salto de escala na entrada da megacidade**: ₵ 1 562 → ₵ 97 650 é ×62,5, ou seja ×2,5 com um ×25 por cima — a era subiu ×100 em potência. Da 5 para a 6 volta ao ×2,5 (₵ 97 650 → ₵ 244 000). A de 🔬 continua ×5 em toda a escada. Bairros novos continuam ₵ 40 × 1,25ⁿ: colocar bairro é barato, evoluir é o gasto. *(Sessão 8: o texto anterior dizia "×10 fixo", que daria ₵ 39 050 e não bate com a tabela; os números da tabela são o contrato e continuam como estavam.)*
+A curva de ₵ continua ×2,5 por degrau e dá **um salto de escala na entrada da megacidade**: ₵ 1 562 → ₵ 97 650 é ×62,5, ou seja ×2,5 com um ×25 por cima — a era subiu ×100 em potência. Da 5 para a 6 volta ao ×2,5 (₵ 97 650 → ₵ 244 000). A de 🔬 continua ×5 em toda a escada. Bairros novos nascem na densidade da cidade e custam ₵ 40 × 1,25ⁿ mais o acumulado das evoluções por bairro, em ₵ e 🔬 (Parte 1 §8.6): na megacidade, ₵ 100 087 + 🔬 3 780 além da aldeia; na arcologia, ₵ 344 087 + 🔬 18 780. É o mesmo total de evoluir a cidade com o bairro já construído. *(Sessão 8: o texto anterior dizia "×10 fixo", que daria ₵ 39 050 e não bate com a tabela; os números da tabela são o contrato e continuam como estavam.)*
 
 ### 4.2 Consumidores e ciência novos
 
@@ -74,11 +74,11 @@ A curva de ₵ continua ×2,5 por degrau e dá **um salto de escala na entrada d
 
 Laboratório e universidade continuam. Universidade rende pelos **alunos** (ajuste 3 da Sessão 7): 🔬 0,5/s × √(pop ÷ n_universidades ÷ 1 000), 1 por 2 000 habitantes. Com arcologias, 1 por 2 000 habitantes vira uma pressão real de espaço: é intencional.
 
-**Ciência com nível (v0.9, Parte 1 §7.1).** Laboratório, universidade e instituto de pesquisa têm nível incremental por tipo: +25 % de 🔬 por nível, custo `base × 3ⁿ × N` (Instituto ₵ 20 000 de base), máximo 5. É o destino do caixa do fim da era: na simulação o bot passa os minutos 50–61 com ₵ 3–7,6 milhões parados, esperando 🔬 para o Reator 7×7 e a Fusão básica. Com 25 universidades, os cinco níveis custam ₵ 30 000 + 90 000 + 270 000 + 810 000 + 2 430 000 ≈ ₵ 3,6 milhões (o nível 1 custa a base × 3, Parte 1 §7.1) e levam a ciência delas a ×2,25.
+**Ciência com nível (v0.9, Parte 1 §7.1).** Laboratório, universidade e instituto de pesquisa têm nível incremental por tipo: +25 % de 🔬 por nível, custo `base × 3ⁿ × N` (Instituto ₵ 20 000 de base), máximo 5 no total por tipo (não por era); o nível atravessa a transição (§2), e a unidade nova paga o acumulado do nível do tipo (Parte 1 §7.1). É o destino do caixa do fim da era: na simulação da Sessão 8 o bot passa os minutos 50–61 com ₵ 3–8,5 milhões parados, esperando 🔬 para o Reator 7×7 e a Fusão básica. Como o total não depende da ordem, o exemplo vale para qualquer rota: 25 universidades no Nv 5 custam 25 × ₵ 400 × (3 + 9 + 27 + 81 + 243) ≈ ₵ 3,6 milhões (o nível 1 custa a base × 3, Parte 1 §7.1), seja o nível comprado na Era 1 com poucas universidades e as novas pagando o acumulado ao nascer, seja na Era 2 com todas; levam a ciência delas a ×2,25. Os Institutos custam ₵ 60 000 × N no Nv 1 e ₵ 7,26 milhões por instituto nos cinco. A parte G da Sessão 9 mede quanto disso a simulação compra.
 
 ## 5. Núcleo da Era 2: Reator PWR (grade 5×5 na plataforma 7×7, Vaso fixo no centro)
 
-Mesmo motor da Torre Solar (Parte 1, §4.2, §5, §8.3): `T = Q ÷ capacidade`, faixas iguais (frio < 40 %, normal, **zona de ouro 70–90 %**, alerta, Cascata acima de 100 % por 5 s), Estabilidade com as mesmas taxas (Parte 1 §7; v0.9: +1,2/min fora do ouro, +1,8/min no ouro e +3 por Ocorrência superada, §5.4). Duas coisas novas: **combustível finito** e **calor de decaimento**. E uma regra nova de geometria: algumas peças agem sobre as **8 vizinhas delas**, não sobre o Vaso.
+Mesmo motor da Torre Solar (Parte 1, §4.2, §5, §8.3): `T = Q ÷ capacidade`, faixas iguais (frio < 40 %, normal, **zona de ouro 70–90 %**, alerta, Cascata acima de 100 % por 5 s), Estabilidade com as mesmas taxas (Parte 1 §7; v0.9: +1,2/min fora do ouro, +1,8/min no ouro e +3 por Ocorrência superada com 🛡 escolhido, §5.4). Duas coisas novas: **combustível finito** e **calor de decaimento**. E uma regra nova de geometria: algumas peças agem sobre as **8 vizinhas delas**, não sobre o Vaso.
 
 ### 5.1 Peças
 
@@ -128,22 +128,22 @@ Teste obrigatório da Sessão 8, no espírito da regra 2 do `CLAUDE.md`: "6 vare
 
 ### 5.4 Ocorrências da Era 2 (v0.9, Parte 1 §4.4)
 
-Mesmas regras da Parte 1 §4.4 (oferta a cada 4 min de jogo ativo, 60 s para aceitar, opcionais, nunca offline, recompensa 🛡 +3 ou 🔬 igual a 60 s da produção). O controle da Era 2 são as **Barras de controle**: de 50 % a 125 % da injeção das varetas **ativas**. As barras não mexem no **decaimento** (varetas gastas, SCRAM): a fissão para, o decaimento continua, como §5.2 ensina. O controle multiplica por cima da peça Barra de controle (−50 % nas vizinhas).
+Mesmas regras da Parte 1 §4.4 (oferta a cada 4 min de jogo ativo, 60 s para aceitar, opcionais, nunca offline, recompensa 🛡 +3 ou 🔬 igual a 60 s da produção). O controle da Era 2 são as **Barras de controle**. O jogador escolhe a **potência das varetas ativas**, de 50 % a 125 % da nominal: menos potência = barras mais inseridas, mais potência = barras retiradas. Em 100 % as barras ficam na posição de operação, parcialmente inseridas, e é isso que deixa espaço para retirar até 125 %. O MotorCalor da Era 2 separa a injeção ativa do decaimento, e o controle e o Xenônio multiplicam só a ativa. As barras não mexem no **decaimento** (varetas gastas, SCRAM): a fissão para, o decaimento continua, como §5.2 ensina. O controle multiplica por cima da peça Barra de controle (−50 % nas vizinhas).
 
-A coluna do meio usa a primeira linha de §5.3: 6 varetas (4 + 2), 2 turbinas, entrada 100 u/s, `Q*` = 416,7 u, `T*` = 83 %, 800 kW.
+A primeira oferta de um save que chega à v10 já na Era 2 é o Xenônio (a Nuvem exige heliostato, que o Reator não tem), e depois de um SCRAM a próxima oferta também é o Xenônio: é o poço de iodo de verdade, e a causa fica à vista. Fora disso o cartão da oferta diz a causa ("Xenônio · o reator passou a noite em potência baixa"). A coluna do meio usa a primeira linha de §5.3: 6 varetas (4 + 2), 2 turbinas, entrada 100 u/s, `Q*` = 416,7 u, `T*` = 83 %, 800 kW.
 
 | Ocorrência | Perturbação | Duração | Exige | Sem mexer no controle | Resposta |
 |---|---|---|---|---|---|
-| **Seguimento de carga** | meta de potência: o Núcleo entre **65 % e 75 %** da potência de antes | 60 s | 1 vareta ativa | fica em 100 %: não supera (sem risco) | barras em 70 %: 560 kW, `T` = 58 % |
-| **Xenônio** | injeção ×0,8 (desce em 15 s, fica 30 s, volta em 15 s) | 60 s | 1 vareta ativa | `Q*` = 333,3, `T` = 67 %: sai do ouro | barras em 110–125 % devolvem o ouro |
-| **Turbina em meia carga** | uma turbina a 50 % | 30 s | 2 turbinas | `Q*` = 555,6, `T` = 111 %: Cascata | barras em 75 % devolvem 83 % |
+| **Seguimento de carga** | meta de potência: o Núcleo entre **65 % e 75 %** da potência de antes | 60 s | 1 vareta ativa | fica em 100 %: não supera (sem risco) | barras: potência 70 %, 560 kW, `T` = 58 % |
+| **Xenônio** | injeção das varetas ativas ×0,8, o decaimento não muda (desce em 15 s, fica 30 s, volta em 15 s: exceção às rampas de 5 s) | 60 s | 1 vareta ativa | `Q*` = 333,3, `T` = 67 %: sai do ouro | barras: potência 110–120 % devolve o ouro (paradas em 125 % desde o aceite, passam de 90 % nas rampas e ficam só 69 % no ouro; para segurar 125 % é preciso acompanhar a rampa) |
+| **Turbina em meia carga** | uma turbina a 50 % | 30 s | 2 turbinas | `Q*` = 555,6, `T` = 111 %: Cascata | barras: potência 75 % devolve 83 % |
 
 Frases de física:
 - Seguimento de carga: "Reatores na França baixam e sobem a potência todos os dias para acompanhar o consumo, movendo barras de controle."
-- Xenônio: "Depois que a potência cai, o iodo-135 continua virando xenônio-135, que engole nêutrons: por horas o reator perde reatividade e o operador recolhe barras para compensar. No jogo, as horas viram segundos."
-- Turbina em meia carga: "Quando a turbina perde carga de repente, reatores de verdade derrubam um grupo de barras de uma vez para o calor não sobrar no circuito."
+- Xenônio: "Horas depois de um reator baixar a potência ou desligar, o iodo-135 acumulado ainda vira xenônio-135, que engole nêutrons: o reator perde reatividade e o operador retira barras para compensar. No jogo, as horas viram segundos."
+- Turbina em meia carga: "Quando a turbina perde carga de repente, o vapor que sobra é desviado direto para o condensador e as barras entram para baixar a potência. Em alguns reatores, como os de Palo Verde, um grupo inteiro de barras cai de uma vez."
 
-*(v0.9)* A "Onda de calor" (torres rendendo menos com ar quente e úmido), citada na proposta, ficou de fora: a torre dissipa um valor fixo (30 u/s), e com ela pela metade `T` sobe só 12,5 pontos numa grade na zona de ouro (8 varetas, 2 turbinas, 1 torre: 75 % → 87,5 %) — continua no ouro, não vira meta. Pode voltar se a simulação da Sessão 10 mostrar grades com várias torres, onde o efeito cresce.
+*(v0.9)* A "Onda de calor" (torres rendendo menos com ar quente e úmido), citada na proposta, ficou de fora por ora: a torre dissipa um valor fixo (30 u/s), e pela metade ela sobe `T` 12,5 pontos (capacidade 500, 2 turbinas). Isso só tira do ouro grades com `T*` acima de 77,5 %, por exemplo 8 varetas (5 + 3) com 2 turbinas e 1 torre, que vão de 83 % a 96 %; com 4 + 4 fica em 75 % → 87,5 %. É a mesma ordem do Xenônio (16,7 pontos). Volta se a simulação da Sessão 10 mostrar grades com torre acima de 77 % ou com várias torres.
 
 ## 6. Árvore da Era 2 (🔬 gasto; cada nó com uma frase de física de verdade)
 
