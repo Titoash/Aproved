@@ -5,8 +5,12 @@ import { useGameStore } from "./gameStore";
 
 export function useTick(): void {
   useEffect(() => {
+    // O relógio e o agendador do navegador entram aqui, não no sim (ajuste 8 da Sessão 8).
     const loop = createLoop({
       onTicks: (n) => useGameStore.getState().avancarTicks(n),
+      now: () => performance.now(),
+      requestFrame: (cb) => requestAnimationFrame(cb),
+      cancelFrame: (id) => cancelAnimationFrame(id),
     });
 
     const salvarSeOculto = () => {
