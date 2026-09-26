@@ -288,7 +288,9 @@ export const NOS_ERA2: readonly NoDef[] = [
     fisica:
       "Uma cidade inteira num prédio só troca transporte por elevador e rua por corredor. O que ela não consegue trocar é o ar: ventilar e climatizar cem mil pessoas empilhadas é o grosso do 1,5 MW.",
     pesquisa: 14_000,
-    pre: ["institutoDePesquisa"],
+    // Ajuste 4 da Sessão 8: o instituto é ciência, a arcologia é cidade — encadear os dois empurrava a
+    // arcologia para depois do fim da era. Pré-requisito só a Megacidade.
+    pre: ["megacidade"],
     efeitos: [],
   },
   {

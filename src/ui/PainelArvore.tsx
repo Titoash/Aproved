@@ -57,12 +57,25 @@ interface Ligacao {
   pronta: boolean;
 }
 
-/** Curva em S de um nó ao pré-requisito, em coordenadas do grid. */
+/** Distância vertical acima da qual um pré-requisito na mesma coluna pula nós (o espaço entre dois nós é 8 px). */
+const PULO_PX = 24;
+
+/**
+ * Curva em S de um nó ao pré-requisito, em coordenadas do grid. Na mesma coluna, se há nós entre os dois
+ * (a Arcologia sai da Megacidade por cima da Indústria e do Instituto), a linha contorna pela margem
+ * esquerda em vez de atravessar as caixas.
+ */
 function curva(de: DOMRect, para: DOMRect, base: DOMRect): string {
   const x1 = de.left - base.left + de.width / 2;
   const y1 = de.bottom - base.top;
   const x2 = para.left - base.left + para.width / 2;
   const y2 = para.top - base.top;
+  if (Math.abs(x1 - x2) < 1 && y2 - y1 > PULO_PX) {
+    const x = Math.min(de.left, para.left) - base.left;
+    const ya = de.top - base.top + de.height / 2;
+    const yb = para.top - base.top + para.height / 2;
+    return `M ${x} ${ya} C ${x - 14} ${ya}, ${x - 14} ${yb}, ${x} ${yb}`;
+  }
   if (Math.abs(x1 - x2) < 1) return `M ${x1} ${y1} L ${x2} ${y2}`;
   const meio = (y1 + y2) / 2;
   return `M ${x1} ${y1} C ${x1} ${meio}, ${x2} ${meio}, ${x2} ${y2}`;
