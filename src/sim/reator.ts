@@ -155,6 +155,16 @@ export function contarReator(grade: readonly Casa[]): ContagemReator {
   return c;
 }
 
+/**
+ * O reator está fissionando: há pelo menos uma vareta com combustível na grade (entulho não conta) e ele
+ * não está em SCRAM. Só assim ele conta como operando para a Estabilidade (Parte 2 §5.2, Sessão 9): o
+ * calor de decaimento de um reator sem combustível ainda gira as turbinas, mas não faz a barra andar.
+ */
+export function fissionando(nucleo: NucleoState): boolean {
+  if (nucleo.scramRestanteMs > 0) return false;
+  return nucleo.grade.some((casa) => !!casa && casa.tipo === "peca" && casa.id === "vareta" && !!casa.vareta && casa.vareta.gastaDesdeMs === null);
+}
+
 /** Capacidade do Vaso: 500 u + 250 u por Piscina adjacente (GDD Parte 2 §5.1). */
 export function capacidadeReatorU(grade: readonly Casa[]): number {
   return REATOR.capacidadeVasoU + contarReator(grade).piscinas * REATOR.capacidadePiscinaU;

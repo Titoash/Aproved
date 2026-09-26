@@ -307,6 +307,39 @@ describe("offline na Era 2 (GDD Parte 2 §5.2)", () => {
     expect(oito.pesquisa).toBeLessThanOrEqual(dez.pesquisa * 1.05);
   });
 
+  it("offline, a Estabilidade só sobe enquanto há fissão, e o Vaso volta frio com as varetas gastas", () => {
+    const s = { ...construirReator(prontoParaOReator(1e7))!, creditos: 1e7 };
+    let comVaretas = s;
+    for (const [i, peca] of [[11, "turbinaAlta"], [13, "turbinaAlta"], [6, "vareta"], [7, "vareta"], [8, "vareta"], [16, "vareta"], [0, "vareta"], [4, "vareta"]] as const) {
+      comVaretas = colocarPeca(comVaretas, i, peca) ?? comVaretas;
+    }
+    const salvo = { ...comVaretas, salvoEmMs: 1_000_000 };
+    const dez = calcularOffline(salvo, 1_000_000 + 10 * 60 * 1000);
+    const oito = calcularOffline(salvo, 1_000_000 + 8 * 60 * 60 * 1000);
+    expect(dez.relatorio.estabilidade).toBeGreaterThan(0);
+    // o reator morto não enche a barra (antes: +100 em 8 h pela faixa fria do decaimento)
+    expect(oito.relatorio.estabilidade).toBeLessThanOrEqual(dez.relatorio.estabilidade * 1.05);
+    // na volta, o Vaso está no equilíbrio do fim da ausência, não no do começo
+    expect(oito.state.nucleo!.calorU).toBeLessThan(1);
+  });
+
+  it("online, o reator sem combustível não faz a Estabilidade andar (Parte 2 §5.2, Sessão 9)", () => {
+    const s = { ...construirReator(prontoParaOReator(1e7))!, creditos: 1e7 };
+    let comVaretas = s;
+    for (const [i, peca] of [[11, "turbinaAlta"], [13, "turbinaAlta"], [6, "vareta"], [7, "vareta"]] as const) {
+      comVaretas = colocarPeca(comVaretas, i, peca) ?? comVaretas;
+    }
+    const grade = comVaretas.nucleo!.grade.map((casa) =>
+      casa && casa.tipo === "peca" && casa.id === "vareta" ? { ...casa, vareta: { restanteS: 0, gastaDesdeMs: comVaretas.tempoMs } } : casa,
+    );
+    const gastas = { ...comVaretas, nucleo: { ...comVaretas.nucleo!, grade, calorU: 50 } };
+    const depois = avancarTicks(gastas, 600);
+    expect(depois.nucleo!.estabilidade).toBe(gastas.nucleo!.estabilidade);
+    // com as mesmas duas varetas cheias, ela anda
+    const cheias = avancarTicks(comVaretas, 600);
+    expect(cheias.nucleo!.estabilidade).toBeGreaterThan(comVaretas.nucleo!.estabilidade);
+  });
+
   it("offline, a 🔬 do reator é a integral da potência enquanto as varetas queimam", () => {
     const s = { ...construirReator(prontoParaOReator(1e7))!, creditos: 1e7 };
     let comVaretas = s;

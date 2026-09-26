@@ -14,7 +14,7 @@ import { limitarEstabilidade } from "./estabilidade";
 import { efeitosDe } from "./efeitos";
 import { equilibrioMotor, motorDoNucleo, potenciaMotor } from "./motor";
 import { VARETA } from "../content/era2-nucleo";
-import { avancarVaretasOffline, fatorVidaVareta } from "./reator";
+import { avancarVaretasOffline, fatorVidaVareta, fissionando } from "./reator";
 import type { EfeitosArvore } from "./efeitos";
 import { analisar, derivarRede } from "./producao";
 import { balancoRede } from "./rede";
@@ -53,7 +53,9 @@ function taxasNoEquilibrio(nucleo: NucleoState, efeitos: EfeitosArvore, tempoMs:
   const t = temperatura(q, motor.capacidadeU);
   const potenciaKw = potenciaMotor(motor, q) * OFFLINE.fatorNucleo;
   const pesquisaPorS = pesquisaPorSegundo(potenciaKw, t, motor.pesquisaPorKw);
-  const estabilidadePorS = potenciaKw > 0 ? (faixaDeCalor(t).estabilidadePorMinuto / 60) * OFFLINE.fatorNucleo : 0;
+  // Como no tick: Estabilidade só com o Núcleo produzindo e, na Era 2, só com fissão (Parte 2 §5.2).
+  const operando = potenciaKw > 0 && (nucleo.era !== 2 || fissionando({ ...nucleo, scramRestanteMs: 0 }));
+  const estabilidadePorS = operando ? (faixaDeCalor(t).estabilidadePorMinuto / 60) * OFFLINE.fatorNucleo : 0;
   return { potenciaKw, pesquisaPorS, estabilidadePorS, t };
 }
 
@@ -123,11 +125,15 @@ export function calcularOffline(state: GameState, agoraMs: number): { state: Gam
     else trechos = trechosDoNucleoOffline(nucleo, efeitos, state.tempoMs, segundos);
 
     const estabilidadeGanha = trechos.reduce((soma, tr) => soma + tr.estabilidadePorS * tr.segundos, 0);
-    const limiteQ = capacidade * MODO_SEGURO.limiarT;
-    const qVolta = Number.isFinite(qEquilibrio) ? Math.min(qEquilibrio, limiteQ) : limiteQ;
     // O tempo passa no combustível mesmo com o jogo fechado (GDD Parte 2 §5.2): uma vareta que
     // acabaria no meio da ausência é marcada como gasta no instante exato em que acabou.
     const grade = nucleo.era === 2 && !nucleoDesligado ? avancarVaretasOffline(nucleo, segundos, state.tempoMs, efeitos) : nucleo.grade;
+    // Na volta, o Vaso está no equilíbrio do **fim** da ausência (varetas gastas esfriam o reator),
+    // limitado ao modo seguro. Na Era 1 o equilíbrio não muda com o tempo.
+    const motorFinal = grade === nucleo.grade ? motor : motorDoNucleo({ ...nucleo, grade, scramRestanteMs: 0, scramInicioMs: null }, efeitos, state.tempoMs + duracaoMs);
+    const qFinal = grade === nucleo.grade ? qEquilibrio : equilibrioMotor(motorFinal);
+    const limiteQ = motorFinal.capacidadeU * MODO_SEGURO.limiarT;
+    const qVolta = Number.isFinite(qFinal) ? Math.min(qFinal, limiteQ) : limiteQ;
     nucleo = {
       ...nucleo,
       grade,

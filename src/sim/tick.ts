@@ -12,7 +12,7 @@ import { faixaDeCalor, pesquisaPorSegundo, temperatura } from "./calor";
 import { aplicarCascata, atualizarCronometro, deveCascatear, emScram, scram } from "./cascata";
 import { passoEstabilidade } from "./estabilidade";
 import { motorDoNucleo, passoMotor, potenciaMotor } from "./motor";
-import { passoVaretas } from "./reator";
+import { fissionando, passoVaretas } from "./reator";
 import { efeitosDe, efeitosNeutros, type EfeitosArvore } from "./efeitos";
 import { passoCapitulos } from "./capitulos";
 import { passoRemocoes } from "./mundo";
@@ -103,9 +103,11 @@ export function passoNucleo(
   const t = temperatura(calorU, capacidade);
   const faixa = faixaDeCalor(t);
 
-  // 5. pesquisa e Estabilidade (nada durante o SCRAM; Estabilidade só com o Núcleo produzindo)
+  // 5. pesquisa e Estabilidade (nada durante o SCRAM; Estabilidade só com o Núcleo produzindo — e, na
+  //    Era 2, só com fissão: o decaimento de um reator sem combustível não conta, Parte 2 §5.2)
   const pesquisaGanha = scramAtivo ? 0 : pesquisaPorSegundo(potenciaKw, t, motor.pesquisaPorKw) * dtS;
-  const porMinuto = scramAtivo || potenciaKw <= 0 ? 0 : faixa.estabilidadePorMinuto;
+  const operando = !scramAtivo && potenciaKw > 0 && (atual.era !== 2 || fissionando(atual));
+  const porMinuto = operando ? faixa.estabilidadePorMinuto : 0;
   const estabilidade = passoEstabilidade(atual.estabilidade, porMinuto, dtS);
 
   const scramRestanteMs = Math.max(0, atual.scramRestanteMs - dtMs);
