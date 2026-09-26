@@ -162,7 +162,8 @@ export class TabuleiroScene extends Phaser.Scene {
       if (loja.nivel !== ctl.nivel) loja.irParaNivel(ctl.nivel);
     }
 
-    this.sincronizarCena(loja.state, loja);
+    // a entrada é montada a cada quadro e entra no orçamento de 3 ms da §10.1 (Sessão 9, parte F)
+    marcar("entrada", () => this.sincronizarCena(loja.state, loja));
   }
 
   /** Tudo o que a cena precisa do estado, montado uma vez por frame. */
