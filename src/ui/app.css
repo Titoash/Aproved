@@ -71,10 +71,32 @@ h2 {
   z-index: 1;
   height: 100%;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  /* HUD, capítulo, principal, Kardashev, save: linhas explícitas. Com quatro linhas o capítulo ficava com
+     a `1fr` de altura 0 e transbordava por cima do tabuleiro no desktop (Sessão 9, parte E). */
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
   gap: 8px 0;
   padding: 0 20px 8px;
   overflow: hidden;
+}
+
+.camada-ui > .hud {
+  grid-row: 1;
+}
+
+.camada-ui > .capitulo {
+  grid-row: 2;
+}
+
+.camada-ui > .principal {
+  grid-row: 3;
+}
+
+.camada-ui > .kardashev {
+  grid-row: 4;
+}
+
+.camada-ui > .rodape-save {
+  grid-row: 5;
 }
 
 .principal {
@@ -145,6 +167,24 @@ h2 {
   width: 12px;
   height: 12px;
   border-radius: 50%;
+}
+
+/* Estabilidade como anel fino em volta da esfera do 🔥 (GDD §10.1, v0.8) */
+.hud-anel {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: conic-gradient(var(--leaf) var(--estab, 0%), rgba(255, 255, 255, 0.14) 0);
+}
+
+.hud-anel .hud-esfera {
+  border: 2px solid var(--navy);
+}
+
+.hud-rotulo--negativo {
+  color: var(--coral);
 }
 
 /* ---------- Núcleo: palco, sem cartão ---------- */
@@ -426,6 +466,73 @@ h2 {
   margin-top: 4px;
   color: var(--muted);
   font-size: var(--t-12);
+}
+
+/* Carta da paleta com o nível do tipo (v0.8): o rádio em cima e, colada embaixo, a faixa do próximo nível
+   (irmã do rádio, nunca dentro dele). */
+.paleta-carta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.paleta-carta > .paleta-item {
+  flex: 1 1 auto;
+}
+
+.paleta-carta--nivel > .paleta-item {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.paleta-nivel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--card-borda);
+  border-top: 0;
+  border-radius: 0 0 14px 14px;
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--t-12);
+  text-align: left;
+  cursor: pointer;
+}
+
+.paleta-nivel:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--sun) 50%, var(--card-borda));
+}
+
+.paleta-nivel:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.paleta-nivel--max {
+  cursor: default;
+}
+
+.paleta-nivel-efeito {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.paleta-nivel-botao {
+  flex: none;
+  color: var(--sun);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.paleta-nome .marca-nivel {
+  margin-left: 6px;
 }
 
 /* ---------- Extrato ---------- */
@@ -1363,27 +1470,17 @@ h2 {
 }
 
 @media (max-width: 600px) {
-  /* 🔬 e 👥 ficam: são decisão, não enfeite (GDD §7, v0.6). Só a Estabilidade some. */
-  .hud-item--extra {
-    display: none;
-  }
-
-  /* Com 🔬 e 👥 na faixa, quatro itens não cabem numa linha de 390 px: quebram em duas. */
+  /* Quatro itens em 2×2 (GDD §10.1, v0.8): ₵ e ⚡ em cima, 🔥 e 🔬 embaixo, com rótulos compactos. */
   .hud {
-    flex-wrap: wrap;
-    gap: 6px 18px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 6px 14px;
     padding-bottom: 8px;
+    overflow: visible;
   }
 
-  .hud-item--creditos,
-  .hud-item--oferta {
-    flex: 1 1 46%;
-  }
-
-  .hud-item--ciencia,
-  .hud-item--populacao,
-  .hud-item--calor {
-    flex: 0 1 auto;
+  .hud-item {
+    min-width: 0;
   }
 
   .hud-valor--grande {
@@ -1412,7 +1509,9 @@ h2 {
   }
 
   .hud-rotulo {
-    display: none;
+    font-size: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .kardashev-marco-rotulo--longo {
@@ -1443,24 +1542,21 @@ h2 {
 
 /* ---------- Capítulo ativo (GDD §12, v0.6) ---------- */
 
+/* Uma linha (GDD §10.1, v0.8): objetivo com reticências, números e recompensa; o progresso é o sublinhado. */
 .capitulo {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) 120px auto;
-  align-items: center;
+  position: relative;
+  display: flex;
+  align-items: baseline;
   gap: 10px;
-  padding: 7px 4px;
+  min-width: 0;
+  padding: 6px 4px 7px;
   border-bottom: 1px solid var(--card-borda);
   font-size: var(--t-12);
 }
 
-.capitulo-titulo {
-  font-family: var(--fonte-titulo);
-  font-weight: 600;
-  color: var(--sun);
-  white-space: nowrap;
-}
-
 .capitulo-objetivo {
+  flex: 1 1 auto;
+  min-width: 0;
   color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1468,9 +1564,11 @@ h2 {
 }
 
 .capitulo-progresso {
-  height: 6px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.08);
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
   overflow: hidden;
 }
 
@@ -1478,11 +1576,11 @@ h2 {
   display: block;
   height: 100%;
   background: var(--leaf);
-  border-radius: 3px;
   transition: width 0.25s ease-out;
 }
 
 .capitulo-numeros {
+  flex: none;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -1669,20 +1767,6 @@ h2 {
 }
 
 @media (max-width: 600px) {
-  .capitulo {
-    grid-template-columns: minmax(0, 1fr) auto;
-    row-gap: 4px;
-  }
-
-  .capitulo-titulo {
-    grid-column: 1 / -1;
-  }
-
-  .capitulo-progresso {
-    grid-column: 1 / -1;
-    width: 100%;
-  }
-
   .arvore-fundo {
     padding: 12px 8px;
   }

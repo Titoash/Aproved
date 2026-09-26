@@ -14,24 +14,17 @@ import { avaliarEvolucaoCidade, custoEvolucaoCidade, defDaCidade, defDaDensidade
 import { formatarCreditos, formatarNumero, formatarPotencia } from "../sim/formatar";
 import { nomeConstrucao, valorRemocao } from "../sim/mundo";
 import { analisar, ehSubestacao, ehUsina, ilhaDaCasa } from "../sim/producao";
-import type { AlvoMelhoria, GameState, TipoConstrucao } from "../sim/state";
+import type { GameState } from "../sim/state";
 import { useGameStore } from "../store/gameStore";
 import { BotaoNivel } from "./LinhaNivel";
-
-/** O nível que vale para esta construção: o do tipo dela (v0.8). `null` = o tipo não tem nível. */
-function alvoDoTipo(tipo: TipoConstrucao): AlvoMelhoria | null {
-  if (ehUsina(tipo)) return { tipo: "usina", id: tipo };
-  if (ehSubestacao(tipo)) return { tipo: "subestacao", id: tipo };
-  if (tipo === "laboratorio" || tipo === "universidade" || tipo === "institutoPesquisa") return { tipo: "ciencia", id: tipo };
-  return null;
-}
+import { alvoDoTipo } from "./niveis";
 
 function detalhe(state: GameState, indice: number): string {
   const c = state.mundo.construcoes[indice];
   const analise = analisar(state);
   if (c.tipo === "bairro") {
     const def = defDaCidade(state);
-    return `${def.nome} · ${formatarPotencia(def.demandaKw)} de demanda · 👥 ${formatarNumero(def.populacao, 0)} · tarifa ×${formatarNumero(def.tarifa, 2)}`;
+    return `${def.nome} · ${formatarPotencia(def.demandaKw)} de demanda · 👥 ${formatarNumero(def.populacao, 0)} (a cidade: ${formatarNumero(analise.populacao, 0)}) · tarifa ×${formatarNumero(def.tarifa, 2)}`;
   }
   if (ehSubestacao(c.tipo)) {
     const s = analise.subestacoes.find((x) => x.indice === indice);

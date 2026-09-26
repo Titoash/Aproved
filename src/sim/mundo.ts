@@ -98,7 +98,7 @@ const ehCiencia = (tipo: TipoConstrucao): tipo is TipoCiencia => (TIPOS_CIENCIA 
  * revisão da v0.9). Nos três o custo de evoluir multiplica por N, e sem o acumulado valeria evoluir com
  * uma unidade e construir o resto depois.
  */
-function acumuladoDaUnidade(state: GameState, tipo: TipoConstrucao): number {
+export function acumuladoDaUnidade(state: GameState, tipo: TipoConstrucao): number {
   if (tipo === "bairro") return custoAcumuladoPorBairro(state.cidade.densidade).creditos;
   if (ehSubestacao(tipo)) {
     const def = ESCOAMENTO[tipo];

@@ -7,11 +7,19 @@ import { efeitosDe } from "../sim/efeitos";
 import { formatarNumero, formatarPotencia } from "../sim/formatar";
 import { nivelDe } from "../sim/melhorias";
 import { bipesNoNivel, fatorCiencia, fatorPeca, fatorUsina } from "../sim/niveis";
-import { ESCOAMENTO, tetoCabo, tetoDeSubestacao } from "../sim/producao";
-import type { AlvoMelhoria, GameState } from "../sim/state";
+import { ESCOAMENTO, ehSubestacao, ehUsina, tetoCabo, tetoDeSubestacao } from "../sim/producao";
+import type { AlvoMelhoria, GameState, TipoConstrucao } from "../sim/state";
 import type { ItemIcone } from "./icones";
 
 const NOME_CIENCIA = { laboratorio: LABORATORIO.nome, universidade: UNIVERSIDADE.nome, institutoPesquisa: INSTITUTO.nome } as const;
+
+/** O nível que vale para esta construção: o do tipo dela (v0.8). `null` = o tipo não tem nível. */
+export function alvoDoTipo(tipo: TipoConstrucao): AlvoMelhoria | null {
+  if (ehUsina(tipo)) return { tipo: "usina", id: tipo };
+  if (ehSubestacao(tipo)) return { tipo: "subestacao", id: tipo };
+  if (tipo === "laboratorio" || tipo === "universidade" || tipo === "institutoPesquisa") return { tipo: "ciencia", id: tipo };
+  return null;
+}
 
 /** Nome do tipo, ícone e o que o nível atual faz, em texto curto. */
 export function descreverNivel(state: GameState, alvo: AlvoMelhoria): { nome: string; icone: ItemIcone | null; efeito: string } {

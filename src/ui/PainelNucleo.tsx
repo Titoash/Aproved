@@ -337,6 +337,8 @@ function Operacao({ nucleo }: { nucleo: NucleoState }) {
         </p>
       ) : null}
       <BarraCalor nucleo={nucleo} efeitos={efeitos} tempoMs={state.tempoMs} />
+      {/* 🛡 mora aqui desde que saiu do HUD (GDD §10.1, v0.8): logo abaixo do calor, que é o que a faz subir. */}
+      <BarraEstabilidade nucleo={nucleo} />
       <p className="nucleo-status">
         <span>⚡ {era2 ? "Reator" : "Núcleo"} {formatarPotencia(potencia)}</span>
         <span>🔬 +{formatarNumero(emScram ? 0 : pesquisaPorSegundo(potencia, t, motor.pesquisaPorKw), 2)}/s</span>
@@ -357,7 +359,6 @@ function Operacao({ nucleo }: { nucleo: NucleoState }) {
       {era2 ? <TrocarTodas /> : null}
       <SeletorPecas era={nucleo.era} />
       {aviso && state.tempoMs - aviso.emTempoMs < DURACAO_AVISO_MS ? <p className="aviso aviso--erro nucleo-aviso">{aviso.texto}</p> : null}
-      <BarraEstabilidade nucleo={nucleo} />
       <ConstruirReator />
       <FimDaEra2 />
       <div className="nucleo-controles">
