@@ -147,14 +147,14 @@ Frases de física:
 
 ## 6. Árvore da Era 2 (🔬 gasto; cada nó com uma frase de física de verdade)
 
-Custos na régua ×10 da Era 1 (a árvore da Era 1 somou ≈ 🔬 22 mil; esta soma **🔬 193 mil**). A produção escreveu as frases e conferiu os números.
+Custos na régua ×10 da Era 1 (a árvore da Era 1 somou ≈ 🔬 22 mil; esta soma **🔬 193 mil**, 194,5 mil com as Escavadeiras da v0.8). A produção escreveu as frases e conferiu os números.
 
 *(Sessão 8, medido.)* O reator sozinho rende 🔬 10,4/s na zona de ouro — 37 mil por hora, um quinto da árvore. **Quem paga a árvore da Era 2 é a cidade:** com 25 universidades e a população da era, a simulação mede ≈ 🔬 73/s, e o bot compra o caminho todo até a saída em 61 minutos. O reator é a fonte que **não depende de espaço**; as universidades são a que escala.
 
 - **Fissão:** Barra de controle (🔬 500) → Piscina de resfriamento (🔬 2 000) → Enriquecimento a 5 % (varetas +25 % de calor, 🔬 6 000) → Combustível MOX (vida ×1,5, 🔬 9 000) → **Reator 7×7** (🔬 15 000 + ₵ 150 000). Escolha exclusiva no fim (🔬 25 000 cada): Água pesada (varetas duram ×2, −15 % de calor) × Alta temperatura (+30 % de kW por u, vida ×0,7).
 - **Térmica:** Ciclo combinado (térmica +30 %, 🔬 3 000) → Cogeração (bairros a ≤ 2 casas: tarifa +10 % em vez de −10 %, 🔬 8 000) → Selo verde (captura de carbono: tarifa média +5 %, combustível +20 %, 🔬 12 000).
 - **Offshore:** Subestação offshore (🔬 1 500) → Fundação flutuante (eólica em mar fundo, 🔬 7 000) → Pás de 100 m (offshore +40 %, 🔬 10 000).
-- **Rede:** Subestação de 138 kV (🔬 1 000) → Bateria de rede (🔬 4 000) → Cabo HVDC (🔬 4 000 + ₵ 100 000) → Rede inteligente (bateria de rede ±×2, 🔬 11 000).
+- **Rede:** Subestação de 138 kV (🔬 1 000) → Bateria de rede (🔬 4 000) → Cabo HVDC (🔬 4 000 + ₵ 100 000) → Rede inteligente (bateria de rede ±×2, 🔬 11 000); Escavadeiras (tempos de remoção ÷ 2 de novo, 🔬 1 500, exige Máquinas pesadas da Era 1; v0.8, §3.2).
 - **Cidade:** Megacidade (🔬 2 500) → Indústria pesada (🔬 5 000) → Instituto de pesquisa (🔬 3 500); Megacidade → Arcologia (🔬 14 000) → Bombas de calor II (tarifa +10 %, 🔬 9 000). *(Ajuste 4 da Sessão 8: a Arcologia exige só a Megacidade; o instituto é ciência, a arcologia é cidade. O código muda na parte 0 da Sessão 9.)*
 - **Saída da era:** **Fusão básica** (🔬 40 000 + ₵ 5 000 000, exige Piscina e Reator 7×7) + Estabilidade 100 % → Era 3 (Sessão 11). Aqui o jogo para com um aviso até a Era 3 existir.
 
