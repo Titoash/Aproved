@@ -5,8 +5,14 @@
  * nada aqui reimplementa regra de jogo — todas as decisões passam pelas mesmas funções puras que a
  * interface usa (`colocar`, `pesquisar`, `evoluirBairro`, `comprarIlha`, `ligarCabo`, `tick`).
  *
- *   npm run simular            60 minutos, relatório a cada 5 min e os 10 primeiros em detalhe
- *   npm run simular -- 90      90 minutos
+ *   npm run simular                  Era 1 (até 60 min) e Era 2 (75 min) nas duas rotas
+ *   npm run simular -- 90            90 minutos de Era 1
+ *   npm run simular -- 60 75 cidade  só a rota "cidade" na Era 2 ("corrida", "cidade" ou "ambas")
+ *
+ * Rotas da Era 2 (ajuste 3 da Sessão 8): **corrida** é o jogador que vai direto à saída; **cidade**
+ * evolui os bairros até a arcologia, compra distrito industrial, instituto e a escolha exclusiva do
+ * reator, e só depois corre para a saída. A Era 1 é a mesma nas duas: roda uma vez e a Era 2 parte do
+ * mesmo estado.
  *
  * O objetivo é medir ritmo, não vencer: se o bot fecha a Era 1 em 50–70 minutos, os números de §8.5 e
  * §8.6 estão no lugar.
@@ -19,7 +25,7 @@ import { ILHAS, OBSTACULOS } from "../src/content/era1-arquipelago";
 import { NUCLEO, PECAS } from "../src/content/era1-nucleo";
 import { PECA_POR_ID } from "../src/content/pecas";
 import { USINAS } from "../src/content/usinas";
-import { pesquisar, podePesquisar, proximoNo } from "../src/sim/arvore";
+import { disponivel, pesquisado, pesquisar, podePesquisar, proximoNo } from "../src/sim/arvore";
 import { desbloquearNucleo, colocarPeca, podeDesbloquearNucleo } from "../src/sim/acoesNucleo";
 import { indiceCasa, naPlataforma } from "../src/sim/arquipelago";
 import { capituloAtivo } from "../src/sim/capitulos";
@@ -464,8 +470,28 @@ function melhorCasaDeAgua(state: GameState, tipo: TipoConstrucao): number | null
   return null;
 }
 
+export type Rota = "corrida" | "cidade";
+
+/** Distritos e institutos que a rota "cidade" quer ver de pé antes de correr para a saída. */
+const META_CIDADE = { distritos: 2, institutos: 2 } as const;
+/** Densidade da arcologia no `nivel` do bairro (0 = aldeia … 5 = arcologia). */
+const NIVEL_ARCOLOGIA = DENSIDADES.length - 1;
+
+/**
+ * A rota "cidade" cumpriu o que queria antes da saída: todos os bairros na arcologia, os distritos e os
+ * institutos de pé, e a escolha exclusiva do reator feita. Na rota "corrida" não há meta.
+ */
+function metaDaCidade(s: GameState, rota: Rota): boolean {
+  if (rota === "corrida") return true;
+  const a = analisar(s);
+  const bairros = Object.values(s.mundo.construcoes).filter((c) => c.tipo === "bairro");
+  const todosNaArcologia = bairros.length > 0 && bairros.every((c) => c.nivel >= NIVEL_ARCOLOGIA);
+  const exclusiva = s.pesquisados.includes("aguaPesada") || s.pesquisados.includes("altaTemperatura");
+  return todosNaArcologia && a.contagem.distritoIndustrial >= META_CIDADE.distritos && a.contagem.institutoPesquisa >= META_CIDADE.institutos && exclusiva;
+}
+
 /** Uma rodada de decisões da Era 2. */
-function decidirEra2(state: GameState, compras: Map<string, number>): GameState {
+function decidirEra2(state: GameState, compras: Map<string, number>, rota: Rota = "corrida"): GameState {
   const registrar = (o: string) => compras.set(o, (compras.get(o) ?? 0) + 1);
   const aplicar = (proximo: GameState | null, o: string): GameState | null => {
     if (!proximo) return null;
@@ -480,7 +506,8 @@ function decidirEra2(state: GameState, compras: Map<string, number>): GameState 
    * de bairro para juntar o que a saída pede (Reator 7×7 + Fusão básica). Sem isto o bot dissolvia
    * 🔬 144 mil em megacidades e nunca chegava à porta.
    */
-  const retaFinal = (s.nucleo?.estabilidade ?? 0) >= 100;
+  // Na rota "cidade" a reta final só começa depois da meta da cidade (ajuste 3 da Sessão 8).
+  const retaFinal = (s.nucleo?.estabilidade ?? 0) >= 100 && metaDaCidade(s, rota);
 
   // 1. o reator: é a fonte de 🔬 e de Estabilidade
   s = operarReator(s, registrar);
@@ -538,7 +565,11 @@ function decidirEra2(state: GameState, compras: Map<string, number>): GameState 
     const evoluivel = retaFinal ? undefined : bairros.find((i) => podeEvoluirBairro(s, i));
     if (evoluivel !== undefined) {
       s = aplicar(evoluirBairro(s, evoluivel), `bairro → densidade ${s.mundo.construcoes[evoluivel].nivel + 2}`) ?? s;
-    } else if (s.pesquisados.includes("industriaPesada") && s.creditos > custoColocar(s, "distritoIndustrial") * 2) {
+    } else if (
+      s.pesquisados.includes("industriaPesada") &&
+      s.creditos > custoColocar(s, "distritoIndustrial") * 2 &&
+      (rota === "corrida" || analise.contagem.distritoIndustrial < META_CIDADE.distritos * 2)
+    ) {
       const casa = melhorCasa(s, "distritoIndustrial");
       if (casa !== null) s = aplicar(colocar(s, casa, "distritoIndustrial"), "distrito industrial") ?? s;
     } else if (s.creditos >= custoColocar(s, "bairro") * 4) {
@@ -572,11 +603,20 @@ function decidirEra2(state: GameState, compras: Map<string, number>): GameState 
     "combustivelMox",
     "reator7x7",
   ];
+  // A rota "cidade" põe a cidade e a escolha exclusiva do reator antes do resto (ajuste 3 da Sessão 8).
+  const prioritariosDaCidade = ["subestacaoDe138kV", "barraDeControle", "subestacaoOffshore", "piscinaDeResfriamento", "megacidade", "industriaPesada", "institutoDePesquisa", "arcologia", "enriquecimento", "caboHvdc", "combustivelMox", "reator7x7", "aguaPesada"];
+  const focoNaCidade = rota === "cidade" && !metaDaCidade(s, rota);
+  const lista = focoNaCidade ? prioritariosDaCidade : prioritarios;
+  // Quem mira a cidade guarda 🔬 para o próximo nó da meta em vez de gastar no nó mais barato do resto.
+  const proximoDaMeta = focoNaCidade ? prioritariosDaCidade.find((id) => !pesquisado(s, id) && disponivel(s, id)) : undefined;
+  const guardando = proximoDaMeta !== undefined && !podePesquisar(s, proximoDaMeta);
   // Na reta final só se compra o caminho da saída; fora dela, os nós que destravam prédios primeiro.
   const caminhoDaSaida = ["enriquecimento", "combustivelMox", "reator7x7", "fusaoBasica"];
   const escolha = retaFinal
     ? caminhoDaSaida.find((id) => podePesquisar(s, id))
-    : (prioritarios.find((id) => podePesquisar(s, id)) ?? NOS.filter((no) => no.id !== "fusaoBasica" && podePesquisar(s, no.id)).sort((a, c) => a.pesquisa - c.pesquisa)[0]?.id);
+    : guardando
+      ? undefined
+      : (lista.find((id) => podePesquisar(s, id)) ?? NOS.filter((no) => no.id !== "fusaoBasica" && podePesquisar(s, no.id)).sort((a, c) => a.pesquisa - c.pesquisa)[0]?.id);
   if (escolha && podePesquisar(s, escolha)) {
     s = aplicar(pesquisar(s, escolha), `nó ${NO_POR_ID[escolha].nome}`) ?? s;
   }
@@ -743,11 +783,57 @@ export async function main(args: string[] = []): Promise<void> {
     console.log("\nO bot não chegou à Era 2: faltou Estabilidade 100 %, o nó Fissão básica ou os ₵ 200 000 do Vaso.\n");
     return;
   }
-  const creditosAntes = s.creditos;
-  s = construirReator(s)!;
+  const rotaPedida = args[2] === "corrida" || args[2] === "cidade" ? [args[2] as Rota] : (["corrida", "cidade"] as Rota[]);
+  const resumos: ResumoEra2[] = [];
+  for (const rota of rotaPedida) {
+    resumos.push(simularEra2(s, rota, minutosEra2, minutoDaTransicao, pesquisaGanha, pesquisaAnterior));
+  }
+  if (resumos.length > 1) {
+    console.log("=".repeat(120));
+    console.log("AS DUAS ROTAS DA ERA 2 (ajuste 3 da Sessão 8)\n");
+    const linhas: [string, (r: ResumoEra2) => string][] = [
+      ["fecha em", (r) => (r.fechou === null ? "não fechou" : `${num(r.fechou, 1)} min`)],
+      ["Estabilidade 100 %", (r) => (r.estabilidade100 === null ? "—" : `${num(r.estabilidade100, 1)} min`)],
+      ["potência instalada", (r) => kw(r.potenciaKw)],
+      ["população", (r) => num(r.populacao)],
+      ["arcologia", (r) => (r.arcologia === null ? "não aconteceu" : `${num(r.arcologia, 1)} min`)],
+      ["distritos / institutos", (r) => `${r.distritos} / ${r.institutos}`],
+      ["escolha exclusiva", (r) => r.exclusiva ?? "nenhuma"],
+      ["receita líquida negativa", (r) => `${r.minutosNegativos} min (pior sequência ${r.piorSequencia})`],
+      ["₵ e 🔬 no fim", (r) => `₵ ${num(r.creditos)} · 🔬 ${num(r.pesquisa)}`],
+    ];
+    console.log(`  ${"".padEnd(26)}${resumos.map((r) => r.rota.padEnd(30)).join("")}`);
+    for (const [nome, f] of linhas) console.log(`  ${nome.padEnd(26)}${resumos.map((r) => f(r).padEnd(30)).join("")}`);
+    console.log("");
+  }
+}
+
+interface ResumoEra2 {
+  rota: Rota;
+  fechou: number | null;
+  estabilidade100: number | null;
+  potenciaKw: number;
+  populacao: number;
+  arcologia: number | null;
+  distritos: number;
+  institutos: number;
+  exclusiva: string | null;
+  minutosNegativos: number;
+  piorSequencia: number;
+  creditos: number;
+  pesquisa: number;
+}
+
+/** Joga a Era 2 inteira numa rota, a partir do estado em que a Era 1 terminou. */
+function simularEra2(estadoFinalEra1: GameState, rota: Rota, minutosEra2: number, minutoDaTransicao: number, pesquisaGanhaEra1: number, pesquisaAnteriorEra1: number): ResumoEra2 {
+  const ticksPorMinuto = (60 * 1000) / TICK_MS;
+  let pesquisaGanha = pesquisaGanhaEra1;
+  let pesquisaAnterior = pesquisaAnteriorEra1;
+  const creditosAntes = estadoFinalEra1.creditos;
+  let s = construirReator(estadoFinalEra1)!;
   console.log("\n" + "=".repeat(120));
   console.log(
-    `ERA 2 — o Reator construído aos ${num(minutoDaTransicao, 0)} min por ₵ ${num(REATOR.custoVaso)} ` +
+    `ERA 2, rota "${rota}" — o Reator construído aos ${num(minutoDaTransicao, 0)} min por ₵ ${num(REATOR.custoVaso)} ` +
       `(sobraram ₵ ${num(s.creditos)} dos ₵ ${num(creditosAntes)}). Os dez primeiros minutos, minuto a minuto:\n`,
   );
 
@@ -760,7 +846,10 @@ export async function main(args: string[] = []): Promise<void> {
     "primeira térmica a gás": null,
     "10 MW instalados": null,
     "megacidade": null,
+    "arcologia": null,
     "distrito industrial": null,
+    "instituto de pesquisa": null,
+    "escolha exclusiva do reator": null,
     "nó Reator 7×7 comprado": null,
     "Estabilidade 100 % (saída da Era 2)": null,
     "nó Fusão básica comprado (saída da Era 2)": null,
@@ -768,12 +857,12 @@ export async function main(args: string[] = []): Promise<void> {
   let minutosNegativos = 0;
   let sequenciaNegativa = 0;
   let piorSequencia = 0;
-  compras.clear();
+  const compras = new Map<string, number>();
   for (let minuto = 1; minuto <= minutosEra2; minuto++) {
     let negativoNoMinuto = 0;
     for (let t = 0; t < ticksPorMinuto; t++) {
       s = tick(s);
-      if (t % 20 === 0) s = decidirEra2(s, compras);
+      if (t % 20 === 0) s = decidirEra2(s, compras, rota);
       const ganho = s.pesquisa - pesquisaAnterior;
       if (ganho > 0) pesquisaGanha += ganho;
       pesquisaAnterior = s.pesquisa;
@@ -793,7 +882,10 @@ export async function main(args: string[] = []): Promise<void> {
       marcar("primeira térmica a gás", a.contagem.termicaGas > 0);
       marcar("10 MW instalados", a.brutoKw >= 10_000);
       marcar("megacidade", Object.values(s.mundo.construcoes).some((c) => c.tipo === "bairro" && c.nivel >= 4));
+      marcar("arcologia", Object.values(s.mundo.construcoes).some((c) => c.tipo === "bairro" && c.nivel >= NIVEL_ARCOLOGIA));
       marcar("distrito industrial", a.contagem.distritoIndustrial > 0);
+      marcar("instituto de pesquisa", a.contagem.institutoPesquisa > 0);
+      marcar("escolha exclusiva do reator", s.pesquisados.includes("aguaPesada") || s.pesquisados.includes("altaTemperatura"));
       marcar("nó Reator 7×7 comprado", s.pesquisados.includes("reator7x7"));
       marcar("Estabilidade 100 % (saída da Era 2)", (s.nucleo?.estabilidade ?? 0) >= 100);
       marcar("nó Fusão básica comprado (saída da Era 2)", s.pesquisados.includes("fusaoBasica"));
@@ -812,7 +904,7 @@ export async function main(args: string[] = []): Promise<void> {
     if (minuto === 10) console.log("\nDe cinco em cinco minutos:\n");
   }
 
-  console.log("\nMarcos da Era 2:");
+  console.log(`\nMarcos da Era 2 (rota "${rota}"):`);
   for (const [nome, valor] of Object.entries(marcos2)) {
     console.log(`  ${nome.padEnd(42)} ${valor === null ? "não aconteceu" : `${num(valor, 1)} min`}`);
   }
@@ -820,7 +912,23 @@ export async function main(args: string[] = []): Promise<void> {
   const fechou2 = fim2.every((v) => v !== null) ? Math.max(...(fim2 as number[])) : null;
   console.log(`\nEra 2 fecharia em: ${fechou2 === null ? "não fechou dentro da simulação" : `${num(fechou2, 1)} min`} (alvo: 50–70 min)`);
   console.log(`Receita líquida negativa: ${minutosNegativos} minuto(s), pior sequência ${piorSequencia} (alvo: nunca mais de 1)`);
-  imprimirEstado(s, pesquisaGanha, "Estado no fim da Era 2");
+  imprimirEstado(s, pesquisaGanha, `Estado no fim da Era 2 (rota "${rota}")`);
+  const a = analisar(s);
+  return {
+    rota,
+    fechou: fechou2,
+    estabilidade100: marcos2["Estabilidade 100 % (saída da Era 2)"],
+    potenciaKw: a.brutoKw,
+    populacao: a.populacao,
+    arcologia: marcos2["arcologia"],
+    distritos: a.contagem.distritoIndustrial,
+    institutos: a.contagem.institutoPesquisa,
+    exclusiva: s.pesquisados.includes("aguaPesada") ? "Água pesada" : s.pesquisados.includes("altaTemperatura") ? "Alta temperatura" : null,
+    minutosNegativos,
+    piorSequencia,
+    creditos: s.creditos,
+    pesquisa: s.pesquisa,
+  };
 }
 
 /** Potência efetiva do Núcleo no estado (o decaimento da Era 2 depende do relógio). */
