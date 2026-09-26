@@ -191,7 +191,14 @@ export function tick(state: GameState, dtMs: number = TICK_MS): GameState {
 
 /** Aplica `n` ticks de `TICK_MS`. */
 export function avancarTicks(state: GameState, n: number): GameState {
+  if (n <= 1) return n === 1 ? tick(state, TICK_MS) : state;
+  // Cada tick limpa a fila de eventos: com vários de uma vez (aba que volta, roteiros), os do meio se
+  // perdiam e o diário e os cards não viam uma árvore cair (Sessão 9, parte F). O estado final leva todos.
   let atual = state;
-  for (let i = 0; i < n; i++) atual = tick(atual, TICK_MS);
-  return atual;
+  const eventos: EventoJogo[] = [];
+  for (let i = 0; i < n; i++) {
+    atual = tick(atual, TICK_MS);
+    for (const e of atual.eventos) eventos.push(e);
+  }
+  return eventos.length === atual.eventos.length ? atual : { ...atual, eventos };
 }

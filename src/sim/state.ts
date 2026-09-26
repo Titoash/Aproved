@@ -193,7 +193,7 @@ export type EventoJogo =
   | { tipo: "cascata"; entradaUs: number; saidaUs: number }
   | { tipo: "ilhaAberta"; id: IlhaId }
   | { tipo: "nucleoDesbloqueado" }
-  | { tipo: "obstaculoRemovido"; indice: number; cristal: boolean }
+  | { tipo: "obstaculoRemovido"; indice: number; obstaculo: TipoObstaculo; cristal: boolean }
   /** A cidade inteira subiu uma densidade (v0.8). */
   | { tipo: "cidadeEvoluida"; densidade: Densidade; bairros: number }
   | { tipo: "noPesquisado"; id: string }

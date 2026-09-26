@@ -255,7 +255,7 @@ describe("escoamento por subestação (GDD §2.4, §7)", () => {
     expect(a.brutoKw).toBeGreaterThan(CABO.tetoKw);
     expect(a.ofertaKw).toBeCloseTo(CABO.tetoKw, 10);
     expect(a.semEscoamentoKw).toBeCloseTo(a.brutoKw - CABO.tetoKw, 10);
-    expect(a.cabos).toEqual([{ ilha: "ventania", nivel: 0, tetoKw: CABO.tetoKw, usadoKw: CABO.tetoKw }]);
+    expect(a.cabos).toEqual([{ ilha: "ventania", nivel: 0, tetoKw: CABO.tetoKw, usadoKw: CABO.tetoKw, exportadoKw: CABO.tetoKw, importadoKw: 0 }]);
 
     const nivel1 = melhorar(ligada, { tipo: "cabos" })!;
     expect(analisar(nivel1).ofertaKw).toBeCloseTo(Math.min(a.brutoKw, CABO.tetoKw * CABO.tetoNivel), 10);

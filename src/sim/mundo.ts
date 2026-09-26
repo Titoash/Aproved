@@ -470,7 +470,7 @@ export function passoRemocoes(state: GameState, arq: Arquipelago = arquipelagoDa
       }
     }
     pesquisa += def.devolvePesquisa ?? 0;
-    eventos.push({ tipo: "obstaculoRemovido", indice: r.indice, cristal: !!def.deixaCristal });
+    eventos.push({ tipo: "obstaculoRemovido", indice: r.indice, obstaculo: r.tipo, cristal: !!def.deixaCristal });
   }
   return { ...state, pesquisa, mundo: { ...state.mundo, removidos, remocoes: fila, cristais }, eventos };
 }

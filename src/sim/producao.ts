@@ -257,6 +257,23 @@ export interface UsinaAnalise {
   subestacao: number | null;
   /** ₵/s de combustível enquanto liga (térmica a gás; 0 nas outras). */
   custoPorSegundo: number;
+  /** Fração do tempo ligada: a térmica só queima o que vende (a chaminé da cena fumega com ela). 1 nas outras. */
+  fracaoLigada: number;
+}
+
+/**
+ * Quem consome, para a cena (GDD §10.1, parte F da Sessão 9): o fio da subestação até ele e o que ele rende.
+ * `peso` é a fatia dele na receita (demanda × tarifa); a ciência não paga tarifa e rende `pesquisaPorSegundo`.
+ */
+export interface ConsumidorAnalise {
+  indice: number;
+  tipo: TipoConstrucao;
+  /** Casa da subestação que o atende. */
+  subestacao: number;
+  /** Fatia da receita (soma 1 entre bairros e distritos atendidos; 0 na ciência). */
+  peso: number;
+  /** 🔬/s dele, já com nível e cristal (0 em bairros e distritos). */
+  pesquisaPorSegundo: number;
 }
 
 export interface CaboAnalise {
@@ -265,6 +282,10 @@ export interface CaboAnalise {
   tetoKw: number;
   /** kW que passam pelo cabo neste instante (exportados + importados). */
   usadoKw: number;
+  /** Da ilha para a rede principal. */
+  exportadoKw: number;
+  /** Da rede principal para a ilha. */
+  importadoKw: number;
 }
 
 export interface SubestacaoAnalise {
@@ -308,6 +329,8 @@ export interface AnaliseMundo {
   universidadesAtivas: number;
   /** Bairros em ilha sem cabo cuja energia vem só da própria ilha. */
   ilhasIsoladas: IlhaId[];
+  /** Consumidores atendidos, com a subestação e a fatia de cada um (cena: fios, "+₵", "+🔬"). */
+  consumidores: ConsumidorAnalise[];
   /** Cabos ligados e o quanto de cada teto está em uso (GDD §8.5). */
   cabos: CaboAnalise[];
 }
@@ -440,6 +463,7 @@ export function analisarMundo(
       fatorPico,
       subestacao: null,
       custoPorSegundo: 0,
+      fracaoLigada: 1,
     };
     usinas.push(analise);
     for (const casa of proprias) porCasa.set(casa, analise);
@@ -480,6 +504,7 @@ export function analisarMundo(
     const fracao = u.brutoKw > 0 ? u.escoadoKw / u.brutoKw : 0;
     if (u.subestacao !== null) u.subestacao = u.escoadoKw > 0 ? u.subestacao : null;
     u.brutoKw = u.escoadoKw;
+    u.fracaoLigada = fracao;
     u.custoPorSegundo = def.combustivelPorSegundo * fracao * efeitos.combustivelFator;
     custoOperacaoPorSegundo += u.custoPorSegundo;
   }
@@ -492,19 +517,21 @@ export function analisarMundo(
     lista.push(s.indice);
     porTipoDeSubestacao.set(s.tipo, lista);
   }
-  /** Há subestação (do tipo exigido, quando exigido) no alcance desta casa e na mesma ilha? */
-  const temSubestacaoPerto = (casa: number, exigida?: TipoConstrucao): boolean => {
+  /** Casa da subestação (do tipo exigido, quando exigido) no alcance desta casa e na mesma ilha; `null` sem. */
+  const subestacaoPerto = (casa: number, exigida?: TipoConstrucao): number | null => {
     const ilhaCasa = ilhaDe[casa];
-    if (ilhaCasa < 0) return false;
+    if (ilhaCasa < 0) return null;
     const x = casa % n;
     const y = Math.floor(casa / n);
     for (const s of subestacoes) {
       if (exigida !== undefined && s.tipo !== exigida) continue;
       if (ilhaDe[s.indice] !== ilhaCasa) continue;
-      if (Math.max(Math.abs((s.indice % n) - x), Math.abs(Math.floor(s.indice / n) - y)) <= s.alcance) return true;
+      if (Math.max(Math.abs((s.indice % n) - x), Math.abs(Math.floor(s.indice / n) - y)) <= s.alcance) return s.indice;
     }
-    return false;
+    return null;
   };
+  const temSubestacaoPerto = (casa: number, exigida?: TipoConstrucao): boolean => subestacaoPerto(casa, exigida) !== null;
+  const consumidores: ConsumidorAnalise[] = [];
   void porTipoDeSubestacao;
 
   let bairrosSemEscoamento = 0;
@@ -533,28 +560,36 @@ export function analisarMundo(
   for (const b of bairros) {
     populacao += def.populacao;
     const ilhaB = ilhaDe[b];
-    if (!temSubestacaoPerto(b)) {
+    const sub = subestacaoPerto(b);
+    if (sub === null) {
       bairrosSemEscoamento++;
       continue;
     }
     const demanda = def.demandaKw * fatorDemandaBairro;
     demandaConsumidoresKw += demanda;
-    tarifaPonderada += demanda * def.tarifa * fatorTermica(b);
+    const fatia = demanda * def.tarifa * fatorTermica(b);
+    tarifaPonderada += fatia;
+    consumidores.push({ indice: b, tipo: "bairro", subestacao: sub, peso: fatia, pesquisaPorSegundo: 0 });
     demandaPorIlha.set(ilhaB, (demandaPorIlha.get(ilhaB) ?? 0) + demanda);
   }
 
   // Distrito industrial: demanda grande e tarifa alta, mas só com subestação de 138 kV no alcance.
   let distritosSemEscoamento = 0;
   for (const d of distritos) {
-    if (!temSubestacaoPerto(d, "subestacao138")) {
+    const sub = subestacaoPerto(d, "subestacao138");
+    if (sub === null) {
       distritosSemEscoamento++;
       continue;
     }
     const demanda = DISTRITO_INDUSTRIAL.demandaKw * fatorDemandaBairro;
     demandaConsumidoresKw += demanda;
     tarifaPonderada += demanda * DISTRITO_INDUSTRIAL.tarifa;
+    consumidores.push({ indice: d, tipo: "distritoIndustrial", subestacao: sub, peso: demanda * DISTRITO_INDUSTRIAL.tarifa, pesquisaPorSegundo: 0 });
     demandaPorIlha.set(ilhaDe[d], (demandaPorIlha.get(ilhaDe[d]) ?? 0) + demanda);
   }
+
+  // A fatia de cada consumidor na receita: normalizada para somar 1.
+  if (tarifaPonderada > 0) for (const c of consumidores) c.peso /= tarifaPonderada;
 
   // Tarifa média ponderada pela demanda: quem pede mais pesa mais na conta (GDD §7).
   const tarifa = (demandaConsumidoresKw > 0 ? tarifaPonderada / demandaConsumidoresKw : 1) * fatorTarifa;
@@ -578,12 +613,15 @@ export function analisarMundo(
   for (const i of ciencia) {
     const c = mundo.construcoes[i];
     const ilhaC = ilhaDe[i];
-    if (!temSubestacaoPerto(i)) continue;
+    const sub = subestacaoPerto(i);
+    if (sub === null) continue;
     const bonus = casasDaConstrucao(i, c.tipo, n).some((casa) => cristais.has(casa)) ? 1 + CRISTAL.bonusCiencia : 1;
     // Nível do tipo de ciência (v0.9): +25 % de 🔬 por nível, antes do cristal.
     const nivelCiencia = c.tipo === "laboratorio" || c.tipo === "universidade" || c.tipo === "institutoPesquisa" ? melhorias.ciencia[c.tipo] : 0;
     const somar = (pesquisa: number, consumo: number) => {
-      pesquisaPorSegundo += pesquisa * fatorCiencia(nivelCiencia) * bonus;
+      const rende = pesquisa * fatorCiencia(nivelCiencia) * bonus;
+      pesquisaPorSegundo += rende;
+      consumidores.push({ indice: i, tipo: c.tipo, subestacao: sub, peso: 0, pesquisaPorSegundo: rende });
       demandaPorIlha.set(ilhaC, (demandaPorIlha.get(ilhaC) ?? 0) + consumo);
       demandaConsumidoresKw += consumo;
     };
@@ -631,7 +669,7 @@ export function analisarMundo(
     const importado = Math.min(demanda - local, teto);
     ofertaKw += exportado;
     demandaEfetiva += importado;
-    cabos.push({ ilha: ilhaId, nivel, tetoKw: teto, usadoKw: exportado + importado });
+    cabos.push({ ilha: ilhaId, nivel, tetoKw: teto, usadoKw: exportado + importado, exportadoKw: exportado, importadoKw: importado });
   }
 
   return {
@@ -653,6 +691,7 @@ export function analisarMundo(
     universidadesAtivas,
     ilhasIsoladas,
     cabos,
+    consumidores,
   };
 }
 

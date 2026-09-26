@@ -242,6 +242,9 @@ describe("escoamento e custo de operação da Era 2 (GDD Parte 2 §3.1, §3.2)",
     expect(desligada.escoadoKw).toBe(0);
     expect(desligada.brutoKw).toBe(0);
     expect(semEscoamento.custoOperacaoPorSegundo).toBe(0);
+    // a chaminé da cena lê a fração ligada (GDD §10.1, parte F)
+    expect(termica.fracaoLigada).toBe(1);
+    expect(desligada.fracaoLigada).toBe(0);
   });
 
   it("o nó Cabo HVDC multiplica o teto de todos os cabos por 10", () => {
