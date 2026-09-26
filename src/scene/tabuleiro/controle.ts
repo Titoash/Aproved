@@ -12,7 +12,7 @@ import { centro, movimentoReduzido } from "./base";
 import { ControleCamera, type RetornoToque } from "./camera";
 import { placaEm, type Cena } from "./cena";
 import { ajustarCameraEscala, marcadorEscala } from "./escalas";
-import { casaEm, ELEV_PLAT, limitesIlha, minimapaParaMundo } from "./terreno";
+import { casaCruaEm, casaEm, ELEV_PLAT, limitesIlha, minimapaParaMundo } from "./terreno";
 
 /** Minimapa desenhado pela cena no canto inferior direito do palco (px CSS). */
 export const MINIMAPA = { w: 120, h: 80, margem: 12 } as const;
@@ -97,7 +97,29 @@ export function anexarPalco(el: HTMLElement): () => void {
     return { casa: indice, grade: nucleo ? indiceDaGrade(casa[0], casa[1], nucleo.lado) : null, naPlataforma: true };
   };
 
+  /** Casa sob o ponto sem descartar o mar: o retângulo da área atravessa canais (as casas de mar não entram). */
+  const casaCrua = (p: RetornoToque): number => {
+    const c = casaCruaEm(arq, p.wx, p.wy);
+    return c[1] * arq.n + c[0];
+  };
+
   return ctl.anexar(el, {
+    selecao: {
+      podeIniciar(p, origem, shift) {
+        if (ctl.nivel !== "ilha" || ctl.transicao) return false;
+        if (noMinimapa(p.px, p.py, ctl.w, ctl.h)) return false;
+        if (sob(p).naPlataforma) return false;
+        return origem === "toque" || shift || store.getState().ferramentaMundo === "desmatar";
+      },
+      inicio: (p) => store.getState().iniciarArea(casaCrua(p)),
+      mover: (p) => store.getState().estenderArea(casaCrua(p)),
+      fim(p) {
+        store.getState().estenderArea(casaCrua(p));
+        // soltou na metade de baixo do palco: o cartão de confirmação vai para cima
+        store.getState().soltarArea(p.py > ctl.h / 2);
+      },
+      cancelar: () => store.getState().cancelarArea(),
+    },
     toque(p) {
       if (ctl.nivel !== "ilha" || ctl.transicao) return;
       if (noMinimapa(p.px, p.py, ctl.w, ctl.h)) {
@@ -165,10 +187,12 @@ declare global {
       casaDaGrade: typeof casaDaGrade;
       controle: () => ControleCamera;
       arquipelago: typeof arquipelagoDaEra1;
+      /** A cena montada (roteiros de teste: Bipes, área). */
+      cena: () => Cena | null;
     };
   }
 }
 
 if (import.meta.env.DEV && typeof window !== "undefined") {
-  window.__tabuleiro = { telaDaCasa, casaDaGrade, controle: controleCamera, arquipelago: arquipelagoDaEra1 };
+  window.__tabuleiro = { telaDaCasa, casaDaGrade, controle: controleCamera, arquipelago: arquipelagoDaEra1, cena: () => cenaAtual };
 }

@@ -14,14 +14,26 @@ import { emScram, podeLimparEntulho } from "../sim/cascata";
 import { formatarCreditos, formatarNumero, formatarPorcentagem, formatarPotencia } from "../sim/formatar";
 import { arquipelagoDaEra1 } from "../sim/gerarArquipelago";
 import { potenciaInstaladaW } from "../sim/kardashev";
-import { avaliarCasa, avaliarRemocaoObstaculo, ancoraDoObstaculo, ancoraEm, casasDoObstaculo, custoExpedicao, ilhaAberta, rotaDoCabo, temCabo } from "../sim/mundo";
+import {
+  avaliarCasa,
+  avaliarRemocaoObstaculo,
+  ancoraDoObstaculo,
+  ancoraEm,
+  casasDoObstaculo,
+  custoExpedicao,
+  ilhaAberta,
+  orcarArea,
+  retanguloDaArea,
+  rotaDoCabo,
+  temCabo,
+} from "../sim/mundo";
 import { anel, podeColocar, podeRemover } from "../sim/nucleo";
 import { analisar, ehDeAgua, ehSubestacao, ladoConstrucao, obstaculoEm } from "../sim/producao";
 import { VARETA } from "../content/era2-nucleo";
 import { fracaoDecaimento } from "../sim/reator";
 import type { GameState } from "../sim/state";
 import { balancoDoEstado } from "../sim/tick";
-import { useGameStore, type FerramentaMundo } from "../store/gameStore";
+import { useGameStore, type FerramentaMundo, type SelecaoArea } from "../store/gameStore";
 import { getPalcoRect } from "./layout";
 import { PALETA, alfa, clamp01, definirEraVisual, movimentoReduzido, type Camera } from "./tabuleiro/base";
 import {
@@ -32,6 +44,7 @@ import {
   dispararCascata,
   tremorCena,
   type AlcanceCena,
+  type AreaCena,
   type CalloutCena,
   type Cena,
   type ConstrucaoCena,
@@ -40,6 +53,7 @@ import {
   type ObstaculoCena,
   type PecaCena,
   type PlacaCena,
+  type RemocaoCena,
 } from "./tabuleiro/cena";
 import { casaDaGrade, controleCamera, LARGURA_DESKTOP_PX, MINIMAPA, registrarCena, RESERVA_ESCADA_PX } from "./tabuleiro/controle";
 import { desenharEscala, type Reserva } from "./tabuleiro/escalas";
@@ -98,6 +112,7 @@ export class TabuleiroScene extends Phaser.Scene {
   /** Transição de era em curso: `[começo em s, já voltou?]` (GDD Parte 2 §2: afasta 3 s e volta). */
   private transicaoEra: { t0: number; voltou: boolean } | null = null;
   private transicaoEraVista: number | null = null;
+  private areaCache: { state: GameState; sel: SelecaoArea; cena: AreaCena } | null = null;
 
   constructor() {
     super(TabuleiroScene.KEY);
@@ -228,13 +243,15 @@ export class TabuleiroScene extends Phaser.Scene {
     }
     construcoes.sort((p, q) => p.y * n + p.x - (q.y * n + q.x));
 
+    // Progresso de cada remoção em curso (uma por Bipe); as que esperam mostram a barra vazia.
     const emRemocao = new Map<number, number>();
-    const fila = state.mundo.remocoes;
-    if (fila.length > 0 && fila[0].fimMs > 0) {
-      const total = OBSTACULOS[fila[0].tipo].tempoMs || 1;
-      emRemocao.set(fila[0].indice, clamp01(1 - (fila[0].fimMs - state.tempoMs) / total));
+    const remocoes: RemocaoCena[] = [];
+    for (const r of state.mundo.remocoes) {
+      if (r.fimMs > 0) {
+        emRemocao.set(r.indice, clamp01((state.tempoMs - r.inicioMs) / Math.max(1, r.fimMs - r.inicioMs)));
+        remocoes.push({ x: r.indice % n, y: Math.floor(r.indice / n), bipe: r.bipe ?? 0 });
+      } else emRemocao.set(r.indice, 0);
     }
-    for (let k = 1; k < fila.length; k++) emRemocao.set(fila[k].indice, 0);
 
     const obstaculos: ObstaculoCena[] = [];
     const vistos = new Set<number>();
@@ -299,7 +316,6 @@ export class TabuleiroScene extends Phaser.Scene {
 
     // Mar raso realçado quando a ferramenta é offshore: é ali que ela cabe (GDD Parte 2 §3.1).
     const rasoRealcado = ferramentaDeAgua(loja.ferramentaMundo);
-    const primeira = fila.length > 0 && fila[0].fimMs > 0 ? fila[0].indice : null;
     const capacidadeKwh = analise.contagem.bateria * 20;
 
     return {
@@ -317,9 +333,27 @@ export class TabuleiroScene extends Phaser.Scene {
       bateriaCarga: capacidadeKwh > 0 ? Math.min(1, state.rede.bateria.kwh / capacidadeKwh) : 0,
       realce,
       rasoRealcado,
-      remocao: primeira === null ? null : { x: primeira % n, y: Math.floor(primeira / n) },
+      remocoes,
+      area: this.areaDaCena(state, loja.selecaoArea),
       tempoMs: state.tempoMs,
     };
+  }
+
+  /** O retângulo da seleção e o que ele pega, recalculado só quando o estado ou a seleção mudam. */
+  private areaDaCena(state: GameState, sel: SelecaoArea | null): AreaCena | null {
+    if (!sel) return null;
+    const cache = this.areaCache;
+    if (cache && cache.state === state && cache.sel === sel) return cache.cena;
+    const n = this.arq.n;
+    const ret = retanguloDaArea(sel.a, sel.b, n);
+    const o = orcarArea(state, ret, this.arq);
+    const cena: AreaCena = {
+      ...ret,
+      alvos: o.alvos.map((i) => ({ x: i % n, y: Math.floor(i / n), lado: OBSTACULOS[obstaculoEm(state.mundo, i, this.arq)!].lado })),
+      valido: o.ok,
+    };
+    this.areaCache = { state, sel, cena };
+    return cena;
   }
 
   private mesmaCasaOuVizinha(a: number, b: number): boolean {

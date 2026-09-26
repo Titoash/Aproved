@@ -85,6 +85,23 @@ export interface PlacaCena {
   preco: string;
 }
 
+/** Um Bipe de manutenção trabalhando numa casa. */
+export interface RemocaoCena {
+  x: number;
+  y: number;
+  bipe: number;
+}
+
+/** Retângulo da seleção em área, com as casas que entram (âncoras) e se o lote cabe no saldo. */
+export interface AreaCena {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  alvos: readonly { x: number; y: number; lado: number }[];
+  valido: boolean;
+}
+
 export interface RealceCena {
   x: number;
   y: number;
@@ -152,8 +169,10 @@ export interface EntradaCena {
   realce: RealceCena | null;
   /** A ferramenta escolhida é offshore: o mar raso inteiro acende (GDD Parte 2 §3.1). */
   rasoRealcado: boolean;
-  /** Casa do obstáculo em remoção (o Bipe de manutenção vai até lá). */
-  remocao: { x: number; y: number } | null;
+  /** Obstáculos em remoção agora, um por Bipe de manutenção (GDD §8.5, v0.8). */
+  remocoes: readonly RemocaoCena[];
+  /** Seleção em área em curso ou esperando a confirmação (§8.5, v0.8). */
+  area: AreaCena | null;
   /** Tempo do jogo (para o pop do entulho). */
   tempoMs: number;
 }
@@ -261,8 +280,11 @@ export interface Cena {
   /** Cabos e alcances do frame (desenhados antes dos objetos). */
   cabos: readonly CaboCena[];
   alcances: readonly AlcanceCena[];
-  /** Bipe de manutenção: objeto único que anda até o obstáculo em remoção. */
-  manutencao: Objeto | null;
+  /** Bipes de manutenção, um por remoção em curso (na casa do obstáculo). */
+  manutencao: Objeto[];
+  /** Chave de `(bipe, x, y)` dos Bipes montados: só remonta quando muda. */
+  manutencaoChave: string;
+  area: AreaCena | null;
   /** Todos os grupos em ordem do pintor. */
   objetos: Objeto[];
   pecasRef: readonly PecaCena[] | null;
@@ -644,7 +666,7 @@ function construirNucleo(cena: Cena, nu: NucleoCena | null): void {
 
 /** Junta os grupos em ordem do pintor (x + y, y, x) e refaz os discos do modo mapa. */
 function montar(cena: Cena): void {
-  const objetos = cena.obstaculos.concat(cena.cristais, cena.bloqueio, cena.rede, cena.nucleo, cena.manutencao ? [cena.manutencao] : []);
+  const objetos = cena.obstaculos.concat(cena.cristais, cena.bloqueio, cena.rede, cena.nucleo, cena.manutencao);
   objetos.sort((a, b) => a.prof - b.prof || a.y - b.y || a.x - b.x);
   cena.objetos = objetos;
   const grupos = new Map<string, number[]>();
@@ -810,7 +832,9 @@ export function criarCena(entrada: EntradaCena): Cena {
     nucleo: [],
     cabos: [],
     alcances: [],
-    manutencao: null,
+    manutencao: [],
+    manutencaoChave: "",
+    area: null,
     objetos: [],
     pecasRef: null,
     pecaObjetos: [],
@@ -840,6 +864,7 @@ export function criarCena(entrada: EntradaCena): Cena {
 export function atualizarCena(cena: Cena, entrada: EntradaCena): void {
   cena.tempoMs = entrada.tempoMs;
   cena.realce = entrada.realce;
+  cena.area = entrada.area;
   cena.rasoRealcado = entrada.rasoRealcado;
   const nu = entrada.nucleo;
   let remontar = false;
@@ -888,15 +913,13 @@ export function atualizarCena(cena: Cena, entrada: EntradaCena): void {
     for (let i = 0; i < entrada.obstaculos.length; i++) cena.obstaculos[i].estado.progresso = entrada.obstaculos[i].progresso;
   }
 
-  // --- Bipe de manutenção: existe enquanto houver remoção em curso, na casa do obstáculo
-  const rem = entrada.remocao;
-  if (!rem) {
-    if (cena.manutencao) {
-      cena.manutencao = null;
-      remontar = true;
-    }
-  } else if (!cena.manutencao || cena.manutencao.x !== rem.x || cena.manutencao.y !== rem.y) {
-    cena.manutencao = novoObjeto(cena.arq, "bipe", rem.x, rem.y, { lod: "perto", papel: "manutencao", expressao: "apontando", fase: 0.4 }, 0.55, 0.55);
+  // --- Bipes de manutenção: um por remoção em curso, na casa do obstáculo
+  const chave = entrada.remocoes.map((r) => `${r.bipe}:${r.x},${r.y}`).join("|");
+  if (chave !== cena.manutencaoChave) {
+    cena.manutencaoChave = chave;
+    cena.manutencao = entrada.remocoes.map((r) =>
+      novoObjeto(cena.arq, "bipe", r.x, r.y, { lod: "perto", papel: "manutencao", expressao: "apontando", fase: 0.4 + 0.17 * r.bipe }, 0.55, 0.55),
+    );
     remontar = true;
   }
 
@@ -1033,6 +1056,50 @@ const PART: EstadoSprite = { lod: "perto", vida: 1, cor: P.sun, seed: 0 };
 const BRASA: EstadoSprite = { lod: "perto", vida: 1, seed: 0 };
 const REALCE_PLAT: EstadoSprite = { lod: "perto", anel: 2, realce: "valido" };
 
+/** Retângulo da seleção em área (§8.5, v0.8): sol se o lote cabe no saldo, coral se não (verde sumia na grama). */
+function desenharArea(ctx: CanvasRenderingContext2D, area: AreaCena, z: number): void {
+  const cor = area.valido ? P.sun : P.coral;
+  const p0 = centro(area.x0 - 0.5, area.y0 - 0.5);
+  const p1 = centro(area.x1 + 0.5, area.y0 - 0.5);
+  const p2 = centro(area.x1 + 0.5, area.y1 + 0.5);
+  const p3 = centro(area.x0 - 0.5, area.y1 + 0.5);
+  ctx.save();
+  ctx.fillStyle = alfa(cor, 0.32);
+  for (const a of area.alvos) {
+    for (let dy = 0; dy < a.lado; dy++) {
+      for (let dx = 0; dx < a.lado; dx++) {
+        const cc = centro(a.x + dx, a.y + dy);
+        ctx.beginPath();
+        ctx.moveTo(cc[0], cc[1] - 14);
+        ctx.lineTo(cc[0] + 28, cc[1]);
+        ctx.lineTo(cc[0], cc[1] + 14);
+        ctx.lineTo(cc[0] - 28, cc[1]);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+  }
+  ctx.fillStyle = alfa(cor, 0.1);
+  ctx.strokeStyle = cor;
+  ctx.lineWidth = Math.max(2, 3 / z);
+  ctx.beginPath();
+  ctx.moveTo(p0[0], p0[1]);
+  ctx.lineTo(p1[0], p1[1]);
+  ctx.lineTo(p2[0], p2[1]);
+  ctx.lineTo(p3[0], p3[1]);
+  ctx.closePath();
+  ctx.fill();
+  // contorno escuro por baixo do tracejado: lê sobre grama, areia e mar
+  ctx.strokeStyle = alfa(P.navy, 0.6);
+  ctx.lineWidth = Math.max(4, 5 / z);
+  ctx.stroke();
+  ctx.strokeStyle = cor;
+  ctx.lineWidth = Math.max(2, 3 / z);
+  ctx.setLineDash([12, 7]);
+  ctx.stroke();
+  ctx.restore();
+}
+
 export function desenharCena(ctx: CanvasRenderingContext2D, cena: Cena, cam: Camera, t: number): void {
   const z = cam.zoom || 1;
   const lod = lodDe(z);
@@ -1056,7 +1123,7 @@ export function desenharCena(ctx: CanvasRenderingContext2D, cena: Cena, cam: Cam
   ctx.lineJoin = "round";
 
   // 1. realce da casa sob o ponteiro (chão): na plataforma usa a casa do Núcleo; fora dela, um losango
-  const re = cena.realce;
+  const re = cena.area ? null : cena.realce;
   if (re && !mapa) {
     const naPlat = re.x >= x0 && re.x < x0 + lado && re.y >= y0 && re.y < y0 + lado;
     const c = centro(re.x, re.y);
@@ -1211,6 +1278,10 @@ export function desenharCena(ctx: CanvasRenderingContext2D, cena: Cena, cam: Cam
       ctx.globalAlpha = 1;
     }
   }
+
+  // 5b. seleção em área por cima dos objetos: as árvores escondiam o chão. Losango translúcido em cada
+  // obstáculo que entra (no máximo 64) e o contorno tracejado do retângulo.
+  if (cena.area) desenharArea(ctx, cena.area, z);
 
   // 6. partículas de calor sobre a esfera, quantidade ∝ T (só perto, fora do SCRAM)
   const ex = cena.esfera[0];

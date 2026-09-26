@@ -40,7 +40,7 @@ export function LinhaNivel({ alvo }: { alvo: AlvoMelhoria }) {
           {nome} <span className="marca-nivel">Nv {n}</span>
         </span>
         <span className="linha-meta">
-          ×{unidades} · {efeito}
+          {alvo.tipo === "equipe" ? efeito : `×${unidades} · ${efeito}`}
         </span>
       </div>
       <div className="linha-acoes">

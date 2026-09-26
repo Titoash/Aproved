@@ -220,6 +220,8 @@ h2 {
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
+  /* o toque longo é a seleção em área (§8.5): sem o menu de contexto do iOS por cima */
+  -webkit-touch-callout: none;
 }
 
 .tabuleiro-area:active {
@@ -1778,6 +1780,33 @@ h2 {
 .no {
   position: relative;
   z-index: 1;
+}
+
+/* Confirmação da seleção em área (GDD §8.5, v0.8): embaixo, no centro do tabuleiro */
+.confirmacao-area {
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  z-index: 4;
+  width: max-content;
+}
+
+.confirmacao-area--cima {
+  top: 56px;
+  bottom: auto;
+}
+
+@media (max-width: 900px) {
+  /* no celular a escada é uma faixa no pé do tabuleiro */
+  .confirmacao-area {
+    bottom: 76px;
+    max-width: calc(100% - 24px);
+  }
+
+  .confirmacao-area--cima {
+    top: 12px;
+    bottom: auto;
+  }
 }
 
 /* Callout da peça do Núcleo (GDD Parte 2 §7) */

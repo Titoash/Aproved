@@ -13,7 +13,7 @@ import { TIPOS_CIENCIA } from "../content/melhorias";
 import { desbloqueado } from "../sim/acoes";
 import { defDaCidade } from "../sim/cidade";
 import { formatarCreditos, formatarNumero, formatarPotencia } from "../sim/formatar";
-import { custoCabo, custoColocar, custoExpedicao, ilhaAberta, pesquisaColocar, podeComprarIlha, podeLigarCabo, temCabo, tetoCabo } from "../sim/mundo";
+import { bipesDe, custoCabo, custoColocar, custoExpedicao, ilhaAberta, pesquisaColocar, podeComprarIlha, podeLigarCabo, temCabo, tetoCabo } from "../sim/mundo";
 import { efeitosDe } from "../sim/arvore";
 import { fatorUsina } from "../sim/niveis";
 import { analisar } from "../sim/producao";
@@ -119,9 +119,15 @@ function BotaoPaleta({ item }: { item: ItemPaleta }) {
 function Ferramentas() {
   const ferramenta = useGameStore((s) => s.ferramentaMundo);
   const selecionar = useGameStore((s) => s.selecionarFerramentaMundo);
+  const bipes = useGameStore((s) => bipesDe(s.state));
   const opcoes: { id: FerramentaMundo; nome: string; detalhe: string; icone: "remover" | "arvore" }[] = [
     { id: "remover", nome: "Remover", detalhe: "devolve 50 % do custo", icone: "remover" },
-    { id: "desmatar", nome: "Desmatar", detalhe: `árvore ${formatarCreditos(OBSTACULOS.arvore.custo)} · pedra ${formatarCreditos(OBSTACULOS.pedra.custo)}`, icone: "arvore" },
+    {
+      id: "desmatar",
+      nome: "Desmatar",
+      detalhe: `${bipes} Bipes · árvore ${formatarCreditos(OBSTACULOS.arvore.custo)} · arraste para uma área`,
+      icone: "arvore",
+    },
   ];
   return (
     <div className="paleta paleta--ferramentas" role="radiogroup" aria-label="Ferramentas">
@@ -236,6 +242,7 @@ export function PainelRede() {
         {TIPOS_CIENCIA.map((id) => (
           <LinhaNivel key={id} alvo={{ tipo: "ciencia", id }} />
         ))}
+        <LinhaNivel alvo={{ tipo: "equipe" }} />
       </ul>
     </section>
   );

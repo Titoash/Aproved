@@ -14,6 +14,7 @@ import { construirReator } from "../sim/era";
 import { cardVisto, marcarCardVisto } from "../sim/cards";
 import { pesquisar } from "../sim/arvore";
 import { avaliarEvolucaoCidade, evoluirCidade } from "../sim/cidade";
+import { arquipelagoDaEra1 } from "../sim/gerarArquipelago";
 import * as mundo from "../sim/mundo";
 import { avaliarMelhoria, melhorar } from "../sim/melhorias";
 import { analisar as analisarMundo, ehSubestacao } from "../sim/producao";
@@ -27,6 +28,18 @@ export type Ferramenta = PecaId | "remover";
 
 /** O que o clique numa casa do arquipélago faz (paleta de construção, GDD §2.1, v0.6). */
 export type FerramentaMundo = TipoConstrucao | "remover" | "desmatar";
+
+/**
+ * Seleção em área (§8.5, v0.8): `a` é a casa onde o gesto começou, `b` a casa sob o ponteiro. Estado de
+ * interface, não vai para o save. Ao soltar vira "confirmar" e a UI mostra o custo antes de cobrar.
+ */
+export interface SelecaoArea {
+  a: number;
+  b: number;
+  fase: "arrastando" | "confirmar";
+  /** O cartão de confirmação vai para a metade do tabuleiro oposta à do gesto, para não cobrir a área. */
+  cartaoEmCima: boolean;
+}
 
 export interface CardAberto {
   id: string;
@@ -77,6 +90,7 @@ export interface GameStore {
   transicaoEraEm: number | null;
   /** Tela da árvore de pesquisa aberta. */
   arvoreAberta: boolean;
+  selecaoArea: SelecaoArea | null;
 
   avancarTicks: (n: number) => void;
 
@@ -93,6 +107,12 @@ export interface GameStore {
   colocar: (indice: number, tipo: TipoConstrucao) => boolean;
   removerConstrucao: (indice: number) => boolean;
   desmatar: (indice: number) => boolean;
+  /** Seleção em área: começar, estender, soltar (vira confirmação), confirmar (cobra) e cancelar. */
+  iniciarArea: (casa: number) => void;
+  estenderArea: (casa: number) => void;
+  soltarArea: (cartaoEmCima?: boolean) => void;
+  confirmarArea: () => boolean;
+  cancelarArea: () => void;
   comprarIlha: (id: IlhaId) => boolean;
   ligarCabo: (id: IlhaId) => boolean;
   setCasaMundoSobPonteiro: (indice: number | null) => void;
@@ -137,6 +157,16 @@ export interface GameStore {
 }
 
 /** Só vale a pena mostrar o relatório para ausências a partir de `minimoRelatorioMs`. */
+/** "Um Bipe está a caminho" ou "na fila, k à frente": o jogador sabe se a remoção já começou. */
+function mensagemDaFila(depois: GameState, ancora: number, nome: string): string {
+  const fila = depois.mundo.remocoes;
+  const r = fila.find((x) => x.indice === ancora);
+  if (!r || r.fimMs > 0) return `${nome}: um Bipe está a caminho.`;
+  const aFrente = fila.filter((x) => x.fimMs === 0).findIndex((x) => x.indice === ancora);
+  if (aFrente === 0) return `${nome}: é a próxima da fila (os ${mundo.bipesDe(depois)} Bipes estão ocupados).`;
+  return `${nome}: na fila, ${aFrente} à frente.`;
+}
+
 function relatorioVisivel(relatorio: RelatorioOffline | null): RelatorioOffline | null {
   return relatorio && relatorio.duracaoMs >= OFFLINE.minimoRelatorioMs ? relatorio : null;
 }
@@ -219,6 +249,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
     casaNucleoSelecionada: null,
     transicaoEraEm: null,
     arvoreAberta: false,
+    selecaoArea: null,
 
     avancarTicks(n) {
       const { state, salvoEmTempoMs, pausado } = get();
@@ -266,7 +297,13 @@ export const useGameStore = create<GameStore>()((set, get) => {
           avisar(indice, v.motivo ?? "Não dá para remover aqui.");
           return false;
         }
-        return aplicar(mundo.removerObstaculo(state, indice));
+        const proximo = mundo.removerObstaculo(state, indice);
+        const ancora = mundo.ancoraDoObstaculo(state.mundo, indice);
+        // Com a ferramenta Desmatar só avisa quando a remoção fica esperando: tocar em série é o uso normal.
+        if (proximo && proximo.mundo.remocoes.some((r) => r.indice === ancora && r.fimMs === 0)) {
+          avisar(indice, mensagemDaFila(proximo, ancora, OBSTACULOS[mundo.obstaculoEm(state.mundo, indice)!].nome));
+        }
+        return aplicar(proximo);
       }
       const obstaculo = mundo.obstaculoEm(state.mundo, indice);
       if (obstaculo) {
@@ -275,8 +312,9 @@ export const useGameStore = create<GameStore>()((set, get) => {
           avisar(indice, v.motivo ?? "Não dá para remover aqui.");
           return false;
         }
-        avisar(indice, `${OBSTACULOS[obstaculo].nome}: o Bipe está a caminho.`);
-        return aplicar(mundo.removerObstaculo(state, indice));
+        const proximo = mundo.removerObstaculo(state, indice);
+        if (proximo) avisar(indice, mensagemDaFila(proximo, mundo.ancoraDoObstaculo(state.mundo, indice), OBSTACULOS[obstaculo].nome));
+        return aplicar(proximo);
       }
       const construcao = mundo.construcaoEm(state.mundo, indice);
       // Tocar numa construção sempre a seleciona: o callout da cena mostra os números e as ações
@@ -303,6 +341,36 @@ export const useGameStore = create<GameStore>()((set, get) => {
     colocar: (indice, tipo) => aplicar(mundo.colocar(get().state, indice, tipo)),
     removerConstrucao: (indice) => aplicar(mundo.remover(get().state, indice)),
     desmatar: (indice) => aplicar(mundo.removerObstaculo(get().state, indice)),
+
+    iniciarArea: (casa) => set({ selecaoArea: { a: casa, b: casa, fase: "arrastando", cartaoEmCima: false }, casaSelecionada: null }),
+    estenderArea(casa) {
+      const sel = get().selecaoArea;
+      if (sel && sel.fase === "arrastando" && sel.b !== casa) set({ selecaoArea: { ...sel, b: casa } });
+    },
+    soltarArea(cartaoEmCima = false) {
+      const sel = get().selecaoArea;
+      if (!sel || sel.fase !== "arrastando") return;
+      const orcamento = mundo.orcarArea(get().state, mundo.retanguloDaArea(sel.a, sel.b, arquipelagoDaEra1().n));
+      if (orcamento.alvos.length === 0) {
+        avisar(sel.b, orcamento.motivo ?? "Nada para remover nesta área.");
+        set({ selecaoArea: null });
+        return;
+      }
+      set({ selecaoArea: { ...sel, fase: "confirmar", cartaoEmCima } });
+    },
+    confirmarArea() {
+      const { state, selecaoArea: sel } = get();
+      if (!sel) return false;
+      const ret = mundo.retanguloDaArea(sel.a, sel.b, arquipelagoDaEra1().n);
+      const proximo = mundo.removerArea(state, ret);
+      if (!proximo) {
+        avisar(sel.b, mundo.orcarArea(state, ret).motivo ?? "Não dá para remover esta área.");
+        return false;
+      }
+      set({ selecaoArea: null });
+      return aplicar(proximo);
+    },
+    cancelarArea: () => set({ selecaoArea: null }),
     comprarIlha(id) {
       const proximo = mundo.comprarIlha(get().state, id);
       if (!proximo) {
@@ -433,7 +501,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
       // Um save exportado há tempo também rende offline desde o carimbo.
       const agora = Date.now();
       const { state, relatorio } = calcularOffline(importarJson(json, agora), agora);
-      set({ state, avisoGrade: null, relatorioOffline: relatorioVisivel(relatorio), cardAberto: null, filaCards: [], pausado: false });
+      set({ state, avisoGrade: null, relatorioOffline: relatorioVisivel(relatorio), cardAberto: null, filaCards: [], pausado: false, selecaoArea: null });
       salvarEstado(state);
     },
 
