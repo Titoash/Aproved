@@ -123,8 +123,9 @@ async function rodar(tamanho) {
   /* 1. HUD: 🔬 como saldo gastável, 👥 população e o capítulo ativo */
   const hudCiencia = await page.locator(".hud-item--ciencia").innerText();
   ok(/🔬/.test(hudCiencia) && /próximo:/.test(hudCiencia), "o HUD mostra 🔬 com o próximo nó à vista", hudCiencia.replace(/\n/g, " "));
-  const hudPop = await page.locator(".hud-item--populacao").innerText();
-  ok(/100/.test(hudPop), "o HUD mostra 👥 população (a aldeia nasce com 100)", hudPop.replace(/\n/g, " "));
+  // Sessão 9 (GDD §10.1): 👥 saiu do HUD e mora no painel da Cidade
+  const hudPop = await page.locator(".rede").innerText();
+  ok(/👥 100\b/.test(hudPop), "o painel da Cidade mostra 👥 população (a aldeia nasce com 100)", hudPop.slice(0, 120).replace(/\n/g, " "));
   const capitulo = await page.locator(".capitulo").innerText();
   ok(/cata-vento/i.test(capitulo), "o capítulo ativo aparece no HUD com o objetivo", capitulo.replace(/\n/g, " "));
   await captura("01-hud-capitulo");
@@ -159,7 +160,8 @@ async function rodar(tamanho) {
   // o capítulo "A aldeia vira vila" paga no mesmo tick, então o saldo de ₵ pode até subir: o que se
   // mede é o débito da evolução (🔬 cai) e a densidade que subiu
   ok(s1.pesquisa < s0.pesquisa, "evoluir gasta 🔬 do saldo", [s0.pesquisa, s1.pesquisa]);
-  ok(Object.values(s1.mundo.construcoes).some((c) => c.tipo === "bairro" && c.nivel === 1), "o bairro sobe de densidade");
+  // Sessão 9 (v0.8): a densidade é da cidade inteira
+  ok(s1.cidade.densidade === 2, "a cidade sobe de densidade", s1.cidade);
   ok(a1.populacao === 400, "a vila tem 400 habitantes", a1.populacao);
   ok(Math.abs(a1.tarifa - 1.15) < 1e-9, "a tarifa da vila é ×1,15", a1.tarifa);
   ok(Math.abs(a1.demandaKw - 20) < 1e-9, "a vila pede 20 kW", a1.demandaKw);
@@ -265,9 +267,10 @@ async function rodar(tamanho) {
     loja.comprarIlha("ventania");
     loja.ligarCabo("ventania");
     const s = window.__jogo.store.getState().state;
-    const antes = s.mundo.cabos.ventania;
-    window.__jogo.store.getState().melhorarCabo("ventania");
-    return { antes, depois: window.__jogo.store.getState().state.mundo.cabos.ventania };
+    // Sessão 9 (v0.8): o nível é de todos os cabos juntos
+    const antes = s.melhorias.cabos;
+    window.__jogo.store.getState().melhorar({ tipo: "cabos" });
+    return { antes, depois: window.__jogo.store.getState().state.melhorias.cabos };
   });
   ok(cabo.antes === 0 && cabo.depois === 1, "o cabo tem nível e sobe de nível", cabo);
   const extrato = await page.locator(".rede .extrato").innerText();

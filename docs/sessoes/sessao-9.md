@@ -19,12 +19,12 @@ Melhorar é decisão e o jogo parece vivo. Um modelo só de melhorias (por tipo,
 Se não couber tudo, a ordem de corte é: fumaça da chaminé, "+🔬" flutuante, nó Escavadeiras. Nunca cortar 0, A, B, C, D, E, G e H, nem os pulsos, o "+₵", as janelas acesas e o diário de F (a Sessão 10 registra nele as Ocorrências, Parte 1 §4.4).
 
 ## Checklist
-- [ ] ajustes 2, 3, 4 e 8 da Sessão 8 aplicados; offline do reator integrado por trechos, com teste
-- [ ] modelo de melhorias por tipo (usinas, peças, subestações, cabos, ciência); efeitos nas fórmulas; save v9 com migração
-- [ ] cidade inteira: `evoluirCidade`, bairro novo na densidade da cidade, migração
-- [ ] Núcleo: nível por peça nas duas eras, "Nv n" na peça, "Trocar todas as gastas"
-- [ ] remoção: tempos, N Bipes, Equipe, Máquinas pesadas e Escavadeiras, seleção em área
-- [ ] HUD de quatro itens, capítulo em uma linha, níveis visíveis onde a coisa está
-- [ ] cena: pulsos, "+₵" e "+🔬", janelas acesas, Bipes, fumaça, brilho, diário; ms por quadro medidos
-- [ ] simulação nas duas rotas e nas duas eras dentro de 50–70 min; janelas paradas medidas de novo; ajustes registrados
-- [ ] roteiro Playwright verde nos dois tamanhos; roteiros 6, 7 e 8 verdes; capturas; `ESTADO.md`; relatório; `typecheck`, `test`, `lint`, `build`
+- [x] ajustes 2, 3, 4 e 8 da Sessão 8 aplicados; offline do reator integrado por trechos, com teste
+- [x] modelo de melhorias por tipo (usinas, peças, subestações, cabos, ciência); efeitos nas fórmulas; save v9 com migração
+- [x] cidade inteira: `evoluirCidade`, bairro novo na densidade da cidade, migração
+- [x] Núcleo: nível por peça nas duas eras, "Nv n" na peça, "Trocar todas as gastas"
+- [x] remoção: tempos, N Bipes, Equipe, Máquinas pesadas e Escavadeiras, seleção em área
+- [x] HUD de quatro itens, capítulo em uma linha, níveis visíveis onde a coisa está
+- [x] cena: pulsos, "+₵" e "+🔬", janelas acesas, Bipes, fumaça, brilho, diário; ms por quadro medidos
+- [x] simulação nas duas rotas e nas duas eras; janelas paradas medidas de novo; ajustes registrados — **fora de 50–70 min:** a Era 1 (41,5/42,3) e a Era 2 corrida (48,1) caem no piso da Estabilidade de 2,5/min, que a Sessão 10 sobe (conflito registrado em Parte 1 §8.4 e no relatório)
+- [x] roteiro Playwright verde nos dois tamanhos (52); roteiros 6, 7 e 8 verdes (52, 76, 82); capturas; `ESTADO.md`; relatório; `typecheck`, `test`, `lint`, `build`
