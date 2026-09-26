@@ -20,6 +20,7 @@ import { anexarPalco } from "../scene/tabuleiro/controle";
 import { CalloutCasa } from "./CalloutCasa";
 import { CalloutPeca } from "./CalloutPeca";
 import { ConfirmacaoArea } from "./ConfirmacaoArea";
+import { DiarioTabuleiro } from "./DiarioTabuleiro";
 import { Escada } from "./Escada";
 import { corDaRampaCss } from "../scene/rampa";
 import { useGameStore, type Ferramenta } from "../store/gameStore";
@@ -91,6 +92,7 @@ function Tabuleiro() {
       <CalloutCasa />
       <CalloutPeca />
       <ConfirmacaoArea />
+      <DiarioTabuleiro />
     </div>
   );
 }

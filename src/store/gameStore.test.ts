@@ -173,3 +173,33 @@ describe("gameStore — cards explicativos", () => {
     expect(g().cardAberto).toBeNull();
   });
 });
+
+describe("diário do tabuleiro (GDD §10.1)", () => {
+  beforeEach(() => {
+    useGameStore.getState().resetar();
+    fecharCards();
+    const s = useGameStore.getState().state;
+    useGameStore.setState({ state: { ...s, creditos: 1_000 } });
+  });
+
+  it("um arbusto derrubado vira uma linha, uma vez só, mesmo com ações depois", () => {
+    const loja = useGameStore.getState();
+    loja.desmatar(casaCom("arbusto"));
+    loja.avancarTicks(OBSTACULOS.arbusto.tempoMs / 100);
+    expect(useGameStore.getState().diario.map((l) => l.texto)).toEqual(["Arbusto caiu em Principal"]);
+    // uma ação reaproveita a fila de eventos do tick anterior: a linha não se repete
+    useGameStore.getState().selecionarCasa(null);
+    useGameStore.getState().colocar(casaLivre(), "cataVento");
+    expect(useGameStore.getState().diario.filter((l) => l.texto.startsWith("Arbusto"))).toHaveLength(1);
+  });
+
+  it("vários no mesmo lote agrupam; ficam só as três últimas linhas", () => {
+    const arbustos = arq.ilhas[0].casas.filter((i) => obstaculoEm(useGameStore.getState().state.mundo, i) === "arbusto").slice(0, 4);
+    for (const i of arbustos) useGameStore.getState().desmatar(i);
+    // 2 Bipes × 0,5 s: os quatro caem em 1 s, num avanço só
+    useGameStore.getState().avancarTicks(10);
+    expect(useGameStore.getState().diario.at(-1)?.texto).toBe("4 obstáculos caíram em Principal");
+    for (let k = 0; k < 4; k++) useGameStore.getState().melhorar({ tipo: "equipe" });
+    expect(useGameStore.getState().diario).toHaveLength(3);
+  });
+});

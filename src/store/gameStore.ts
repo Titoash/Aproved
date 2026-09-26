@@ -7,7 +7,9 @@
 import { create } from "zustand";
 import { cardParaEvento, CARDS } from "../content/cards-era1";
 import { OFFLINE } from "../content/era1";
-import { OBSTACULOS, type IlhaId } from "../content/era1-arquipelago";
+import { OBSTACULOS, ilhaDef, type IlhaId, type TipoObstaculo } from "../content/era1-arquipelago";
+import { textoDeRemocao, textoDoDiario, type ContextoDiario } from "../content/diario";
+import { VIDA } from "../content/vida";
 import type { NivelId } from "../content/escalas";
 import * as nucleo from "../sim/acoesNucleo";
 import { construirReator } from "../sim/era";
@@ -17,10 +19,12 @@ import { avaliarEvolucaoCidade, evoluirCidade } from "../sim/cidade";
 import { arquipelagoDaEra1 } from "../sim/gerarArquipelago";
 import * as mundo from "../sim/mundo";
 import { avaliarMelhoria, melhorar } from "../sim/melhorias";
-import { analisar as analisarMundo, ehSubestacao } from "../sim/producao";
+import { formatarCreditos } from "../sim/formatar";
+import { analisar as analisarMundo, ehSubestacao, ilhaDaCasa } from "../sim/producao";
 import { calcularOffline, type RelatorioOffline } from "../sim/offline";
 import { carregar, exportarJson, importarJson, INTERVALO_SAVE_MS, limpar, salvar } from "../sim/save";
-import { estadoInicial, type AlvoMelhoria, type GameState, type PecaId, type TipoConstrucao } from "../sim/state";
+import { estadoInicial, type AlvoMelhoria, type EventoJogo, type GameState, type PecaId, type TipoConstrucao } from "../sim/state";
+import { descreverNivel } from "../ui/niveis";
 import { avancarTicks } from "../sim/tick";
 
 /** O que o clique numa casa da grade do Núcleo faz. */
@@ -39,6 +43,13 @@ export interface SelecaoArea {
   fase: "arrastando" | "confirmar";
   /** O cartão de confirmação vai para a metade do tabuleiro oposta à do gesto, para não cobrir a área. */
   cartaoEmCima: boolean;
+}
+
+/** Uma linha do diário do tabuleiro (GDD §10.1): some depois de `VIDA.diarioLinhaMs` de jogo. */
+export interface LinhaDiario {
+  id: number;
+  texto: string;
+  emTempoMs: number;
 }
 
 export interface CardAberto {
@@ -91,6 +102,8 @@ export interface GameStore {
   /** Tela da árvore de pesquisa aberta. */
   arvoreAberta: boolean;
   selecaoArea: SelecaoArea | null;
+  /** As últimas linhas do diário (no máximo três). Estado de interface: não vai para o save. */
+  diario: LinhaDiario[];
 
   avancarTicks: (n: number) => void;
 
@@ -198,7 +211,44 @@ export const useGameStore = create<GameStore>()((set, get) => {
   const cardsIniciais = cardsDosEventos(inicial, []);
 
   /** Lê `state.eventos`, enfileira os cards devidos e abre o primeiro se nada está aberto. */
+  // Diário: cada evento entra uma vez só. As ações reaproveitam a fila do tick anterior
+  // (`[...state.eventos, novo]`), então o mesmo objeto chega de novo; o WeakSet barra a repetição.
+  const vistosNoDiario = new WeakSet<EventoJogo>();
+  let serieDiario = 0;
+  const arqDiario = arquipelagoDaEra1();
+  const registrarNoDiario = (state: GameState) => {
+    const novos = state.eventos.filter((e) => !vistosNoDiario.has(e));
+    if (novos.length === 0) return;
+    for (const e of novos) vistosNoDiario.add(e);
+    const nomeIlha = (indice: number) => {
+      const id = ilhaDaCasa(indice, arqDiario);
+      return id ? ilhaDef(id).nome : "alto-mar";
+    };
+    const ctx: ContextoDiario = { nomeIlha, nomeDoNivel: (e) => descreverNivel(state, e.alvo).nome, formatarCreditos };
+    // Remoções do mesmo lote agrupam por ilha ("12 obstáculos caíram em Bosque"); o resto, uma linha cada.
+    const linhas: { texto: string; ilha?: string; obstaculos?: TipoObstaculo[] }[] = [];
+    for (const e of novos) {
+      if (e.tipo === "obstaculoRemovido") {
+        const ilha = nomeIlha(e.indice);
+        const grupo = linhas.find((l) => l.ilha === ilha);
+        if (grupo) grupo.obstaculos!.push(e.obstaculo);
+        else linhas.push({ texto: "", ilha, obstaculos: [e.obstaculo] });
+        continue;
+      }
+      const texto = textoDoDiario(e, ctx);
+      if (texto) linhas.push({ texto });
+    }
+    if (linhas.length === 0) return;
+    const novas = linhas.map((l) => ({
+      id: ++serieDiario,
+      texto: l.obstaculos ? textoDeRemocao(l.obstaculos, l.ilha!) : l.texto,
+      emTempoMs: state.tempoMs,
+    }));
+    set({ diario: [...get().diario, ...novas].slice(-VIDA.diarioLinhas) });
+  };
+
   const processarEventos = (state: GameState) => {
+    registrarNoDiario(state);
     const { cardAberto, filaCards } = get();
     const enfileirados = [...filaCards, ...(cardAberto ? [cardAberto.id] : [])];
     const novos = cardsDosEventos(state, enfileirados);
@@ -250,6 +300,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
     transicaoEraEm: null,
     arvoreAberta: false,
     selecaoArea: null,
+    diario: [],
 
     avancarTicks(n) {
       const { state, salvoEmTempoMs, pausado } = get();
@@ -501,7 +552,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
       // Um save exportado há tempo também rende offline desde o carimbo.
       const agora = Date.now();
       const { state, relatorio } = calcularOffline(importarJson(json, agora), agora);
-      set({ state, avisoGrade: null, relatorioOffline: relatorioVisivel(relatorio), cardAberto: null, filaCards: [], pausado: false, selecaoArea: null });
+      set({ state, avisoGrade: null, relatorioOffline: relatorioVisivel(relatorio), cardAberto: null, filaCards: [], pausado: false, selecaoArea: null, diario: [] });
       salvarEstado(state);
     },
 
@@ -519,6 +570,8 @@ export const useGameStore = create<GameStore>()((set, get) => {
         cardAberto: null,
         filaCards: [],
         pausado: false,
+        selecaoArea: null,
+        diario: [],
       });
       processarEventos(state);
     },

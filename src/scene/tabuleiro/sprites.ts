@@ -18,6 +18,7 @@ import {
   retArred,
   type Lod,
 } from "./base";
+import { VIDA } from "../../content/vida";
 
 const TAU = Math.PI * 2;
 const RAD = Math.PI / 180;
@@ -153,8 +154,12 @@ export interface EstadoSprite {
   vel?: number;
   /** casaVila: cor do telhado (padrão `coral`). */
   teto?: Teto;
-  /** casaVila: densidade 1..4 do bairro (GDD §8.6) — muda altura, andares e antena. */
+  /** casaVila: densidade 1..6 da cidade (GDD §8.6, Parte 2 §4.1) — muda altura, andares e antena. */
   densidade?: number;
+  /** casaVila: fração da demanda atendida, 0..1 (GDD §10.1): abaixo de 0,5 as janelas apagam. Padrão 1. */
+  luz?: number;
+  /** casaVila: apagão (faixa efetiva de r abaixo de 0,8): as janelas acesas piscam. */
+  piscar?: boolean;
   /** casaVila 0 porta / 1 janelas / 2 chaminé; arvore 0..2 (deslocamento da copa); pedra 0..2 (silhueta). */
   variante?: number;
   /** arvore, pinheiro, cristal: escala local (padrão 1). */
@@ -352,6 +357,9 @@ const rampaMiolo = cacheRampa((c) => M(c, P.solMiolo, 0.6));
 const rampaClaro = cacheRampa((c) => C(c, 0.3));
 // halos da esfera em 'lighter' com alfa baixo (r 23 α .20, r 32 α .09): somam luz sem embarrar o verde em oliva
 // (em source-over o halo virava um anel cor de tabaco sobre a grama); em 'longe' os valores antigos.
+/** Janelas apagam com menos disto da demanda atendida (espelha `VIDA.janelasApagadasAbaixoDe`). */
+const LUZ_MINIMA = VIDA.janelasApagadasAbaixoDe;
+
 const halo1 = cacheRampa((c) => A(c, 0.2));
 const halo2 = cacheRampa((c) => A(c, 0.09));
 const haloLonge1 = cacheRampa((c) => A(c, 0.35));
@@ -955,12 +963,18 @@ const S: Record<NomeSprite, FnSprite> = {
     elipseCheia(ctx, 0, -108, 12, 6, P.torre);
     elipseCheia(ctx, 0, -110, 12, 6, D.coroaTopo);
     rect(ctx, -2, -120, 4, 10, P.torre2);
-    // esfera: halos chapados em degraus, aditivos (T > 0,9 ganha um terceiro degrau em solMiolo)
+    // esfera: halos chapados em degraus, aditivos (T > 0,9 ganha um terceiro degrau em solMiolo). O brilho
+    // cresce com T — raio e α — e respira em 2 s (GDD §10.1, v0.8): o Receptor é o único glow forte.
     if (!scram) {
+      const k = Math.min(1, Math.max(0, T));
+      const resp = 1 + 0.05 * Math.sin(t * Math.PI);
+      const r = pulso * resp;
       ctx.globalCompositeOperation = "lighter";
-      if (T > 0.9) circulo(ctx, 0, -126, 40 * pulso, HALO3);
-      circulo(ctx, 0, -126, 32 * pulso, halo2(T));
-      circulo(ctx, 0, -126, 23 * pulso, halo1(T));
+      ctx.globalAlpha = 0.4 + 0.6 * k;
+      if (T > 0.9) circulo(ctx, 0, -126, (30 + 12 * k) * r, HALO3);
+      circulo(ctx, 0, -126, (20 + 16 * k) * r, halo2(T));
+      circulo(ctx, 0, -126, (19 + 6 * k) * r, halo1(T));
+      ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = "source-over";
     }
     circulo(ctx, 0, -126, 18, corEsfera);
@@ -1163,9 +1177,18 @@ const S: Record<NomeSprite, FnSprite> = {
   casaVila(ctx, e, t, longe) {
     const teto: Teto = e.teto ?? "coral";
     const variante = e.variante || 0;
-    const densidade = Math.max(1, Math.min(4, Math.round(e.densidade ?? 1)));
+    const densidade = Math.max(1, Math.min(6, Math.round(e.densidade ?? 1)));
     const corTeto = D.tetos[teto];
-    const alturas = [22, 32, 46, 62];
+    // megacidade e arcologia (Era 2) sobem mais: a cidade tem de parecer maior sem ler número
+    const alturas = [22, 32, 46, 62, 78, 94];
+    // Janelas (GDD §10.1): apagadas com menos da metade atendida; no apagão, as acesas piscam.
+    const apagada = (e.luz ?? 1) < LUZ_MINIMA;
+    const tique = Math.floor(t * 6);
+    const cor = (acesa: boolean, f: number, j: number): string => {
+      if (!acesa || apagada) return P.navy2;
+      if (e.piscar && ((f * 7 + j * 3 + variante * 5 + tique) * 2654435761) % 7 < 3) return P.navy2;
+      return P.sun;
+    };
     const alt = alturas[densidade - 1];
     const largura = densidade >= 3 ? 0.36 : 0.32;
     // A partir da cidade o telhado inclinado vira laje: prédio alto não tem duas águas.
@@ -1180,19 +1203,19 @@ const S: Record<NomeSprite, FnSprite> = {
     if (densidade === 1) {
       if (variante === 0) retFaceSW(ctx, largura, largura, 0.38, 0.62, 0, 10, P.navy2);
       else if (variante === 1) {
-        retFaceSW(ctx, largura, largura, 0.2, 0.4, 8, 13, P.sun);
-        retFaceSW(ctx, largura, largura, 0.6, 0.8, 8, 13, P.sun);
+        retFaceSW(ctx, largura, largura, 0.2, 0.4, 8, 13, cor(true, 0, 0));
+        retFaceSW(ctx, largura, largura, 0.6, 0.8, 8, 13, cor(true, 0, 1));
       } else retFaceSW(ctx, largura, largura, 0.35, 0.65, 0, 9, P.navy2);
-      retFaceSE(ctx, largura, largura, 0.35, 0.65, 7, 12, P.sun);
+      retFaceSE(ctx, largura, largura, 0.35, 0.65, 7, 12, cor(true, 0, 2));
     } else {
       // fileiras de janelas: uma a cada 10 px de altura, alternando acesas para não virar xadrez
       const fileiras = Math.max(2, Math.floor((alt - 8) / 11));
       for (let f = 0; f < fileiras; f++) {
         const v0 = 4 + f * 11;
         const acesa = (f + variante) % 3 !== 0;
-        retFaceSW(ctx, largura, largura, 0.18, 0.42, v0, v0 + 6, acesa ? P.sun : P.navy2);
-        retFaceSW(ctx, largura, largura, 0.58, 0.82, v0, v0 + 6, (f + variante) % 2 ? P.sun : P.navy2);
-        retFaceSE(ctx, largura, largura, 0.3, 0.7, v0, v0 + 6, acesa ? P.sun : P.navy2);
+        retFaceSW(ctx, largura, largura, 0.18, 0.42, v0, v0 + 6, cor(acesa, f, 0));
+        retFaceSW(ctx, largura, largura, 0.58, 0.82, v0, v0 + 6, cor((f + variante) % 2 === 1, f, 1));
+        retFaceSE(ctx, largura, largura, 0.3, 0.7, v0, v0 + 6, cor(acesa, f, 2));
       }
     }
     contornoCaixa(ctx, largura, largura, alt, D.vilaBorda);
@@ -1674,8 +1697,12 @@ const S: Record<NomeSprite, FnSprite> = {
     ctx.fill();
     circulo(ctx, -4, -54, 5, scram ? D.scramMiolo : rampaMiolo(T));
     if (!scram && T > 0.05) {
+      // brilho ∝ T, respirando em 2 s (GDD §10.1, v0.8)
+      const k = Math.min(1, T);
       ctx.globalCompositeOperation = "lighter";
-      circulo(ctx, 0, -52, 26, halo1(T));
+      ctx.globalAlpha = 0.4 + 0.6 * k;
+      circulo(ctx, 0, -52, (16 + 14 * k) * (1 + 0.05 * Math.sin(t * Math.PI)), halo1(T));
+      ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = "source-over";
     }
     if (longe) return;
@@ -1846,16 +1873,19 @@ const S: Record<NomeSprite, FnSprite> = {
   },
 
   // Térmica a gás: bloco 2×2 com chaminé e fumaça.
-  termicaGas(ctx, _e, t, longe) {
+  termicaGas(ctx, e, t, longe) {
     if (!longe) sombra(ctx, 0, 6, 34, 16, 6);
     caixa(ctx, 0.9, 0.9, 22, P.aco, D.acoSW, D.acoSE);
     rect(ctx, 8, -66, 9, 46, P.aco2);
     rect(ctx, 7, -70, 11, 5, P.acoEsc);
     if (longe) return;
     contornoCaixa(ctx, 0.9, 0.9, 22, D.acoBorda);
+    // fumaça só com a térmica ligada, na proporção do tempo em que liga (GDD §10.1): desligada, chaminé limpa
+    const ligada = e.atividade ?? 1;
+    if (ligada <= 0) return;
     for (let i = 0; i < 4; i++) {
       const k = frac(t * 0.22 + i / 4);
-      ctx.globalAlpha = 0.45 * (1 - k);
+      ctx.globalAlpha = 0.45 * (1 - k) * Math.min(1, 0.3 + ligada);
       circulo(ctx, 12 + 8 * Math.sin(k * 3 + i), -74 - 34 * k, 5 + 9 * k, P.fumaca);
     }
     ctx.globalAlpha = 1;
