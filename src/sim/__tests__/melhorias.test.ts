@@ -12,7 +12,7 @@ import { USINAS } from "../../content/usinas";
 import { efeitosDe, efeitosDos } from "../efeitos";
 import { avaliarMelhoria, custoProximoNivel, melhorar, nivelDe, nivelMaximo } from "../melhorias";
 import { equilibrioMotor, motorDoNucleo } from "../motor";
-import { colocar, comprarIlha, custoCabo, ligarCabo } from "../mundo";
+import { colocar, comprarIlha, custoCabo, custoColocar, ligarCabo, valorRemocao } from "../mundo";
 import { analisar } from "../producao";
 import { calorNominalVaretaUs, capacidadeReatorU, dissipacaoReatorUs, varetaNova } from "../reator";
 import { desserializar, serializar } from "../save";
@@ -192,6 +192,37 @@ describe("ciência: nível por tipo (v0.9, §7.1)", () => {
     expect(custos[0]).toBe(360);
     expect(analisar(s).pesquisaPorSegundo).toBeCloseTo(2 * LABORATORIO.pesquisaPorSegundo * 2.25, 10);
     expect(avaliarMelhoria(s, alvo).motivo).toContain("Nível máximo");
+  });
+});
+
+describe("unidade nova paga o acumulado do nível (§7.1, revisão da v0.9)", () => {
+  it("universidade no Nv 5: a nova paga ₵ 400 × (3 + 9 + 27 + 81 + 243) = ₵ 145 200 além da colocação", () => {
+    const s0 = plantar(estadoLimpo(), "universidade", 1);
+    const antes = custoColocar(s0, "universidade");
+    const { s } = comprar(s0, { tipo: "ciencia", id: "universidade" }, NIVEL_CIENCIA.maximo);
+    expect(custoColocar(s, "universidade") - antes).toBe(145_200);
+    expect(valorRemocao(s, "universidade") - valorRemocao(s0, "universidade")).toBe(145_200 / 2);
+  });
+
+  it("tanto faz subir o nível antes ou depois de construir: laboratórios", () => {
+    const alvo = { tipo: "ciencia", id: "laboratorio" } as const;
+    // A: um laboratório, dois níveis, depois o segundo laboratório paga o acumulado
+    const a0 = plantar(estadoLimpo(), "laboratorio", 1);
+    const { s: a1, custos: niveisA } = comprar(a0, alvo, 2);
+    const acumulado = custoColocar(a1, "laboratorio") - custoColocar(a0, "laboratorio");
+    // B: os dois laboratórios primeiro, depois os dois níveis
+    const { custos: niveisB } = comprar(plantar(estadoLimpo(), "laboratorio", 2), alvo, 2);
+    expect(acumulado).toBe(LABORATORIO.custoBase * (3 + 9));
+    expect(niveisA[0] + niveisA[1] + acumulado).toBe(niveisB[0] + niveisB[1]);
+  });
+
+  it("subestação: a nova paga o nível do tipo; usinas não pagam, o nível delas não multiplica por N", () => {
+    const s0 = plantar(estadoLimpo(), "subestacao", 1);
+    const { s } = comprar(s0, { tipo: "subestacao", id: "subestacao" }, 2);
+    expect(custoColocar(s, "subestacao") - custoColocar(s0, "subestacao")).toBe(SUBESTACAO.custoBase * (3 + 9));
+    const u0 = plantar(estadoLimpo(), "cataVento", 1);
+    const { s: u1 } = comprar(u0, { tipo: "usina", id: "cataVento" }, 2);
+    expect(custoColocar(u1, "cataVento")).toBe(custoColocar(u0, "cataVento"));
   });
 });
 

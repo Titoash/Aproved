@@ -7,9 +7,11 @@ import { BATERIA, type Desbloqueio } from "../content/era1";
 import { USINAS } from "../content/usinas";
 import { BATERIA_REDE, DISTRITO_INDUSTRIAL, INSTITUTO } from "../content/era2";
 import { BAIRRO, LABORATORIO, UNIVERSIDADE } from "../content/cidade-era1";
+import { NIVEL_CIENCIA, TIPOS_CIENCIA, type TipoCiencia } from "../content/melhorias";
 import { CABO, OBSTACULOS, TERRENOS, VIZINHANCA, ilhaDef, type IlhaId, type TipoObstaculo } from "../content/era1-arquipelago";
 import { custoUnidade } from "./custos";
 import { custoAcumuladoPorBairro } from "./cidade";
+import { custoAcumuladoTriplo } from "./niveis";
 import { arquipelagoDaEra1 } from "./gerarArquipelago";
 import { naPlataforma, type Arquipelago } from "./arquipelago";
 import {
@@ -87,13 +89,30 @@ export function desbloqueioDe(tipo: TipoConstrucao): Desbloqueio | undefined {
   return undefined;
 }
 
+const ehCiencia = (tipo: TipoConstrucao): tipo is TipoCiencia => (TIPOS_CIENCIA as readonly TipoConstrucao[]).includes(tipo);
+
 /**
- * Custo em ₵ da próxima unidade do tipo: `custoBase × crescimento^n` (GDD §7). O bairro nasce na
- * densidade da cidade e soma o que a cidade pagou por bairro para chegar lá (§8.6, v0.8, Sessão 9).
+ * ₵ que a unidade nova paga pelo que o tipo já tem: o bairro, o que a cidade pagou por bairro para chegar à
+ * densidade (§8.6); subestação e ciência, o que o tipo pagou por unidade para chegar ao nível (§7.1,
+ * revisão da v0.9). Nos três o custo de evoluir multiplica por N, e sem o acumulado valeria evoluir com
+ * uma unidade e construir o resto depois.
+ */
+function acumuladoDaUnidade(state: GameState, tipo: TipoConstrucao): number {
+  if (tipo === "bairro") return custoAcumuladoPorBairro(state.cidade.densidade).creditos;
+  if (ehSubestacao(tipo)) {
+    const def = ESCOAMENTO[tipo];
+    return custoAcumuladoTriplo(def.custoBase, state.melhorias.subestacoes[tipo], def.custoNivel);
+  }
+  if (ehCiencia(tipo)) return custoAcumuladoTriplo(definicaoDeCusto(tipo).custoBase, state.melhorias.ciencia[tipo], NIVEL_CIENCIA.crescimento);
+  return 0;
+}
+
+/**
+ * Custo em ₵ da próxima unidade do tipo: `custoBase × crescimento^n` (GDD §7), mais o acumulado da
+ * densidade (bairro) ou do nível do tipo (subestação e ciência).
  */
 export function custoColocar(state: GameState, tipo: TipoConstrucao): number {
-  const unidade = custoUnidade(definicaoDeCusto(tipo), quantidadeDe(state, tipo));
-  return tipo === "bairro" ? unidade + custoAcumuladoPorBairro(state.cidade.densidade).creditos : unidade;
+  return custoUnidade(definicaoDeCusto(tipo), quantidadeDe(state, tipo)) + acumuladoDaUnidade(state, tipo);
 }
 
 /** 🔬 que a colocação cobra: só o bairro, a parte em 🔬 das evoluções que ele já nasce tendo. */
@@ -101,11 +120,10 @@ export function pesquisaColocar(state: GameState, tipo: TipoConstrucao): number 
   return tipo === "bairro" ? custoAcumuladoPorBairro(state.cidade.densidade).pesquisa : 0;
 }
 
-/** Remover devolve metade dos ₵ que a última unidade custou (GDD §2.4). A 🔬 não volta. */
+/** Remover devolve metade dos ₵ que a última unidade custou, acumulado incluído (GDD §2.4). A 🔬 não volta. */
 export function valorRemocao(state: GameState, tipo: TipoConstrucao): number {
   const n = Math.max(0, quantidadeDe(state, tipo) - 1);
-  const unidade = custoUnidade(definicaoDeCusto(tipo), n);
-  return (tipo === "bairro" ? unidade + custoAcumuladoPorBairro(state.cidade.densidade).creditos : unidade) / 2;
+  return (custoUnidade(definicaoDeCusto(tipo), n) + acumuladoDaUnidade(state, tipo)) / 2;
 }
 
 export function construcaoEm(mundo: MundoState, indice: number): Construcao | null {

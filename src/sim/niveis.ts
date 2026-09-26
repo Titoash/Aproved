@@ -27,6 +27,17 @@ export function custoDegrauTriplo(base: number, nivelAtual: number, crescimento:
   return base * Math.pow(crescimento, nivelAtual + 1) * unidades;
 }
 
+/**
+ * O que um tipo de degrau ×3 já pagou **por unidade** para chegar ao nível `n`: `base × (c¹ + … + cⁿ)`.
+ * É o que a unidade nova de subestação ou de ciência paga ao nascer (§7.1, revisão da v0.9): assim tanto
+ * faz subir o nível antes ou depois de construir.
+ */
+export function custoAcumuladoTriplo(base: number, nivel: number, crescimento: number): number {
+  let soma = 0;
+  for (let k = 1; k <= nivel; k++) soma += base * Math.pow(crescimento, k);
+  return soma;
+}
+
 /** Degrau ×2 das peças: o nível `n + 1` custa `5 × custo da peça × 2ⁿ` (Heliostato: 150, 300, 600, 1 200, 2 400). */
 export function custoNivelPeca(custoDaPeca: number, nivelAtual: number): number {
   return NIVEL_PECA.fatorCusto * custoDaPeca * Math.pow(NIVEL_PECA.crescimento, nivelAtual);
