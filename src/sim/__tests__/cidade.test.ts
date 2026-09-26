@@ -36,12 +36,13 @@ describe("densidade da cidade (GDD §8.6, v0.8)", () => {
     expect(DENSIDADES.map((d) => d.populacao)).toEqual([100, 400, 1600, 6400, 25_000, 100_000]);
     expect(DENSIDADES.map((d) => d.tarifa)).toEqual([1, 1.15, 1.3, 1.5, 1.7, 2]);
     expect(DENSIDADES.map((d) => d.evolucao?.creditos ?? null)).toEqual([250, 625, 1562, 97_650, 244_000, null]);
-    expect(DENSIDADES.map((d) => d.evolucao?.pesquisa ?? null)).toEqual([30, 150, 600, 3_000, 15_000, null]);
+    // 🔬 da Era 2 recalibrada na Sessão 9 (parte G): 1 000 e 3 000 por bairro, porque a cidade evolui inteira
+    expect(DENSIDADES.map((d) => d.evolucao?.pesquisa ?? null)).toEqual([30, 150, 600, 1_000, 3_000, null]);
     // as duas últimas só com o nó da Era 2 (GDD Parte 2 §4.1)
     expect(DENSIDADES.map((d) => d.no ?? null)).toEqual([null, null, null, null, "megacidade", "arcologia"]);
   });
 
-  it("a curva de evolução por bairro é quase exponencial: ₵ ×2,5 e 🔬 ×5 por degrau", () => {
+  it("a curva de evolução por bairro: ₵ ×2,5 por degrau; 🔬 ×5 até a metrópole e mais baixa na Era 2", () => {
     const ev = (d: number) => defDaDensidade(d).evolucao!;
     for (let d = 1; d < 3; d++) {
       expect(ev(d + 1).creditos / ev(d).creditos).toBeCloseTo(2.5, 1);
@@ -50,7 +51,7 @@ describe("densidade da cidade (GDD §8.6, v0.8)", () => {
     // a Era 2 dá um salto de escala em ₵ na entrada da megacidade e volta ao ×2,5 (GDD Parte 2 §4.1)
     expect(ev(4).creditos / ev(3).creditos).toBeCloseTo(62.5, 1);
     expect(ev(5).creditos / ev(4).creditos).toBeCloseTo(2.5, 1);
-    expect(ev(5).pesquisa / ev(4).pesquisa).toBeCloseTo(5, 1);
+    expect(ev(5).pesquisa / ev(4).pesquisa).toBeCloseTo(3, 1);
     expect(defDaDensidade(6).evolucao).toBeNull(); // arcologia não evolui
   });
 

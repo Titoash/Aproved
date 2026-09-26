@@ -50,7 +50,7 @@ export const DENSIDADES_ERA1: readonly DensidadeDef[] = [
     populacao: 6_400,
     tarifa: 1.5,
     // A partir daqui é Era 2 (GDD Parte 2 §4.1): o degrau custa ×25 em ₵ e ×5 em 🔬.
-    evolucao: { creditos: 97_650, pesquisa: 3_000 },
+    evolucao: { creditos: 97_650, pesquisa: 1_000 },
   },
 ];
 
