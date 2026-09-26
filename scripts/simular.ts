@@ -238,7 +238,7 @@ const OPCOES = { semNivelCiencia: false };
  * 1. turbina do Núcleo: +10 % de kW e de 🔬 sem mexer no `T*`;
  * 2. ciência: +25 % de 🔬, que é o que trava (desligável com `--sem-nivel-ciencia`, para medir o efeito);
  * 3. usina, só faltando energia e só se o nível der mais kW por ₵ que uma unidade nova;
- * 4. Equipe de manutenção, com obstáculo esperando na fila.
+ * 4. Equipe de manutenção, com todos os Bipes ocupados.
  */
 function comprarNiveis(state: GameState, aplicar: (p: GameState | null, o: string) => GameState | null, reserva: number): GameState {
   let s = state;
@@ -268,7 +268,8 @@ function comprarNiveis(state: GameState, aplicar: (p: GameState | null, o: strin
       if (ganhoPorCredito > unidadePorCredito) tentar(alvo, 0.5, `nível de ${USINAS[id].nome}`);
     }
   }
-  if (s.mundo.remocoes.some((r) => r.fimMs === 0)) tentar({ tipo: "equipe" }, 0.1, "Equipe de manutenção");
+  // todos os Bipes ocupados: mais um encurta a fila (o bot enfileira até N + 1)
+  if (s.mundo.remocoes.length >= bipesDe(s)) tentar({ tipo: "equipe" }, 0.1, "Equipe de manutenção");
   return s;
 }
 
@@ -358,6 +359,11 @@ function decidir(state: GameState, compras: Map<string, number>, rota: Rota = "c
 
   // 0. Com a Estabilidade em 100 % e a Fissão básica na mão, o jogador para de gastar e **junta** os
   //    ₵ 200 000 do Vaso: é o sumidouro que a Era 1 não tinha (ajuste 8 da Sessão 7).
+  //    Com a barra a 85 % e a Fissão comprada, o jogador que planeja já começa a juntar (parte G da Sessão 9:
+  //    sem isso o bot ficava 6–7 min parado depois da barra cheia, esperando o Vaso).
+  if (s.nucleo && s.era === 1 && s.nucleo.estabilidade >= 85 && s.pesquisados.includes("fissaoBasica") && s.creditos < 200_000 + 20_000) {
+    return s;
+  }
   if (s.nucleo && s.era === 1 && s.nucleo.estabilidade >= 100 && s.pesquisados.includes("fissaoBasica")) {
     return s;
   }
@@ -424,7 +430,7 @@ function decidir(state: GameState, compras: Map<string, number>, rota: Rota = "c
   }
 
   // 4b. Níveis por tipo, sem tocar no que a saída da era pede (₵ 200 000 do Vaso + ₵ 50 000 da Fissão).
-  const reserva = (s.nucleo?.estabilidade ?? 0) >= 85 ? 200_000 + (s.pesquisados.includes("fissaoBasica") ? 0 : 50_000) : 0;
+  const reserva = (s.nucleo?.estabilidade ?? 0) >= 60 ? 200_000 + (s.pesquisados.includes("fissaoBasica") ? 0 : 50_000) : 0;
   s = comprarNiveis(s, aplicar, reserva);
 
   // 5. Árvore: o nó mais barato disponível, com prioridade para os que destravam prédios.
@@ -449,13 +455,15 @@ function decidir(state: GameState, compras: Map<string, number>, rota: Rota = "c
   }
 
   // 7. Espaço: desmatar quando não há casa boa para a próxima usina.
-  if (melhorCasa(s, "cataVento") === null && s.mundo.remocoes.length < bipesDe(s) + 1) {
+  // Enfileira até N + 1 por decisão (N Bipes em paralelo, parte D da Sessão 9), não um só.
+  if (melhorCasa(s, "cataVento") === null) {
     for (const id of s.mundo.ilhasAbertas) {
+      if (s.mundo.remocoes.length >= bipesDe(s) + 1) break;
       const q = ILHAS.findIndex((i) => i.id === id);
-      const alvo = casasDe(q).find((casa) => obstaculoEm(s.mundo, casa, arq) && avaliarRemocaoObstaculo(s, casa, arq).ok && temEscoamento(s, casa));
-      if (alvo !== undefined) {
-        s = aplicar(removerObstaculo(s, alvo, arq), "desmatar") ?? s;
-        break;
+      for (const casa of casasDe(q)) {
+        if (s.mundo.remocoes.length >= bipesDe(s) + 1) break;
+        if (!obstaculoEm(s.mundo, casa, arq) || !avaliarRemocaoObstaculo(s, casa, arq).ok || !temEscoamento(s, casa)) continue;
+        s = aplicar(removerObstaculo(s, casa, arq), "desmatar") ?? s;
       }
     }
   }
@@ -795,13 +803,14 @@ function decidirEra2(state: GameState, compras: Map<string, number>, rota: Rota 
   }
 
   // 7. espaço e ilhas, como na Era 1
-  if (melhorCasa(s, "fazendaSolar") === null && s.mundo.remocoes.length < bipesDe(s) + 1) {
+  if (melhorCasa(s, "fazendaSolar") === null) {
     for (const id of s.mundo.ilhasAbertas) {
+      if (s.mundo.remocoes.length >= bipesDe(s) + 1) break;
       const q = ILHAS.findIndex((i) => i.id === id);
-      const alvo = casasDe(q).find((casa) => obstaculoEm(s.mundo, casa, arq) && avaliarRemocaoObstaculo(s, casa, arq).ok);
-      if (alvo !== undefined) {
-        s = aplicar(removerObstaculo(s, alvo, arq), "desmatar") ?? s;
-        break;
+      for (const casa of casasDe(q)) {
+        if (s.mundo.remocoes.length >= bipesDe(s) + 1) break;
+        if (!obstaculoEm(s.mundo, casa, arq) || !avaliarRemocaoObstaculo(s, casa, arq).ok) continue;
+        s = aplicar(removerObstaculo(s, casa, arq), "desmatar") ?? s;
       }
     }
   }
