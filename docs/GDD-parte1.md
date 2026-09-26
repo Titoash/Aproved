@@ -1,6 +1,6 @@
-# KARDASHEV (codinome) — Documento de Design v0.6 · Parte 1 de 2
+# KARDASHEV (codinome) — Documento de Design v0.9 · Parte 1 de 2
 
-> Parte 1: conceito, os três sistemas, Cascata, economia, Era 1 completa, direção de arte, arquitetura e roteiro de sessões.
+> Parte 1: conceito, os três sistemas, Ocorrências, Cascata, economia, Era 1 completa, direção de arte, arquitetura e roteiro de sessões.
 > Parte 2 (`docs/GDD-parte2.md`): Era 2 completa (v0.7); Eras 3–6, prestígio e o roteiro dos cards entram lá nas versões seguintes.
 
 ---
@@ -34,7 +34,7 @@ Uma **plataforma** no centro do tabuleiro da era com a usina crítica da época 
 As duas camadas moram no **mesmo tabuleiro**: um **arquipélago no mar**, com **2048 casas de terra** repartidas em oito ilhas (grade de 64×64 casas, forma orgânica por ruído, semente fixa por era). A plataforma do Núcleo (7×7) fica na ilha principal. Entre as ilhas, mar; na borda de cada uma, água rasa (litoral). O espaço só aparece nos níveis superiores da escada.
 
 - **Tudo se coloca.** Escolhe-se um prédio na paleta e toca-se numa casa livre. Remover devolve metade do custo. Nada é alocado sozinho.
-- **Espaço é conquistado.** As ilhas nascem ocupadas por floresta, arbustos, pedras, montanhas (2×2) e pântano. Cada obstáculo tem custo em ₵ (montanha também em 🔬) e um tempo de remoção, executado por um Bipe de manutenção. Picos são permanentes e dão vento aos vizinhos. Só a ilha principal está aberta no começo; as demais exigem uma **expedição** (₵) e, para vender energia na rede principal, um **cabo submarino** (₵ por casa de mar) entre dois litorais.
+- **Espaço é conquistado.** As ilhas nascem ocupadas por floresta, arbustos, pedras, montanhas (2×2) e pântano. Cada obstáculo tem custo em ₵ (montanha também em 🔬) e um tempo de remoção, executado pelos Bipes de manutenção (dois de nascença, §8.5). Picos são permanentes e dão vento aos vizinhos. Só a ilha principal está aberta no começo; as demais exigem uma **expedição** (₵) e, para vender energia na rede principal, um **cabo submarino** (₵ por casa de mar) entre dois litorais.
 - **Terreno importa.** Colina: vento +25 %. Litoral: vento +50 %. Planície: sol +15 %. Água não constrói. O chão de uma casa é planície, colina, litoral ou rocha; floresta, pântano, arbusto, pedra, montanha e pico são **obstáculos em cima do chão** — e floresta e pântano nascem sempre sobre planície, então desmatar devolve planície.
 - **Vizinhos importam.** Esteira: cada vizinho eólico ortogonal tira 20 % de um cata-vento ou turbina eólica (mínimo 40 %). Sombra: cada vizinho alto ortogonal (turbina eólica, árvore, montanha, torre) tira 30 % de um painel (mínimo 40 %).
 - **Subestação escoa.** Uma usina só vende se estiver a até 3 casas (distância de Chebyshev) de uma subestação, e cada subestação tem um teto de kW. Usina sem escoamento produz e mostra "sem escoamento". Bairros também precisam de subestação no alcance. A bateria continua global (§4.1).
@@ -42,7 +42,7 @@ As duas camadas moram no **mesmo tabuleiro**: um **arquipélago no mar**, com **
 - **Eras × níveis.** Eras 1 e 2 no arquipélago; a Era 3 abre o planeta (outros arquipélagos); Eras 4 a 6 no sistema; galáxia em diante é prestígio (Parte 2). Uma câmera só: a transição de era é a transição da escada. Cascata acima do arquipélago perde a vaga, nunca o nível (Parte 2).
 
 ### 2.5 Cidade — bairros, evolução e ciência (v0.6)
-A demanda não se compra num contador: ela mora em **bairros** colocados no tabuleiro. Cada bairro tem **densidade** de 1 a 4 (aldeia, vila, cidade, metrópole), com demanda, população e tarifa próprias (§8.6). Evoluir um bairro custa ₵ + 🔬 numa curva **quase exponencial** e nunca acontece sozinho: é uma decisão do jogador. Bairro mais denso pede mais kW e **paga mais por kW**. A população total libera **universidades** (1 por 2 000 habitantes), que geram 🔬 proporcional à raiz da população: mais gente, mais ciência. O **laboratório** dá a primeira ciência antes do Núcleo. A cidade cresce na medida da energia que você entrega e do que investe nela, não do botão que aperta.
+A demanda não se compra num contador: ela mora em **bairros** colocados no tabuleiro. A **cidade** tem uma **densidade** de 1 a 4 (aldeia, vila, cidade, metrópole) que vale para todos os bairros, cada um com a demanda, a população e a tarifa dessa densidade (§8.6). Evoluir a cidade custa ₵ + 🔬 por bairro numa curva **quase exponencial** e nunca acontece sozinho: é uma decisão do jogador (v0.8: a densidade é da cidade, não de cada bairro). Bairro mais denso pede mais kW e **paga mais por kW**. A população total libera **universidades** (1 por 2 000 habitantes), que geram 🔬 proporcional à raiz da população: mais gente, mais ciência. O **laboratório** dá a primeira ciência antes do Núcleo. A cidade cresce na medida da energia que você entrega e do que investe nela, não do botão que aperta.
 
 ---
 
@@ -93,10 +93,40 @@ A bateria carrega com excedente e descarrega em déficit, então a balança tole
 | 90–100 % | alerta (barra pisca, som) |
 | > 100 % por 5 s | **Cascata** (o calor acumula acima da capacidade; nunca é truncado em 100 %) |
 
-Fisicamente coerente: turbinas rendem mais com o receptor quente (Carnot), por isso a zona de ouro é quente e perto do limite. Isso também torna o sistema **auto-estabilizante**: o consumo das turbinas cresce com a temperatura, então cada configuração de peças converge para uma temperatura de equilíbrio. O jogador ajusta a proporção espelhos/turbinas para cair na faixa — não precisa "pilotar" a barra segundo a segundo.
+Fisicamente coerente: turbinas rendem mais com o receptor quente (Carnot), por isso a zona de ouro é quente e perto do limite. Isso também torna o sistema **auto-estabilizante**: o consumo das turbinas cresce com a temperatura, então cada configuração de peças converge para uma temperatura de equilíbrio. O jogador ajusta a proporção espelhos/turbinas para cair na faixa — não precisa "pilotar" a barra segundo a segundo. A única exceção são as **Ocorrências** (§4.4), que são opcionais.
 
 ### 4.3 Contenção (Núcleo, Era 3+) — margem = (campo − pressão) ÷ pressão
 Bobinas geram campo e consomem potência da Rede; células de plasma geram pressão. Margem entre 5 % e 20 % é zona de ouro (energia ×1,2). Margem < 0 por 3 s → Cascata. Detalhes na Parte 2.
+
+### 4.4 Ocorrências — o sub-jogo de operação (v0.9)
+
+A simulação da v0.8 mostrou o jogo parado ≈ 35 de 102 minutos, esperando 🔬 ou a barra de 🛡 subir (`docs/correcoes-gdd-v0.9.md`). As Ocorrências trocam essa espera por operação. São curtas e opcionais, e usam o mesmo motor de calor: nenhuma fórmula muda.
+
+- **Oferta.** A cada **4 min de jogo ativo** (tempo de tick com o jogo aberto; o offline não conta), o sim sorteia uma Ocorrência entre as que se aplicam à grade atual e a oferece por **60 s**. O ícone 🔥 do HUD pulsa e o painel do Núcleo mostra o cartão ("Nuvem sobre o campo · 45 s · 🛡 +3 ou 🔬"). Uma por vez. Não há oferta com o Núcleo bloqueado, desligado, em SCRAM ou sem turbina. Recusar ou deixar expirar não custa nada, e os 4 min recomeçam quando a oferta termina, qualquer que seja o desfecho. O sorteio usa o gerador determinístico (`sim/aleatorio.ts`) com a semente no estado.
+- **Controle.** Aceitar abre **um controle só**, grande, que existe apenas durante a Ocorrência e volta a 100 % quando ela acaba:
+  - Era 1 — **Carga das turbinas**, de 50 % a 150 %: multiplica o consumo das turbinas (`0,12 × Q × carga`), então `Q* = entrada ÷ (0,12 × t × carga)`. Carga baixa esquenta, carga alta esfria. Em equilíbrio a potência não muda (continua 0,8 kW por u que entra); o que muda é onde `T` para, e com ele a faixa, a pesquisa e a Estabilidade.
+  - Era 2 — **Barras de controle**, de 50 % a 125 % da injeção das varetas (Parte 2 §5.4).
+  - A marca de `Q*` na barra de calor anda ao vivo com o controle: o jogador vê para onde `T` vai antes de chegar.
+- **Perturbação.** Cada Ocorrência é um multiplicador com perfil no tempo sobre um termo do motor (entrada, dissipação ou fator das turbinas), com rampa de 5 s na entrada e na saída. O motor (`sim/motor.ts`) recebe o multiplicador; as fórmulas de §4.2 e §8.3 ficam como estão.
+- **Meta.** `T` na zona de ouro (70–90 %) durante pelo menos **75 %** da duração, sem Cascata e sem SCRAM — ou, quando a Ocorrência diz, a potência do Núcleo numa faixa. A Cascata continua valendo: aceitar é correr o risco de operar perto do limite.
+- **Recompensa**, escolhida pelo jogador ao superar: **🛡 +3 pontos** (sem passar de 100) **ou 🔬 igual a 60 s da produção total de 🔬/s** no instante (Núcleo, laboratórios, universidades, institutos). O jogador pega o que o está travando. Falhar não tira nada além do que a física tirou.
+- **Nunca offline e nunca automática.** O modo seguro (§5) continua valendo durante a Ocorrência.
+- **Card "Ocorrências"** (2 telas, com os Bipes) na primeira oferta. O diário do tabuleiro (§10.1) registra a oferta, o resultado e a recompensa.
+
+**Ocorrências da Era 1** (valores iniciais, a calibrar na simulação; a primeira oferta do jogo é sempre a Nuvem). A coluna do meio usa o exemplo de §8.3: `h = 5`, `t = 2`, capacidade 100, `T*` = 83 %.
+
+| Ocorrência | Perturbação | Duração | Exige | Sem mexer no controle | Resposta |
+|---|---|---|---|---|---|
+| **Nuvem sobre o campo** | entrada ×0,6 | 45 s | 1 heliostato | `Q*` = 50, `T` cai para 50 % e sai do ouro | carga 60 % devolve 83 % |
+| **Céu limpo e frio** | entrada ×1,25 | 45 s | 1 heliostato | `Q*` = 104,2: Cascata | carga 125 % devolve 83 % |
+| **Turbina em meia carga** | uma turbina a 50 % | 30 s | 2 turbinas | `Q*` = 111,1 (1,5 turbina): Cascata | carga 133 % devolve 83 % |
+
+Frases de física (cartão da oferta e card):
+- Nuvem: "Uma nuvem derruba a luz direta em segundos. Nas torres de verdade o operador reduz a vazão no receptor para a temperatura de saída não despencar."
+- Céu limpo e frio: "Ar frio e seco deixa passar mais luz direta: um dia limpo de inverno pode render mais radiação direta que um dia de verão com névoa."
+- Turbina em meia carga: "Quando uma turbina perde carga, o vapor que ela tirava fica no receptor. As outras precisam tirar mais, ou o receptor passa do limite."
+
+**Ritmo.** Com a Estabilidade passiva em +1,8/min na zona de ouro (§7), quem aceita todas as Ocorrências e escolhe 🛡 sobe ≈ 1,8 + 3 a cada ~5 min ≈ 2,4/min e fecha a barra em ≈ 42 min; quem deixa rodar fecha em ≈ 56 min. As duas pontas ficam dentro dos 40–65 min de §7. As eras seguintes trazem Ocorrências próprias (Era 2 na Parte 2 §5.4; a Era 3 traz as da Contenção).
 
 ---
 
@@ -119,7 +149,7 @@ Bobinas geram campo e consomem potência da Rede; células de plasma geram press
 
 ## 6. Progressão e eras
 
-- **Estabilidade** sobe enquanto o Núcleo opera dentro da faixa (mais rápido na zona de ouro). Chega a 100 % → habilita o botão da próxima era.
+- **Estabilidade** sobe enquanto o Núcleo opera dentro da faixa (mais rápido na zona de ouro) e a cada Ocorrência superada (§4.4). Chega a 100 % → habilita o botão da próxima era.
 - **Próxima era** exige: Estabilidade 100 % + pesquisa específica concluída + custo em ₵.
 - A era nova traz: novo cenário (a câmera afasta: colina → cidade → oceano → órbita → espaço profundo → estrela), nova grade com peças novas, novas usinas na lista, e **uma balança que muda de natureza**.
 
@@ -147,9 +177,9 @@ Bobinas geram campo e consomem potência da Rede; células de plasma geram press
 - **Preço base** por era: Era 1 = 1,0; cada era multiplica a escala de potência por ~100 e o preço por ~0,1 (mais watts, menos ₵ por watt — reflete o custo da energia caindo). Números finos das Eras 2–6 na Parte 2.
 - **Pesquisa/s** = potência do Núcleo ÷ 10 × multiplicador da zona de calor.
 - **Offline:** janela `min(agora − salvoEmMs, 8 h)`; relógio andando para trás conta como 0. Nada é comprado offline. A Rede usa o balanço congelado do save, **sem bateria** (nem carrega nem descarrega) e com receita ×0,5. Núcleo em modo seguro obrigatório: calcula `T*` do equilíbrio da grade salva; se `T* ≥ 95 %`, o Núcleo fica **desligado** o tempo todo (0 kW, 0 🔬, Estabilidade parada) e o jogador é avisado do motivo; senão, potência ×0,7, pesquisa/s da faixa de `T*` ×0,7 e Estabilidade da faixa ×0,7. Ao voltar, `Q = Q*` (limitado a 95 % da capacidade), cronômetro da Cascata e SCRAM zerados. Nunca há Cascata offline. Relatório "Enquanto você esteve fora": tempo, ₵, 🔬, Estabilidade e, se for o caso, "Núcleo ficou desligado: sua configuração passaria de 95 %".
-- **Nada acumula sem sumidouro (v0.6):** todo recurso tem para onde ir e todo número tem como evoluir, do consumo à produção. ₵ se gasta em colocar, evoluir, desmatar e expedir; 🔬 se gasta na árvore; potência sem subestação com folga é **desperdiçada** (aparece como "sem escoamento") até o jogador evoluir subestações ou bairros; calor dissipa ou vira Cascata; população só cresce com bairro evoluído; Estabilidade para em 100 % e vira a próxima era. Vale para a cidade e para o Núcleo: cada peça do Núcleo tem três níveis na árvore (heliostato de dois eixos, turbina de alta pressão, radiador ativo, tanque de dois sais) e o Receptor evolui pelo cerâmico e pela Grade 7×7. Um recurso que só sobe sem decisão é um defeito de design a corrigir.
-- **Colocação (v0.6):** cada prédio tem custo base × 1,25ⁿ por unidade colocada do mesmo tipo (usinas mantêm 1,15ⁿ). Remover devolve 50 %. Obstáculos: custo fixo por tipo + tempo de remoção. Expedição por ilha e cabo submarino por casa de mar (§8.5). Evolução de bairro: `₵ 250 × 2,5^(densidade − 1)` + 🔬 (30, 150, 600). Tarifa por kW vendido cresce com a densidade média dos bairros atendidos (×1, ×1,15, ×1,3, ×1,5).
-- **Ritmo definido:** ~60 min de jogo ativo por era. Estabilidade sobe +1,5 pontos/min na faixa normal e +2,5/min na zona de ouro (100 % em 40–65 min, contando paradas e Cascatas).
+- **Nada acumula sem sumidouro (v0.6):** todo recurso tem para onde ir e todo número tem como evoluir, do consumo à produção. ₵ se gasta em colocar, evoluir, desmatar e expedir; 🔬 se gasta na árvore; potência sem subestação com folga é **desperdiçada** (aparece como "sem escoamento") até o jogador evoluir subestações ou bairros; calor dissipa ou vira Cascata; população só cresce com bairro evoluído; Estabilidade para em 100 % e vira a próxima era. Vale para a cidade e para o Núcleo: cada tipo de peça do Núcleo tem nível incremental no painel do Núcleo e um degrau de era na árvore (heliostato de dois eixos, turbina de alta pressão, radiador ativo, tanque de dois sais; §7.1, §8.3), e o Receptor evolui pelo cerâmico e pela Grade 7×7. ₵ parado com 🔬 travando vira ciência pelo nível de laboratórios, universidades e institutos (§7.1, v0.9). Um recurso que só sobe sem decisão é um defeito de design a corrigir.
+- **Colocação (v0.6):** cada prédio tem custo base × 1,25ⁿ por unidade colocada do mesmo tipo (usinas mantêm 1,15ⁿ). Remover devolve 50 %. Obstáculos: custo fixo por tipo + tempo de remoção. Expedição por ilha e cabo submarino por casa de mar (§8.5). Evolução da cidade: (`₵ 250 × 2,5^(densidade − 1)` + 🔬 30, 150, 600) × N bairros (v0.8, §8.6). Tarifa por kW vendido cresce com a densidade média dos bairros atendidos (×1, ×1,15, ×1,3, ×1,5).
+- **Ritmo definido:** ~60 min de jogo ativo por era. Estabilidade sobe **+1,2 pontos/min** fora da zona de ouro (frio, normal e alerta) e **+1,8/min** na zona de ouro, mais **+3 por Ocorrência superada** (§4.4): 100 % em ≈ 56 min deixando rodar e ≈ 42 min jogando as Ocorrências — 40–65 min contando paradas e Cascatas. *(v0.9, vale junto com as Ocorrências, na Sessão 10; até lá as taxas são 1,5 e 2,5. Motivo: com 2,5/min a barra era um cronômetro de 40 min sem nada a fazer; agora quem opera ganha o tempo de volta.)*
 
 ---
 
@@ -157,7 +187,7 @@ Bobinas geram campo e consomem potência da Rede; células de plasma geram press
 
 Toda melhoria é **por tipo, nunca por unidade**. Melhorar cata-vento melhora todos os cata-ventos; evoluir a cidade evolui todos os bairros; subir o nível das subestações sobe todas. A única coisa "por unidade" que sobra é o que é posição: colocar, remover, trocar uma vareta. Dois degraus:
 
-- **Incremental** (₵, repetível, compra-se onde a coisa está: paleta, painel do Núcleo, painel da Cidade): nível `n` por tipo. Regra geral: custo `base × 3ⁿ`; efeito por nível: usinas **+50 %** (como já era, §7), peças do Núcleo **+10 %** na grandeza da peça (calor, kW por u, dissipação, capacidade), subestações e cabos **teto ×2**. **Máximo 5 níveis por era** para usinas e peças (o degrau seguinte é de era); 3 para subestações; cabos sem teto. Onde a unidade é cara e conta em rede (subestação, cidade), o custo multiplica pelo número de unidades: `base × 3ⁿ × N`.
+- **Incremental** (₵, repetível, compra-se onde a coisa está: paleta, painel do Núcleo, painel da Cidade): nível `n` por tipo. Regra geral: custo `base × 3ⁿ`; efeito por nível: usinas **+50 %** (como já era, §7), peças do Núcleo **+10 %** na grandeza da peça (calor, kW por u, dissipação, capacidade), subestações e cabos **teto ×2**, **ciência +25 % de 🔬** (laboratório, universidade e instituto de pesquisa, cada um no seu tipo; v0.9). **Máximo 5 níveis por era** para usinas, peças e ciência (o degrau seguinte é de era); 3 para subestações; cabos sem teto. Onde a unidade conta em rede ou em quantidade (subestação, cidade, ciência), o custo multiplica pelo número de unidades: `base × 3ⁿ × N` — Laboratório ₵ 60, Universidade ₵ 400, Instituto ₵ 20 000 de base. *(v0.9: a ciência com nível converte o ₵ que a simulação mostra parado em 🔬, que é o que trava; na Era 1 o bot chega a ter ₵ 150–318 mil sem uso entre os minutos 20 e 30.)*
 - **De era** (🔬, uma vez, na árvore): muda a forma ou libera o tipo seguinte — Lâminas de fibra, Torre mais alta, Heliostato de dois eixos, Subestação de 138 kV, Megacidade. Cada nó continua com a frase de física.
 
 O jogador vê o nível onde a coisa está: "Nv 3" na carta da paleta, na peça da grade, na linha da cidade. Nada de nível escondido em lista.
@@ -177,7 +207,7 @@ A demanda não tem mais valor de base: ela é a soma dos bairros atendidos por s
 | Bateria | ₵ 80 | +20 kWh de capacidade | 🔬 20 |
 | Vila | ₵ 40 | +8 kW de demanda | início (custo ×1,25) |
 
-Melhorias da Rede (lista): **Lâminas de fibra** (₵ 200): cata-vento e turbina eólica +25 %. Compra única; 🔬 é requisito acumulado, não gasto.
+Melhorias da Rede: **Lâminas de fibra** (cata-vento e turbina eólica +25 %) é nó da árvore desde a v0.6 (🔬 25, gasto, §8.6); o nível incremental das usinas está em §7.1. A Bateria e a Turbina eólica se desbloqueiam gastando 🔬 (§8.6), não por limiar.
 
 ### 8.3 Núcleo: Torre Solar (grade 5×5 na plataforma 7×7 da ilha, centro fixo)
 Desbloqueio: ₵ 100 (tutorial guiado: "construa o receptor").
@@ -214,7 +244,7 @@ Melhorias do Núcleo: **Rastreamento solar** (₵ 150 + 🔬 30): cada espelho i
 ### 8.4 Saída da Era 1
 Estabilidade 100 % + pesquisa "Fissão básica" (🔬 3 000) + ₵ 50 000 → Era 2. Com 🔬 virando moeda (v0.6), "Fissão básica" é um **nó da árvore** que custa 🔬 3 000 + ₵ 50 000 (§8.6). A conta antiga ("com o Núcleo em ~16 kW, 🔬 3 000 leva 20–30 min") valia quando o Núcleo era a única fonte: com laboratórios e universidades a simulação da Sessão 7 chega aos 🔬 3 000 em **11 minutos**, e o que segura a era passa a ser a árvore inteira (≈ 🔬 22 mil) e a Estabilidade. Card explicativo de transição: de kW para MW. O que acontece na transição e a Era 2 inteira estão na Parte 2 (`docs/GDD-parte2.md`, §2).
 
-**Ritmo medido (Sessão 7, parte F).** Um bot jogando bem fecha a Era 1 em **≈ 41 min**, e quem manda é a Estabilidade: +2,5 pontos/min na zona de ouro dá 40 minutos de piso para qualquer jogador que acerte a grade logo. Os 50–70 minutos de §7 valem para jogo humano (com paradas, erros de proporção e Cascatas), não para jogo perfeito. Se a gestão quiser o piso em 50–70 também no jogo perfeito, o ajuste é na taxa de Estabilidade (ouro 2,5 → ~1,8/min), que esta sessão não podia tocar.
+**Ritmo medido (Sessão 7, parte F).** Um bot jogando bem fecha a Era 1 em **≈ 41 min**, e quem manda é a Estabilidade: +2,5 pontos/min na zona de ouro dá 40 minutos de piso para qualquer jogador que acerte a grade logo. Os 50–70 minutos de §7 valem para jogo humano (com paradas, erros de proporção e Cascatas), não para jogo perfeito. Se a gestão quiser o piso em 50–70 também no jogo perfeito, o ajuste é na taxa de Estabilidade (ouro 2,5 → ~1,8/min), que esta sessão não podia tocar. *(v0.9: o playtest do autor apontou a espera, o que reabre o ajuste 1 da Sessão 7. A taxa passa a 1,8/min no ouro e 1,2/min fora dele, e as Ocorrências de §4.4 devolvem o ritmo a quem joga: ≈ 42 min jogando, ≈ 56 min deixando rodar.)*
 
 ---
 
@@ -232,7 +262,7 @@ Estabilidade 100 % + pesquisa "Fissão básica" (🔬 3 000) + ₵ 50 000 → Er
 | Farol | 52 | rocha | ₵ 300 mil | pico, vazio |
 
 Cabo submarino: ₵ 150 + **₵ 120** por casa de mar, entre os dois litorais mais próximos; sem cabo, a ilha só alimenta bairros e subestações dela mesma (a energia que sobra vira "sem escoamento"). O cabo tem **teto próprio de 30 kW**, nos dois sentidos, e **nível** (custo da rota ×3ⁿ, teto ×2ⁿ), como a subestação: ligar a ilha não basta, é preciso dimensionar o cabo. Foi assim que o cabo deixou de ser uma trava (₵ 230–270 contra ₵ 600 a ₵ 100 mil das expedições) e virou decisão contínua (v0.6, Sessão 7).
-Obstáculos: arbusto ₵ 3 (1 s), árvore ₵ 8 (3 s), pedra ₵ 25 (8 s), pântano ₵ 60 (10 s), montanha 2×2 ₵ 400 + 🔬 20 (30 s) — **dinamitar devolve 🔬 40 e deixa quatro casas de rocha com cristal** (laboratório ou universidade sobre cristal rende +50 %, §8.6) —, pico permanente (vento +30 % nos vizinhos). Subestação ₵ 120 × 1,25ⁿ, alcance 3, teto 40 kW; nível: custo ×3ⁿ, teto ×2, **nível máximo 3** (40 → 80 → 160 → 320 kW, ajuste 2 da Sessão 7: com o bot instalando ~390 kW, uma subestação só deixa de bastar e a segunda volta a ser decisão no fim da era). Os preços das expedições foram **multiplicados por 3** na Sessão 7 depois da simulação de 60 minutos: com os valores antigos o bot abria o arquipélago inteiro em 30 minutos e ainda sobrava caixa. Com estes, a última ilha cai por volta dos 40 minutos.
+Obstáculos: arbusto ₵ 3, árvore ₵ 8, pedra ₵ 25, pântano ₵ 60, montanha 2×2 ₵ 400 + 🔬 20 (tempos de remoção e Bipes no parágrafo v0.8 abaixo) — **dinamitar devolve 🔬 40 e deixa quatro casas de rocha com cristal** (laboratório ou universidade sobre cristal rende +50 %, §8.6) —, pico permanente (vento +30 % nos vizinhos). Subestação ₵ 120 × 1,25ⁿ, alcance 3, teto 40 kW; nível: custo ×3ⁿ, teto ×2, **nível máximo 3** (40 → 80 → 160 → 320 kW, ajuste 2 da Sessão 7: com o bot instalando ~390 kW, uma subestação só deixa de bastar e a segunda volta a ser decisão no fim da era). Os preços das expedições foram **multiplicados por 3** na Sessão 7 depois da simulação de 60 minutos: com os valores antigos o bot abria o arquipélago inteiro em 30 minutos e ainda sobrava caixa. Com estes, a última ilha cai por volta dos 40 minutos.
 
 **v0.8 — níveis por tipo e remoção.** Subestação e cabo deixam de subir por unidade: **"Subestações nível n"** vale para todas (custo `₵ 120 × 3ⁿ × N`, N = quantas existem; teto ×2ⁿ; máximo 3) e **"Cabos nível n"** vale para todos os cabos ligados (custo = soma das rotas ligadas × 3ⁿ; teto ×2ⁿ). Na migração, o nível global nasce igual ao maior nível existente.
 Remoção de obstáculos: **dois Bipes de manutenção** de nascença trabalham em paralelo; **"Equipe de manutenção"** (incremental, ₵ 150 × 2ⁿ, máximo 4 níveis) soma um Bipe por nível; tempos: arbusto 0,5 s, árvore 1,5 s, pedra 4 s, pântano 5 s, montanha 15 s (eram 1/3/8/10/30 s e um Bipe só: ficou lento demais no playtest). Nó de era **"Máquinas pesadas"** (🔬 120, ramo Rede): tempos ÷ 2. **Seleção em área**: arrastar no desktop, toque longo e arrastar no celular, até 8×8 casas; o custo total aparece antes de confirmar e a fila reparte entre os Bipes. Remover construção continua na hora, devolvendo 50 %.
@@ -246,7 +276,7 @@ Remoção de obstáculos: **dois Bipes de manutenção** de nascença trabalham 
 | 3 | Cidade | 48 kW | 1 600 | ×1,3 | ₵ 1 562 + 🔬 600 |
 | 4 | Metrópole | 110 kW | 6 400 | ×1,5 | — |
 
-Bairro novo: ₵ 40 × 1,25ⁿ, 1 casa, precisa de subestação no alcance. Laboratório: ₵ 60 × 1,25ⁿ, 🔬 0,2/s, consome 2 kW. Universidade: liberada com 1 000 habitantes, ₵ 400 × 1,5ⁿ, no máximo 1 por 2 000 habitantes, 🔬 0,5/s × √(**alunos** ÷ 1 000) com **alunos = população ÷ universidades ativas** (ajuste 3 da Sessão 7: quatro universidades dividindo 16 400 habitantes rendem 4 🔬/s no total, não 8 — a ciência cresce com gente, não com prédio), consome 5 kW. Núcleo: 🔬 = kW ÷ 10 × faixa, como antes.
+Bairro novo: ₵ 40 × 1,25ⁿ, 1 casa, precisa de subestação no alcance. Laboratório: ₵ 60 × 1,25ⁿ, 🔬 0,2/s, consome 2 kW. Universidade: liberada com 1 000 habitantes, ₵ 400 × 1,5ⁿ, no máximo 1 por 2 000 habitantes, 🔬 0,5/s × √(**alunos** ÷ 1 000) com **alunos = população ÷ universidades ativas** (ajuste 3 da Sessão 7: quatro universidades dividindo 16 400 habitantes rendem 4 🔬/s no total, não 8 — a ciência cresce com gente, não com prédio), consome 5 kW. Núcleo: 🔬 = kW ÷ 10 × faixa, como antes. Laboratório e universidade têm **nível por tipo** (v0.9, §7.1): +25 % de 🔬 por nível, custo `base × 3ⁿ × N`.
 
 **Árvore da Era 1** (🔬 gasto; cada nó vem com um card de uma frase de física). Os custos abaixo já são os **recalibrados pela simulação de 60 minutos** da Sessão 7: os originais somavam 🔬 2,9 mil contra 🔬 38 mil ganhos numa era, e a árvore inteira acabava aos 15 minutos. A curva é progressiva — os primeiros nós continuam baratos (o começo não mudou), e os últimos custam de 8 a 10 vezes o que custavam.
 - Vento: Lâminas de fibra (+25 %, 🔬 25) → Torre mais alta (+40 %, 🔬 150: "a potência do vento vai com o cubo da velocidade, e a 80 m ele é uns 30 % mais rápido que a 30 m — no papel seria mais que o dobro; a torre mais alta e mais pesada come o resto") → Controle de passo (esteira −50 %, 🔬 1 000) → Rotor de três pás (+15 %, 🔬 2 000). Escolha exclusiva no fim (🔬 4 000 cada): Eixo vertical (sem esteira, −20 % de potência) ou Eixo horizontal (+20 % e a esteira fica).
@@ -311,7 +341,7 @@ Desbloqueios de usina passam a gastar 🔬: turbina eólica 🔬 40, bateria �
 
 ### 10.1 HUD limpo e "ver acontecendo" (v0.8)
 
-**HUD com quatro números**: ₵ (com a taxa), ⚡ (balanço `r` com a faixa e a demanda), 🔥 (calor do Núcleo com a faixa; a Estabilidade vira um anel fino em volta do ícone) e 🔬 (saldo com a taxa e o próximo nó). 👥 vai para o painel da Cidade e para o callout do bairro; 🛡 vai para o painel do Núcleo. O capítulo ativo é **uma linha** (objetivo, progresso, recompensa). O extrato continua no popover da nota.
+**HUD com quatro números**: ₵ (com a taxa), ⚡ (balanço `r` com a faixa e a demanda), 🔥 (calor do Núcleo com a faixa; a Estabilidade vira um anel fino em volta do ícone) e 🔬 (saldo com a taxa e o próximo nó). 👥 vai para o painel da Cidade e para o callout do bairro; 🛡 vai para o painel do Núcleo. O capítulo ativo é **uma linha** (objetivo, progresso, recompensa). O extrato continua no popover da nota. *(v0.9)* O ícone 🔥 **pulsa** enquanto há uma Ocorrência oferecida (§4.4); tocar nele abre o painel do Núcleo no cartão da oferta.
 
 **O jogo tem de parecer vivo sem ler número**: (1) **pulsos de energia** correndo nos cabos submarinos e da subestação aos bairros, na cor da faixa de `r`; (2) **"+₵"** flutuando sobre os bairros a cada venda (agregado a cada 2 s por bairro, no máximo 12 na tela) e **"+🔬"** sobre laboratórios e universidades; (3) **janelas acesas** nos bairros conforme a densidade, piscando e apagando no apagão (`r < 0,5`); (4) **Bipes** andando até o obstáculo, um por remoção em curso; (5) chaminé da térmica fumegando quando liga; (6) o Núcleo brilhando proporcional a `T`; (7) um **diário** de três linhas no rodapé do tabuleiro ("Árvore caiu em Bosque", "Capítulo concluído: +₵ 120", "Vareta 12 esgotou"), cada linha some em 6 s. Orçamento: no máximo 3 ms a mais por quadro com o arquipélago cheio.
 
@@ -346,9 +376,10 @@ src/
 | 6 | Mundo (v0.6): arquipélago no mar, obstáculos, colocação manual de tudo, subestações e cabos, adjacências, escada crescente, nota de dinheiro, explicação das peças | espaço é decisão |
 | 7 | Cidade e árvore (v0.6): bairros com densidade e evolução, laboratório e universidades, 🔬 gasto na árvore com cards de física, capítulos | a cidade evolui e ensina |
 | 8 | Era 2 (fissão: esgotamento e calor de decaimento) e transição de era | MVP: Eras 1–2 |
-| 9 | Melhorias por tipo (incrementais e de era), cidade que evolui inteira, remoção rápida e em área, HUD limpo, "ver acontecendo" (v0.8) | o jogo parece vivo e melhorar é decisão |
-| 10 | Era 3 (Contenção + acoplamento com a Rede; abre o planeta) | |
-| 11–13 | Eras 4–6 (sistema estelar), balanceamento, prestígio (galáxia em diante), som | jogo completo |
+| 9 | Melhorias por tipo (incrementais e de era, com a ciência — v0.9), cidade que evolui inteira, remoção rápida e em área, HUD limpo, "ver acontecendo" (v0.8) | o jogo parece vivo e melhorar é decisão |
+| 10 | Ocorrências nas Eras 1 e 2 (§4.4, Parte 2 §5.4), Estabilidade 1,8/1,2 (v0.9) | a espera virou operação: jogando fecha em ≈ 42 min, deixando rodar em ≈ 56 |
+| 11 | Era 3 (Contenção + acoplamento com a Rede; abre o planeta; Ocorrências da Contenção) | |
+| 12–14 | Eras 4–6 (sistema estelar), balanceamento, prestígio (galáxia em diante), som | jogo completo |
 
 Cada sessão nasce de um `CLAUDE.md` do projeto (escrito no próximo passo) que carrega este documento como contrato.
 
@@ -369,3 +400,4 @@ Cada sessão nasce de um `CLAUDE.md` do projeto (escrito no próximo passo) que 
 *v0.6 — a Rede passa a ser colocada; o tabuleiro vira um arquipélago no mar com obstáculos, expedições, cabos e subestações (§2.1, §2.4, §8.5); cidade em bairros com densidade, evolução quase exponencial, laboratórios e universidades (§2.5, §8.6); 🔬 passa a ser gasto numa árvore com cards de física (§3, §8.6); roteiro reordenado (§12). Ver `docs/correcoes-gdd-v0.6.md` e `docs/analises/reactor-e-volume1.md`.*
 *v0.7 — Parte 2 criada com a Era 2 completa; §6 e §8.4 apontam para ela. Ajustes da Sessão 7 registrados em `docs/sessoes/sessao-7-ajustes.md` e aplicados na Sessão 8: subestação com nível máximo 3 (§8.5) e universidade rendendo por alunos (§8.6).*
 *v0.8 — playtest da v0.7 (Eras 1–2): melhorias por tipo em dois degraus (§7.1, §8.3, §8.5), cidade que evolui inteira (§8.6), remoção paralela, mais rápida e em área (§8.5), HUD com quatro números e o jogo "acontecendo" na cena (§10.1). Era 3 passa para a Sessão 10 (§12). Ver `docs/correcoes-gdd-v0.8.md`.*
+*v0.9 — a espera medida na simulação (≈ 35 de 102 min parados esperando 🔬 ou 🛡): **Ocorrências**, o sub-jogo opcional de operação do Núcleo (§4.4); Estabilidade 1,8/min no ouro e 1,2/min fora, +3 por Ocorrência (§7, §8.4); **ciência com nível** por tipo (§7.1, §8.6); textos que ainda contradiziam a v0.8 corrigidos (§2.4, §2.5, §7, §8.2, §8.5); a Sessão 10 passa a ser as Ocorrências e a Era 3 vai para a 11 (§12). Ver `docs/correcoes-gdd-v0.9.md`.*

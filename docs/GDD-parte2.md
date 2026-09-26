@@ -74,9 +74,11 @@ A curva de ₵ continua ×2,5 por degrau e dá **um salto de escala na entrada d
 
 Laboratório e universidade continuam. Universidade rende pelos **alunos** (ajuste 3 da Sessão 7): 🔬 0,5/s × √(pop ÷ n_universidades ÷ 1 000), 1 por 2 000 habitantes. Com arcologias, 1 por 2 000 habitantes vira uma pressão real de espaço: é intencional.
 
+**Ciência com nível (v0.9, Parte 1 §7.1).** Laboratório, universidade e instituto de pesquisa têm nível incremental por tipo: +25 % de 🔬 por nível, custo `base × 3ⁿ × N` (Instituto ₵ 20 000 de base), máximo 5. É o destino do caixa do fim da era: na simulação o bot passa os minutos 50–61 com ₵ 3–7,6 milhões parados, esperando 🔬 para o Reator 7×7 e a Fusão básica. Com 25 universidades, os cinco níveis custam ₵ 10 000 + 30 000 + 90 000 + 270 000 + 810 000 ≈ ₵ 1,2 milhão e levam a ciência delas a ×2,25.
+
 ## 5. Núcleo da Era 2: Reator PWR (grade 5×5 na plataforma 7×7, Vaso fixo no centro)
 
-Mesmo motor da Torre Solar (Parte 1, §4.2, §5, §8.3): `T = Q ÷ capacidade`, faixas iguais (frio < 40 %, normal, **zona de ouro 70–90 %**, alerta, Cascata acima de 100 % por 5 s), Estabilidade com as mesmas taxas (+1,5/min normal, +2,5/min ouro). Duas coisas novas: **combustível finito** e **calor de decaimento**. E uma regra nova de geometria: algumas peças agem sobre as **8 vizinhas delas**, não sobre o Vaso.
+Mesmo motor da Torre Solar (Parte 1, §4.2, §5, §8.3): `T = Q ÷ capacidade`, faixas iguais (frio < 40 %, normal, **zona de ouro 70–90 %**, alerta, Cascata acima de 100 % por 5 s), Estabilidade com as mesmas taxas (Parte 1 §7; v0.9: +1,2/min fora do ouro, +1,8/min no ouro e +3 por Ocorrência superada, §5.4). Duas coisas novas: **combustível finito** e **calor de decaimento**. E uma regra nova de geometria: algumas peças agem sobre as **8 vizinhas delas**, não sobre o Vaso.
 
 ### 5.1 Peças
 
@@ -123,6 +125,25 @@ Pesquisa do Núcleo: 🔬/s = kW × **0,01** × multiplicador da faixa (a Era 1 
 
 Teste obrigatório da Sessão 8, no espírito da regra 2 do `CLAUDE.md`: "6 varetas + 2 turbinas estabilizam em 83 % e não cascateiam em 120 s; a 9ª vareta dispara a Cascata 5 s depois de `T` passar de 100 %; aos 600 s as 6 esgotam e a potência cai para 56 kW; com Piscina vizinha a troca é imediata, sem ela só após 180 s."
 
+### 5.4 Ocorrências da Era 2 (v0.9, Parte 1 §4.4)
+
+Mesmas regras da Parte 1 §4.4 (oferta a cada 4 min de jogo ativo, 60 s para aceitar, opcionais, nunca offline, recompensa 🛡 +3 ou 🔬 igual a 60 s da produção). O controle da Era 2 são as **Barras de controle**: de 50 % a 125 % da injeção das varetas **ativas**. As barras não mexem no **decaimento** (varetas gastas, SCRAM): a fissão para, o decaimento continua, como §5.2 ensina. O controle multiplica por cima da peça Barra de controle (−50 % nas vizinhas).
+
+A coluna do meio usa a primeira linha de §5.3: 6 varetas (4 + 2), 2 turbinas, entrada 100 u/s, `Q*` = 416,7 u, `T*` = 83 %, 800 kW.
+
+| Ocorrência | Perturbação | Duração | Exige | Sem mexer no controle | Resposta |
+|---|---|---|---|---|---|
+| **Seguimento de carga** | meta de potência: o Núcleo entre **65 % e 75 %** da potência de antes | 60 s | 1 vareta ativa | fica em 100 %: não supera (sem risco) | barras em 70 %: 560 kW, `T` = 58 % |
+| **Xenônio** | injeção ×0,8 (desce em 15 s, fica 30 s, volta em 15 s) | 60 s | 1 vareta ativa | `Q*` = 333,3, `T` = 67 %: sai do ouro | barras em 110–125 % devolvem o ouro |
+| **Turbina em meia carga** | uma turbina a 50 % | 30 s | 2 turbinas | `Q*` = 555,6, `T` = 111 %: Cascata | barras em 75 % devolvem 83 % |
+
+Frases de física:
+- Seguimento de carga: "Reatores na França baixam e sobem a potência todos os dias para acompanhar o consumo, movendo barras de controle."
+- Xenônio: "Depois que a potência cai, o iodo-135 continua virando xenônio-135, que engole nêutrons: por horas o reator perde reatividade e o operador recolhe barras para compensar. No jogo, as horas viram segundos."
+- Turbina em meia carga: "Quando a turbina perde carga de repente, reatores de verdade derrubam um grupo de barras de uma vez para o calor não sobrar no circuito."
+
+*(v0.9)* A "Onda de calor" (torres rendendo menos com ar quente e úmido), citada na proposta, ficou de fora: a torre dissipa um valor fixo (30 u/s), e com ela pela metade `T` sobe só 12,5 pontos numa grade na zona de ouro (8 varetas, 2 turbinas, 1 torre: 75 % → 87,5 %) — continua no ouro, não vira meta. Pode voltar se a simulação da Sessão 10 mostrar grades com várias torres, onde o efeito cresce.
+
 ## 6. Árvore da Era 2 (🔬 gasto; cada nó com uma frase de física de verdade)
 
 Custos na régua ×10 da Era 1 (a árvore da Era 1 somou ≈ 🔬 22 mil; esta soma **🔬 193 mil**). A produção escreveu as frases e conferiu os números.
@@ -133,8 +154,8 @@ Custos na régua ×10 da Era 1 (a árvore da Era 1 somou ≈ 🔬 22 mil; esta s
 - **Térmica:** Ciclo combinado (térmica +30 %, 🔬 3 000) → Cogeração (bairros a ≤ 2 casas: tarifa +10 % em vez de −10 %, 🔬 8 000) → Selo verde (captura de carbono: tarifa média +5 %, combustível +20 %, 🔬 12 000).
 - **Offshore:** Subestação offshore (🔬 1 500) → Fundação flutuante (eólica em mar fundo, 🔬 7 000) → Pás de 100 m (offshore +40 %, 🔬 10 000).
 - **Rede:** Subestação de 138 kV (🔬 1 000) → Bateria de rede (🔬 4 000) → Cabo HVDC (🔬 4 000 + ₵ 100 000) → Rede inteligente (bateria de rede ±×2, 🔬 11 000).
-- **Cidade:** Megacidade (🔬 2 500) → Indústria pesada (🔬 5 000) → Instituto de pesquisa (🔬 3 500) → Arcologia (🔬 14 000) → Bombas de calor II (tarifa +10 %, 🔬 9 000).
-- **Saída da era:** **Fusão básica** (🔬 40 000 + ₵ 5 000 000, exige Piscina e Reator 7×7) + Estabilidade 100 % → Era 3 (Sessão 9). Aqui o jogo para com um aviso até a Era 3 existir.
+- **Cidade:** Megacidade (🔬 2 500) → Indústria pesada (🔬 5 000) → Instituto de pesquisa (🔬 3 500); Megacidade → Arcologia (🔬 14 000) → Bombas de calor II (tarifa +10 %, 🔬 9 000). *(Ajuste 4 da Sessão 8: a Arcologia exige só a Megacidade; o instituto é ciência, a arcologia é cidade. O código muda na parte 0 da Sessão 9.)*
+- **Saída da era:** **Fusão básica** (🔬 40 000 + ₵ 5 000 000, exige Piscina e Reator 7×7) + Estabilidade 100 % → Era 3 (Sessão 11). Aqui o jogo para com um aviso até a Era 3 existir.
 
 Os nós da Era 1 continuam valendo (Lâminas, Torre mais alta etc. seguem multiplicando as usinas da Era 1).
 
@@ -157,10 +178,12 @@ Os nós da Era 1 continuam valendo (Lâminas, Torre mais alta etc. seguem multip
 - **🔬**: árvore de ≈ 🔬 190 mil, evoluções 5 e 6, saída da era.
 - **Espaço**: 2×2 em terra, mar raso finito, universidades a 1 por 2 000 habitantes.
 - **Calor**: combustível finito e decaimento fazem o reator pedir atenção periódica, não só na montagem.
-- **Melhorias incrementais** (v0.8): níveis de usina, de peça, de subestação e de cabo, e a evolução da cidade inteira, com custos que crescem ×3 por degrau — o ₵ do fim da era tem onde ir antes da Era 3.
+- **Melhorias incrementais** (v0.8): níveis de usina, de peça, de subestação e de cabo, e a evolução da cidade inteira, com custos que crescem ×3 por degrau — o ₵ do fim da era tem onde ir antes da Era 3. **Ciência com nível** (v0.9, §4.2): o ₵ parado vira 🔬, que é o que trava o fim da era.
+- **Tempo de espera** (v0.9): as Ocorrências (§5.4) trocam a espera por 🔬 e por 🛡 por operação do reator.
 
 ---
 
 *v0.7 — Parte 2 criada com a Era 2 completa (transição, Rede, cidade, Reator PWR, árvore, capítulos, arte, sumidouros) para a Sessão 8.*
 *v0.7.1 — correções da produção da Sessão 8, medidas na simulação das duas eras: repartição por anel da tabela de §5.3 (a coluna "Entrada" não mudou); troca de vareta em 3 meias-vidas cheias (§5.2); curva de ₵ da densidade 5 (§4.1); quem paga a árvore da Era 2 (§6). **Ritmo medido: a Era 2 fecha em 60,9 min** (alvo 50–70), com a receita líquida do bot nunca negativa. Detalhes em `docs/sessoes/sessao-8-relatorio.md`.*
 *v0.8 — níveis por tipo nas usinas, subestações, cabos e peças da Era 2; "Trocar todas as gastas"; nó Escavadeiras; sumidouro das incrementais (§3.2, §5.1, §9). A Era 3 passa para a Sessão 10.*
+*v0.9 — Ocorrências da Era 2 com as Barras de controle (§5.4); Estabilidade 1,8/1,2 + Ocorrências (§5); ciência com nível e o Instituto nela (§4.2, §9); Arcologia exigindo só a Megacidade, registrada (§6, ajuste 4 da Sessão 8); a Era 3 passa para a Sessão 11. Ver `docs/correcoes-gdd-v0.9.md`.*

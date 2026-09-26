@@ -41,7 +41,9 @@ Atualizado ao fim da **Sessão 8** (Era 2: reator PWR com combustível finito e 
 - **Balanceamento (`npm run simular`):** o bot atravessa a Era 1, constrói o Reator aos 44 min e joga a Era 2. **A Era 2 fecha em 60,9 min** (alvo 50–70) e a receita líquida **nunca fica negativa**.
 
 ## Próxima sessão
-`docs/sessoes/sessao-9.md` — melhorias por tipo em dois degraus, cidade que evolui inteira, Núcleo com nível por peça, remoção rápida e em área, HUD limpo e "ver acontecendo" (GDD v0.8, `docs/correcoes-gdd-v0.8.md`). A Era 3 passa para a Sessão 10.
+`docs/sessoes/sessao-9.md` — melhorias por tipo em dois degraus (agora com a **ciência com nível** da v0.9), cidade que evolui inteira, Núcleo com nível por peça, remoção rápida e em área, HUD limpo e "ver acontecendo" (GDD v0.8, `docs/correcoes-gdd-v0.8.md`); a parte 0 ganhou o defeito do offline do reator.
+
+Depois: `docs/sessoes/sessao-10.md` — **Ocorrências**, o sub-jogo opcional de operação do Núcleo, e a Estabilidade em 1,8/1,2 (GDD v0.9, `docs/correcoes-gdd-v0.9.md`). A Era 3 passa para a Sessão 11.
 
 ## Decisões da Sessão 8 que a gestão precisa confirmar
 Estão detalhadas em `docs/sessoes/sessao-8-relatorio.md`. Em resumo:
@@ -63,3 +65,9 @@ Decisões da gestão sobre estas pendências: `docs/sessoes/sessao-8-ajustes.md`
 - **O bairro na cena tem callout de toque; a peça do Núcleo também.** O que falta é o callout da **subestação offshore no mar** — ela é selecionável, mas o texto do callout não diz a qual ilha ela pertence.
 - Régua Kardashev, `OffscreenCanvas`, Android real e o cristal sem arte própria na régua do minimapa continuam como na Sessão 6.
 - Remover um obstáculo comum (árvore, pedra, pântano) continua sem devolver nada — por desenho (ajuste 4 da Sessão 7).
+
+### Registradas na v0.9 (gestão)
+- **"15 minutos por dia" como tema do jogo: em stand by** por decisão do autor. O levantamento parcial e onde retomar estão em `docs/analises/15-minutos-por-dia.md`.
+- **Offline do reator rende a janela inteira** (defeito contra Parte 2 §5.2): 8 h fora dão 48× a 🔬 de 10 min fora com as mesmas varetas. Vai na parte 0 da Sessão 9.
+- **Aba em segundo plano perde o tempo:** o loop acumula no máximo 5 s e voltar à aba não aplica o offline; a mesma ausência vale ≈ 0 com a aba viva e até 8 h se o navegador descartou a aba. O GDD §7 só fala em "no load". Decisão pendente da gestão.
+- **O offline enche a Estabilidade e o caixa:** 8 h fora dão 840 pontos de Estabilidade (a barra inteira) e ≈ ₵ 16,9 milhões com a receita do fim da Era 1. O ritmo de 60 min por era só vale para quem joga sem fechar, e a simulação nunca simula ausência. Não bloqueia as Sessões 9 e 10; é o primeiro ponto se a ideia dos 15 minutos voltar.
