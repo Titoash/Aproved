@@ -7,14 +7,13 @@
  */
 import { LABORATORIO, UNIVERSIDADE } from "../content/cidade-era1";
 import { DENSIDADES } from "../content/cidade";
-import { SUBESTACAO } from "../content/era1-arquipelago";
+import { ilhaDef } from "../content/era1-arquipelago";
 import { BATERIA } from "../content/era1";
 import { USINAS } from "../content/usinas";
 import { avaliarEvolucao, custoEvolucao, densidadeDe } from "../sim/cidade";
 import { formatarCreditos, formatarNumero, formatarPotencia } from "../sim/formatar";
 import { avaliarMelhoriaSubestacao, custoNivelSubestacao, nomeConstrucao, valorRemocao } from "../sim/mundo";
-import { analisar, ehUsina } from "../sim/producao";
-import { tetoSubestacao } from "../sim/producao";
+import { analisar, ehSubestacao, ehUsina, ilhaDaCasa } from "../sim/producao";
 import type { GameState } from "../sim/state";
 import { useGameStore } from "../store/gameStore";
 
@@ -25,9 +24,16 @@ function detalhe(state: GameState, indice: number): string {
     const def = densidadeDe(c);
     return `${def.nome} · ${formatarPotencia(def.demandaKw)} de demanda · ${formatarNumero(def.populacao, 0)} hab · tarifa ×${formatarNumero(def.tarifa, 2)}`;
   }
-  if (c.tipo === "subestacao") {
+  if (ehSubestacao(c.tipo)) {
     const s = analise.subestacoes.find((x) => x.indice === indice);
-    return `nível ${c.nivel + 1} · ${formatarPotencia(s?.usadoKw ?? 0)} de ${formatarPotencia(tetoSubestacao(c.nivel))} · alcance ${SUBESTACAO.alcance}`;
+    const numeros = `nível ${c.nivel + 1} · ${formatarPotencia(s?.usadoKw ?? 0)} de ${formatarPotencia(s?.tetoKw ?? 0)} · alcance ${s?.alcance ?? 0}`;
+    // A subestação offshore é a única construção do mar, e é a ilha dona dela que paga o teto do cabo
+    // (ajuste 2 da Sessão 8, GDD Parte 2 §3.2).
+    if (c.tipo !== "subestacaoOffshore") return numeros;
+    const ilha = ilhaDaCasa(indice);
+    const dona = ilha ? ilhaDef(ilha).nome : null;
+    if (!dona) return numeros;
+    return ilha === "principal" ? `${numeros} · pertence à ilha principal` : `${numeros} · pertence a ${dona}: entra no teto do cabo dela`;
   }
   if (c.tipo === "bateria") return `+${BATERIA.capacidadeKwh} kWh · ±${formatarPotencia(BATERIA.potenciaKw)}`;
   if (c.tipo === "laboratorio") return `🔬 ${formatarNumero(LABORATORIO.pesquisaPorSegundo, 1)}/s · −${formatarPotencia(LABORATORIO.consumoKw)}`;
