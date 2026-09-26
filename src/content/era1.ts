@@ -122,6 +122,13 @@ export const OFFLINE = {
   fatorNucleo: 0.7,
   /** Só mostra o relatório "Enquanto você esteve fora" a partir desta ausência. */
   minimoRelatorioMs: 60_000,
+  /**
+   * Reator da Era 2 offline (GDD Parte 2 §5.2): a ausência é integrada em passos deste tamanho enquanto
+   * as varetas esgotam e o decaimento cai; depois disso o Núcleo fica num estado só.
+   */
+  passoReatorS: 1,
+  /** Meias-vidas de decaimento integradas depois que a última vareta esgota (20 → 2⁻²⁰ do calor). */
+  caudaMeiasVidas: 20,
 } as const;
 
 /* ------------------------------------------------------------------ */

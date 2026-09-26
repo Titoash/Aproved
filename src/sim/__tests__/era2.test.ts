@@ -11,11 +11,11 @@ import { avaliarCasa, colocar, custoColocar, remover } from "../mundo";
 import { avaliarEvolucao, evoluirBairro } from "../cidade";
 import { arquipelagoDaEra1 } from "../gerarArquipelago";
 import { analisar, casasDaConstrucao, construcaoQueOcupa, ehMarRaso, ilhaDaCasa, ilhaEfetivaDe, tetoCabo, tetoDeSubestacao } from "../producao";
-import { efeitosDos } from "../efeitos";
+import { efeitosDe, efeitosDos } from "../efeitos";
 import { colocarPeca } from "../acoesNucleo";
 import { desserializar, serializar } from "../save";
 import { avancarTicks, balancoDoEstado } from "../tick";
-import { calcularOffline } from "../offline";
+import { calcularOffline, trechosDoNucleoOffline } from "../offline";
 import { nucleoInicial, VERSAO_SAVE, type GameState } from "../state";
 import { estadoLimpo, plantar } from "./ajuda";
 
@@ -288,6 +288,42 @@ describe("offline na Era 2 (GDD Parte 2 §5.2)", () => {
     // o reator rodou em modo seguro e rendeu 🔬 (o estado de teste não tem bairro, então não há venda)
     expect(relatorio.pesquisa).toBeGreaterThan(0);
     expect(relatorio.nucleoDesligado).toBe(false);
+  });
+
+  it("o reator não rende a janela inteira: 8 h fora rendem quase o mesmo que 10 min com as mesmas varetas", () => {
+    const s = { ...construirReator(prontoParaOReator(1e7))!, creditos: 1e7 };
+    let comVaretas = s;
+    for (const [i, peca] of [[11, "turbinaAlta"], [13, "turbinaAlta"], [6, "vareta"], [7, "vareta"], [8, "vareta"], [16, "vareta"], [0, "vareta"], [4, "vareta"]] as const) {
+      comVaretas = colocarPeca(comVaretas, i, peca) ?? comVaretas;
+    }
+    const salvo = { ...comVaretas, salvoEmMs: 1_000_000 };
+    // sem laboratório nem universidade: toda a 🔬 offline vem do reator
+    expect(analisar(salvo).pesquisaPorSegundo).toBe(0);
+    const dez = calcularOffline(salvo, 1_000_000 + 10 * 60 * 1000).relatorio;
+    const oito = calcularOffline(salvo, 1_000_000 + 8 * 60 * 60 * 1000).relatorio;
+    expect(dez.pesquisa).toBeGreaterThan(0);
+    // as varetas de 600 s acabam aos 10 min; o resto é decaimento (≈ 1 % a mais), não 48× (defeito da v0.8)
+    expect(oito.pesquisa).toBeGreaterThanOrEqual(dez.pesquisa);
+    expect(oito.pesquisa).toBeLessThanOrEqual(dez.pesquisa * 1.05);
+  });
+
+  it("offline, a 🔬 do reator é a integral da potência enquanto as varetas queimam", () => {
+    const s = { ...construirReator(prontoParaOReator(1e7))!, creditos: 1e7 };
+    let comVaretas = s;
+    for (const [i, peca] of [[11, "turbinaAlta"], [13, "turbinaAlta"], [6, "vareta"], [7, "vareta"], [8, "vareta"], [16, "vareta"], [0, "vareta"], [4, "vareta"]] as const) {
+      comVaretas = colocarPeca(comVaretas, i, peca) ?? comVaretas;
+    }
+    const salvo = { ...comVaretas, salvoEmMs: 1_000_000 };
+    // metade da vida: o reator ficou os 300 s inteiros ligado, com a mesma grade do começo
+    const trechos = trechosDoNucleoOffline(salvo.nucleo!, efeitosDe(salvo), salvo.tempoMs, 300);
+    const inicial = trechos[0];
+    expect(trechos.reduce((soma, tr) => soma + tr.segundos, 0)).toBeCloseTo(300, 9);
+    for (const tr of trechos) expect(tr.potenciaKw).toBeCloseTo(inicial.potenciaKw, 6);
+    // depois de esgotar, a potência cai para o decaimento (7 % do nominal, meia-vida de 60 s)
+    const depois = trechosDoNucleoOffline(salvo.nucleo!, efeitosDe(salvo), salvo.tempoMs, 1200);
+    const logoApos = depois.find((_, k) => depois.slice(0, k).reduce((a, x) => a + x.segundos, 0) >= 601)!;
+    expect(logoApos.potenciaKw).toBeLessThan(inicial.potenciaKw * 0.08);
+    expect(logoApos.potenciaKw).toBeGreaterThan(0);
   });
 
   it("a térmica a gás também cobra combustível offline", () => {
