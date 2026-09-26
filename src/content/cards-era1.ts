@@ -176,13 +176,13 @@ CARDS_ERA1.arvore = {
 
 CARDS_ERA1.evolucao = {
   id: "evolucao",
-  gatilho: "primeira evolução de bairro",
+  gatilho: "primeira evolução da cidade",
   bipe: { papel: "operador", expressao: "apontando" },
   telas: [
     {
       titulo: "A cidade não cresce sozinha.",
       texto:
-        "Evoluir um bairro custa ₵ **e** 🔬, e o preço quase dobra a cada degrau. Em troca: mais gente, mais kW pedidos e uma **tarifa maior por kW vendido** — uma vila paga 15 % a mais que uma aldeia, uma metrópole 50 %. Densidade é o que faz uma rede valer a pena: a mesma linha atende muito mais gente por quilômetro. Mais população também é o que libera universidades.",
+        "Evoluir a cidade custa ₵ **e** 🔬 por bairro, e o preço quase dobra a cada degrau — todos os bairros sobem juntos, e o bairro novo já nasce na densidade da cidade. Em troca: mais gente, mais kW pedidos e uma **tarifa maior por kW vendido** — uma vila paga 15 % a mais que uma aldeia, uma metrópole 50 %. Densidade é o que faz uma rede valer a pena: a mesma linha atende muito mais gente por quilômetro. Mais população também é o que libera universidades.",
     },
   ],
 };
@@ -240,7 +240,7 @@ export function cardParaEvento(evento: EventoJogo): string | null {
       return "cincoPecas";
     case "obstaculoRemovido":
       return evento.cristal ? "cristal" : null;
-    case "bairroEvoluido":
+    case "cidadeEvoluida":
       return "evolucao";
     case "capituloConcluido":
       return null;

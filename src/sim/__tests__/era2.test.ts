@@ -8,7 +8,7 @@ import { BATERIA_REDE, DISTRITO_INDUSTRIAL, INSTITUTO, SUBESTACAO_138, SUBESTACA
 import { DENSIDADES } from "../../content/cidade";
 import { avaliarConstruirReator, construirReator, era3Pronta, podeConstruirReator, reembolsoDaTorre } from "../era";
 import { avaliarCasa, colocar, custoColocar, remover } from "../mundo";
-import { avaliarEvolucao, evoluirBairro } from "../cidade";
+import { avaliarEvolucaoCidade, evoluirCidade } from "../cidade";
 import { arquipelagoDaEra1 } from "../gerarArquipelago";
 import { analisar, casasDaConstrucao, construcaoQueOcupa, ehMarRaso, ilhaDaCasa, ilhaEfetivaDe, tetoCabo, tetoDeSubestacao } from "../producao";
 import { efeitosDe, efeitosDos } from "../efeitos";
@@ -387,17 +387,18 @@ describe("cidade da Era 2 (GDD Parte 2 §4)", () => {
 
   it("a megacidade e a arcologia só evoluem com o nó da árvore", () => {
     let s = plantar(naEra2(), "bairro", 1);
-    const casa = Object.keys(s.mundo.construcoes).map(Number).find((i) => s.mundo.construcoes[i].tipo === "bairro")!;
     // sobe até metrópole com 🔬 de sobra
     s = { ...s, pesquisa: 1e6 };
-    for (let k = 0; k < 3; k++) s = evoluirBairro(s, casa)!;
-    expect(s.mundo.construcoes[casa].nivel).toBe(3);
-    expect(avaliarEvolucao(s, casa).motivo).toContain("Megacidade");
+    for (let k = 0; k < 3; k++) s = evoluirCidade(s)!;
+    expect(s.cidade.densidade).toBe(4);
+    expect(avaliarEvolucaoCidade(s).motivo).toContain("Megacidade");
     const comNo = { ...s, pesquisados: [...s.pesquisados, "megacidade"] };
-    expect(avaliarEvolucao(comNo, casa).ok).toBe(true);
-    const mega = evoluirBairro(comNo, casa)!;
-    expect(analisar(mega).populacao).toBe(DENSIDADES[4].populacao);
-    expect(avaliarEvolucao(mega, casa).motivo).toContain("Arcologia");
+    expect(avaliarEvolucaoCidade(comNo).ok).toBe(true);
+    const mega = evoluirCidade(comNo)!;
+    // a aldeia de nascença também é bairro: todos sobem juntos
+    const bairros = Object.values(mega.mundo.construcoes).filter((c) => c.tipo === "bairro").length;
+    expect(analisar(mega).populacao).toBe(bairros * DENSIDADES[4].populacao);
+    expect(avaliarEvolucaoCidade(mega).motivo).toContain("Arcologia");
   });
 
   it("o distrito industrial exige subestação de 138 kV no alcance", () => {

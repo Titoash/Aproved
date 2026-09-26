@@ -4,6 +4,7 @@ import { ECONOMIA } from "../content/era1";
 import { ILHAS_INICIAIS, type IlhaId, type TipoObstaculo } from "../content/era1-arquipelago";
 import { NUCLEO } from "../content/era1-nucleo";
 import type { TipoCiencia } from "../content/melhorias";
+import type { Densidade } from "../content/cidade-tipos";
 import { arquipelagoDaEra1 } from "./gerarArquipelago";
 
 export type UsinaEra1Id = "cataVento" | "painelSolar" | "turbinaEolica";
@@ -82,7 +83,10 @@ export interface RedeDerivada {
 
 export interface Construcao {
   tipo: TipoConstrucao;
-  /** Densidade − 1 do bairro (GDD §8.6). Nas outras construções é sempre 0: os níveis são por tipo (v0.8). */
+  /**
+   * Sempre 0 desde o save v9: os níveis são por tipo (`melhorias`) e a densidade é da cidade (`cidade`),
+   * v0.8. O campo fica para não reescrever a colocação, a migração v5 → v6 e a cena.
+   */
   nivel: number;
   colocadoEmMs: number;
 }
@@ -183,7 +187,8 @@ export type EventoJogo =
   | { tipo: "ilhaAberta"; id: IlhaId }
   | { tipo: "nucleoDesbloqueado" }
   | { tipo: "obstaculoRemovido"; indice: number; cristal: boolean }
-  | { tipo: "bairroEvoluido"; indice: number; densidade: number }
+  /** A cidade inteira subiu uma densidade (v0.8). */
+  | { tipo: "cidadeEvoluida"; densidade: Densidade; bairros: number }
   | { tipo: "noPesquisado"; id: string }
   | { tipo: "capituloConcluido"; id: string }
   /** A Torre virou Reator: começa a Era 2 (GDD Parte 2 §2). */
@@ -209,6 +214,8 @@ export interface GameState {
   rede: RedeState;
   /** Níveis por tipo (v0.8). */
   melhorias: MelhoriasState;
+  /** Densidade da cidade (v0.8). */
+  cidade: CidadeState;
   mundo: MundoState;
   /** `null` enquanto o Núcleo não foi desbloqueado. */
   nucleo: NucleoState | null;
@@ -259,6 +266,15 @@ export function nucleoInicial(): NucleoState {
 }
 
 /** A ilha principal nasce com a aldeia e uma subestação ao lado (GDD §8.5). */
+/**
+ * A cidade (GDD §8.6, v0.8): a densidade é **da cidade**, não de cada bairro. Evoluir a cidade evolui
+ * todos os bairros de uma vez; bairro novo nasce na densidade dela.
+ */
+export interface CidadeState {
+  /** 1 = aldeia … 4 = metrópole (Era 1); 5 = megacidade, 6 = arcologia (Era 2). */
+  densidade: Densidade;
+}
+
 /** O que um nível compra: um tipo inteiro, nunca uma unidade (v0.8). */
 export type AlvoMelhoria =
   | { tipo: "usina"; id: UsinaId }
@@ -297,6 +313,7 @@ export function estadoInicial(): GameState {
     era: 1,
     rede: { bateria: { kwh: 0 } },
     melhorias: melhoriasIniciais(),
+    cidade: { densidade: 1 },
     mundo: mundoInicial(),
     nucleo: null,
     salvoEmMs: 0,

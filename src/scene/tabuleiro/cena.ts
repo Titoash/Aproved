@@ -949,6 +949,8 @@ export function atualizarCena(cena: Cena, entrada: EntradaCena): void {
     const e = cena.redeObjetos[i].estado;
     if (c.tipo === "bateria" || c.tipo === "bateriaRede") e.carga = entrada.bateriaCarga;
     if (c.tipo === "subestacao" || c.tipo === "subestacao138" || c.tipo === "subestacaoOffshore") e.nivel = c.nivel;
+    // A cidade evolui inteira e sem trocar o mundo (v0.8): a densidade do sprite acompanha a cada quadro.
+    if (c.tipo === "bairro") e.densidade = c.nivel + 1;
     e.semEscoamento = c.semEscoamento;
   }
 

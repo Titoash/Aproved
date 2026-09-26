@@ -13,7 +13,7 @@ import * as nucleo from "../sim/acoesNucleo";
 import { construirReator } from "../sim/era";
 import { cardVisto, marcarCardVisto } from "../sim/cards";
 import { pesquisar } from "../sim/arvore";
-import { avaliarEvolucao, evoluirBairro } from "../sim/cidade";
+import { avaliarEvolucaoCidade, evoluirCidade } from "../sim/cidade";
 import * as mundo from "../sim/mundo";
 import { avaliarMelhoria, melhorar } from "../sim/melhorias";
 import { analisar as analisarMundo, ehSubestacao } from "../sim/producao";
@@ -85,8 +85,8 @@ export interface GameStore {
   melhorar: (alvo: AlvoMelhoria) => boolean;
   /** Compra um nó da árvore de pesquisa: gasta 🔬 (e ₵, quando o nó cobra). */
   pesquisar: (id: string) => boolean;
-  /** Evolui um bairro: gasta ₵ + 🔬 e sobe a densidade (GDD §8.6). */
-  evoluirBairro: (indice: number) => boolean;
+  /** Evolui a cidade inteira: gasta ₵ + 🔬 × N bairros e sobe a densidade de todos (GDD §8.6, v0.8). */
+  evoluirCidade: () => boolean;
   selecionarFerramentaMundo: (f: FerramentaMundo) => void;
   /** Aplica a ferramenta da paleta na casa do arquipélago. Devolve `false` e avisa se recusado. */
   agirNoMundo: (indice: number) => boolean;
@@ -236,11 +236,10 @@ export const useGameStore = create<GameStore>()((set, get) => {
       return aplicar(proximo);
     },
     pesquisar: (id) => aplicar(pesquisar(get().state, id)),
-    evoluirBairro(indice) {
-      const proximo = evoluirBairro(get().state, indice);
+    evoluirCidade() {
+      const proximo = evoluirCidade(get().state);
       if (!proximo) {
-        const v = avaliarEvolucao(get().state, indice);
-        avisar(indice, v.motivo ?? "Não dá para evoluir este bairro.");
+        avisar(get().casaSelecionada ?? -1, avaliarEvolucaoCidade(get().state).motivo ?? "Não dá para evoluir a cidade.");
         return false;
       }
       return aplicar(proximo);
@@ -281,11 +280,8 @@ export const useGameStore = create<GameStore>()((set, get) => {
       // Tocar numa construção sempre a seleciona: o callout da cena mostra os números e as ações
       // (ajuste 5 da Sessão 7). O painel da Cidade continua como segunda via.
       if (construcao) set({ casaSelecionada: indice });
-      if (construcao?.tipo === "bairro") {
-        // Com o bairro selecionado na paleta, tocar num bairro existente evolui (₵ + 🔬).
-        if (ferramentaMundo === "bairro") return get().evoluirBairro(indice);
-        return false;
-      }
+      // Tocar num bairro só seleciona: evoluir custa × N bairros e fica no botão do callout e do painel.
+      if (construcao?.tipo === "bairro") return false;
       // Com o mesmo tipo de subestação na paleta, tocar numa subestação sobe o nível do **tipo** (v0.8).
       if (construcao && ehSubestacao(construcao.tipo) && ferramentaMundo === construcao.tipo) {
         const alvo: AlvoMelhoria = { tipo: "subestacao", id: construcao.tipo };

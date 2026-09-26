@@ -70,7 +70,7 @@ export const CAPITULOS_ERA1: readonly CapituloDef[] = [
   {
     id: "vila",
     titulo: "A aldeia vira vila",
-    objetivo: "Evolua um bairro para densidade 2.",
+    objetivo: "Evolua a cidade para densidade 2.",
     condicao: { tipo: "densidade", minima: 2 },
     recompensa: { creditos: 300, pesquisa: 20 },
   },
@@ -119,7 +119,7 @@ export const CAPITULOS_ERA1: readonly CapituloDef[] = [
   {
     id: "metropole",
     titulo: "A metrópole",
-    objetivo: "Leve um bairro à densidade 4.",
+    objetivo: "Leve a cidade à densidade 4.",
     condicao: { tipo: "densidade", minima: 4 },
     recompensa: { creditos: 3_000, pesquisa: 200 },
   },

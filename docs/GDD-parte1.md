@@ -289,7 +289,7 @@ Desbloqueios de usina passam a gastar 🔬: turbina eólica 🔬 40, bateria �
 
 ---
 
-**v0.8 — a cidade evolui inteira.** A densidade é **da cidade**, não de cada bairro: "Evoluir a cidade para Vila" evolui todos os bairros de uma vez, ao custo `custo da evolução × N bairros` (₵ e 🔬, com a mesma curva). Um bairro novo nasce na densidade da cidade e custa `₵ 40 × 1,25ⁿ × 2,5^(d−1)`. O painel da Cidade mostra uma linha só (densidade, população, demanda, tarifa) e um botão. Na migração, a cidade nasce na maior densidade entre os bairros. Motivo: evoluir casa por casa era gerência sem decisão (playtest da v0.7).
+**v0.8 — a cidade evolui inteira.** A densidade é **da cidade**, não de cada bairro: "Evoluir a cidade para Vila" evolui todos os bairros de uma vez, ao custo `custo da evolução × N bairros` (₵ e 🔬, com a mesma curva). Um bairro novo nasce na densidade da cidade e custa a aldeia (`₵ 40 × 1,25ⁿ`) **mais o que a cidade pagou por bairro para chegar à densidade**, em ₵ **e** 🔬 (numa metrópole: ₵ 2 437 + 🔬 780). *(Sessão 9: o texto anterior dizia `₵ 40 × 1,25ⁿ × 2,5^(d−1)`, só em ₵; com ele a estratégia dominante era evoluir a cidade com um bairro só e construir o resto depois, pagando a 🔬 da evolução uma vez em vez de N vezes. Com o acumulado, é indiferente evoluir antes ou depois de construir. Remover devolve 50 % dos ₵; a 🔬 não volta.)* O painel da Cidade mostra uma linha só (densidade, população, demanda, tarifa) e um botão. Na migração, a cidade nasce na maior densidade entre os bairros. Motivo: evoluir casa por casa era gerência sem decisão (playtest da v0.7).
 
 ## 9. O que faz o jogo surpreender
 

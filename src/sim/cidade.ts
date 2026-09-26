@@ -1,28 +1,64 @@
 /**
- * Cidade: densidade dos bairros, evolução, população e tarifa (GDD §2.5, §7, §8.6, v0.6).
- * TypeScript puro. Nenhum número aqui — tudo vem de `content/cidade-era1.ts`.
+ * Cidade: densidade, evolução, população e ciência da população (GDD §2.5, §7, §8.6; v0.6 e v0.8).
+ * TypeScript puro. Nenhum número aqui — tudo vem de `content/cidade*.ts`.
  *
- * A evolução é **por gasto** (₵ + 🔬), nunca por satisfação: bairro mais denso pede mais kW, abriga
- * mais gente e **paga mais por kW**. É o único jeito de a população crescer (GDD §7: "população só
- * cresce com bairro evoluído").
+ * A densidade é **da cidade** (v0.8): um botão evolui todos os bairros de uma vez, ao custo da evolução
+ * × N bairros, em ₵ e 🔬. É por gasto, nunca por satisfação: bairro mais denso pede mais kW, abriga mais
+ * gente e **paga mais por kW** — e é o único jeito de a população crescer (§7).
+ *
+ * Bairro novo nasce na densidade da cidade e paga a aldeia (₵ 40 × 1,25ⁿ) **mais o que a cidade pagou
+ * por bairro para chegar lá**, em ₵ e 🔬 (Sessão 9). Assim é indiferente evoluir antes ou depois de
+ * construir; com o "× 2,5^(d−1)" só em ₵ da v0.8, evoluir com um bairro e construir o resto depois
+ * pagava a 🔬 da evolução uma vez em vez de N vezes.
  */
 import { UNIVERSIDADE } from "../content/cidade-era1";
-import { DENSIDADES, type DensidadeDef } from "../content/cidade";
+import { DENSIDADES, type Densidade, type DensidadeDef } from "../content/cidade";
 import { NO_POR_ID } from "../content/arvore";
-import type { Construcao, GameState, MundoState } from "./state";
+import type { GameState, MundoState } from "./state";
 
-/** Definição da densidade de um bairro a partir do nível da construção (0 = aldeia). */
-export function densidadeDoNivel(nivel: number): DensidadeDef {
-  return DENSIDADES[Math.max(0, Math.min(DENSIDADES.length - 1, Math.floor(nivel)))];
+/** Definição de uma densidade (1 = aldeia … 6 = arcologia), limitada à escada. */
+export function defDaDensidade(densidade: number): DensidadeDef {
+  const i = Math.max(1, Math.min(DENSIDADES.length, Math.floor(densidade))) - 1;
+  return DENSIDADES[i];
 }
 
-export function densidadeDe(c: Construcao): DensidadeDef {
-  return densidadeDoNivel(c.nivel);
+/** A densidade da cidade do estado. */
+export function defDaCidade(state: GameState): DensidadeDef {
+  return defDaDensidade(state.cidade.densidade);
 }
 
-/** Custo de evoluir um bairro deste nível; `null` na metrópole. */
-export function custoEvolucao(nivel: number): { creditos: number; pesquisa: number } | null {
-  return densidadeDoNivel(nivel).evolucao;
+/** Bairros colocados, contados direto do mundo (sem depender do cache da análise). */
+export function contarBairros(mundo: MundoState): number {
+  let n = 0;
+  for (const chave of Object.keys(mundo.construcoes)) if (mundo.construcoes[Number(chave)].tipo === "bairro") n++;
+  return n;
+}
+
+/** O que a cidade pagou **por bairro** para ir da aldeia até a densidade `d`: a soma das evoluções. */
+export function custoAcumuladoPorBairro(densidade: number): { creditos: number; pesquisa: number } {
+  let creditos = 0;
+  let pesquisa = 0;
+  for (let d = 1; d < densidade; d++) {
+    const evolucao = defDaDensidade(d).evolucao;
+    if (!evolucao) break;
+    creditos += evolucao.creditos;
+    pesquisa += evolucao.pesquisa;
+  }
+  return { creditos, pesquisa };
+}
+
+export interface CustoEvolucaoCidade {
+  creditos: number;
+  pesquisa: number;
+  bairros: number;
+}
+
+/** Custo de evoluir a cidade inteira: a evolução de um bairro × N bairros. `null` na densidade máxima. */
+export function custoEvolucaoCidade(state: GameState): CustoEvolucaoCidade | null {
+  const evolucao = defDaCidade(state).evolucao;
+  if (!evolucao) return null;
+  const bairros = contarBairros(state.mundo);
+  return { creditos: evolucao.creditos * bairros, pesquisa: evolucao.pesquisa * bairros, bairros };
 }
 
 export interface RecusaEvolucao {
@@ -30,13 +66,14 @@ export interface RecusaEvolucao {
   motivo: string | null;
 }
 
-export function avaliarEvolucao(state: GameState, indice: number): RecusaEvolucao {
-  const c = state.mundo.construcoes[indice];
-  if (!c || c.tipo !== "bairro") return { ok: false, motivo: "Só bairros evoluem" };
-  const custo = custoEvolucao(c.nivel);
-  if (!custo) return { ok: false, motivo: `${densidadeDoNivel(c.nivel).nome}: não há densidade acima` };
+export function avaliarEvolucaoCidade(state: GameState): RecusaEvolucao {
+  const atual = defDaCidade(state);
+  const custo = custoEvolucaoCidade(state);
+  if (!custo) return { ok: false, motivo: `${atual.nome}: não há densidade acima` };
+  // Sem bairro, a evolução sairia de graça (0 × custo) e o bairro novo nasceria nela.
+  if (custo.bairros === 0) return { ok: false, motivo: "Coloque um bairro primeiro" };
   // As densidades 5 e 6 pedem nó da árvore da Era 2 (GDD Parte 2 §4.1).
-  const proxima = densidadeDoNivel(c.nivel + 1);
+  const proxima = defDaDensidade(atual.densidade + 1);
   if (proxima.no && !state.pesquisados.includes(proxima.no)) {
     return { ok: false, motivo: `Exige o nó "${NO_POR_ID[proxima.no]?.nome ?? proxima.no}"` };
   }
@@ -45,34 +82,27 @@ export function avaliarEvolucao(state: GameState, indice: number): RecusaEvoluca
   return { ok: true, motivo: null };
 }
 
-export function podeEvoluirBairro(state: GameState, indice: number): boolean {
-  return avaliarEvolucao(state, indice).ok;
+export function podeEvoluirCidade(state: GameState): boolean {
+  return avaliarEvolucaoCidade(state).ok;
 }
 
-/** Gasta ₵ + 🔬 e sobe um degrau de densidade (GDD §8.6). Função pura. */
-export function evoluirBairro(state: GameState, indice: number): GameState | null {
-  if (!podeEvoluirBairro(state, indice)) return null;
-  const c = state.mundo.construcoes[indice];
-  const custo = custoEvolucao(c.nivel);
-  if (!custo) return null;
-  const construcoes = { ...state.mundo.construcoes, [indice]: { ...c, nivel: c.nivel + 1 } };
+/** Gasta ₵ + 🔬 × N e sobe a cidade inteira um degrau de densidade (GDD §8.6, v0.8). Função pura. */
+export function evoluirCidade(state: GameState): GameState | null {
+  if (!podeEvoluirCidade(state)) return null;
+  const custo = custoEvolucaoCidade(state)!;
+  const densidade = (state.cidade.densidade + 1) as Densidade;
   return {
     ...state,
     creditos: state.creditos - custo.creditos,
     pesquisa: state.pesquisa - custo.pesquisa,
-    mundo: { ...state.mundo, construcoes },
-    eventos: [...state.eventos, { tipo: "bairroEvoluido", indice, densidade: densidadeDoNivel(c.nivel + 1).densidade }],
+    cidade: { densidade },
+    eventos: [...state.eventos, { tipo: "cidadeEvoluida", densidade, bairros: custo.bairros }],
   };
 }
 
-/** População total: a soma da população da densidade de cada bairro colocado. */
-export function populacaoDoMundo(mundo: MundoState): number {
-  let total = 0;
-  for (const chave of Object.keys(mundo.construcoes)) {
-    const c = mundo.construcoes[Number(chave)];
-    if (c.tipo === "bairro") total += densidadeDe(c).populacao;
-  }
-  return total;
+/** População da cidade: N bairros × a população da densidade. */
+export function populacaoDaCidade(bairros: number, densidade: number): number {
+  return bairros * defDaDensidade(densidade).populacao;
 }
 
 /** Quantas universidades a população sustenta: 1 por 2 000 habitantes, a partir de 1 000 (GDD §8.6). */

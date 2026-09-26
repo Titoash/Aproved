@@ -21,12 +21,12 @@ import { BATERIA_REDE, DISTRITO_INDUSTRIAL, INSTITUTO, SUBESTACAO_138, SUBESTACA
 import { CRISTAL } from "../content/era1-arquipelago";
 import { LABORATORIO, UNIVERSIDADE } from "../content/cidade-era1";
 import { CABO, OBSTACULOS, ORDEM_OBSTACULOS, SUBESTACAO, TERRENOS, VIZINHANCA, type IlhaId, type TipoObstaculo, type TipoTerreno } from "../content/era1-arquipelago";
-import { densidadeDe, limiteUniversidades, pesquisaUniversidade } from "./cidade";
+import { defDaDensidade, limiteUniversidades, pesquisaUniversidade } from "./cidade";
 import { ORDEM_TERRENOS, indiceCasa, type Arquipelago } from "./arquipelago";
 import { fatorCiencia, fatorUsina } from "./niveis";
 import { efeitosDe, efeitosNeutros, type EfeitosArvore } from "./efeitos";
 import { arquipelagoDaEra1 } from "./gerarArquipelago";
-import type { Construcao, GameState, MelhoriasState, MundoState, RedeDerivada, TipoConstrucao, UsinaId } from "./state";
+import type { CidadeState, Construcao, GameState, MelhoriasState, MundoState, RedeDerivada, TipoConstrucao, UsinaId } from "./state";
 
 const USINAS_VENTO: readonly UsinaId[] = ["cataVento", "turbinaEolica", "eolicaOffshore"];
 const USINAS_SOL: readonly UsinaId[] = ["painelSolar", "fazendaSolar"];
@@ -349,7 +349,13 @@ export function tetoCabo(nivel: number, efeitos: EfeitosArvore = efeitosNeutros(
 export const alcanceSubestacao = (efeitos: EfeitosArvore = efeitosNeutros()): number => efeitos.alcanceSubestacao;
 
 /** Análise completa do mundo. Use `analisar(state)`: esta versão não usa cache. */
-export function analisarMundo(mundo: MundoState, melhorias: MelhoriasState, efeitos: EfeitosArvore = efeitosNeutros(), arq: Arquipelago = arquipelagoDaEra1()): AnaliseMundo {
+export function analisarMundo(
+  mundo: MundoState,
+  melhorias: MelhoriasState,
+  efeitos: EfeitosArvore,
+  densidadeDaCidade: number,
+  arq: Arquipelago = arquipelagoDaEra1(),
+): AnaliseMundo {
   const n = arq.n;
   const { demandaBairroFator: fatorDemandaBairro, tarifaFator: fatorTarifa } = efeitos;
   const ilhaDe = ilhaEfetivaDe(arq);
@@ -522,8 +528,9 @@ export function analisarMundo(mundo: MundoState, melhorias: MelhoriasState, efei
     return 1;
   };
 
+  // Todos os bairros na densidade da cidade (v0.8).
+  const def = defDaDensidade(densidadeDaCidade);
   for (const b of bairros) {
-    const def = densidadeDe(mundo.construcoes[b]);
     populacao += def.populacao;
     const ilhaB = ilhaDe[b];
     if (!temSubestacaoPerto(b)) {
@@ -654,8 +661,9 @@ export function analisarMundo(mundo: MundoState, melhorias: MelhoriasState, efei
 /* ------------------------------------------------------------------ */
 
 interface Entrada {
-  /** Só o que muda a produção: os níveis por tipo e os efeitos da árvore. A carga da bateria não entra. */
+  /** Só o que muda a produção: os níveis por tipo, a cidade e os efeitos da árvore. A carga da bateria não entra. */
   melhorias: MelhoriasState;
+  cidade: CidadeState;
   efeitos: EfeitosArvore;
   analise: AnaliseMundo;
 }
@@ -663,15 +671,15 @@ interface Entrada {
 const cache = new WeakMap<MundoState, Entrada>();
 
 /**
- * Análise do mundo do estado, memoizada enquanto o objeto `mundo`, as melhorias e os efeitos da árvore não
- * mudarem de identidade. O tick troca `rede` a cada passo (a carga da bateria), e ela não entra na chave.
+ * Análise do mundo do estado, memoizada enquanto o objeto `mundo`, as melhorias, a cidade e os efeitos da
+ * árvore não mudarem de identidade. O tick troca `rede` a cada passo (a carga da bateria), e ela não entra na chave.
  */
 export function analisar(state: GameState): AnaliseMundo {
   const pronto = cache.get(state.mundo);
   const efeitos = efeitosDe(state);
-  if (pronto && pronto.melhorias === state.melhorias && pronto.efeitos === efeitos) return pronto.analise;
-  const analise = analisarMundo(state.mundo, state.melhorias, efeitos);
-  cache.set(state.mundo, { melhorias: state.melhorias, efeitos, analise });
+  if (pronto && pronto.melhorias === state.melhorias && pronto.cidade === state.cidade && pronto.efeitos === efeitos) return pronto.analise;
+  const analise = analisarMundo(state.mundo, state.melhorias, efeitos, state.cidade.densidade);
+  cache.set(state.mundo, { melhorias: state.melhorias, cidade: state.cidade, efeitos, analise });
   return analise;
 }
 

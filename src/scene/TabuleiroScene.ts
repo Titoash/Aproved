@@ -218,8 +218,8 @@ export class TabuleiroScene extends Phaser.Scene {
         x: i % n,
         y: Math.floor(i / n),
         tipo: c.tipo,
-        // Bairro: a densidade. Subestação: o nível do tipo (v0.8, as bolinhas valem para todas).
-        nivel: ehSubestacao(c.tipo) ? state.melhorias.subestacoes[c.tipo] : c.nivel,
+        // Bairro: a densidade − 1 da cidade. Subestação: o nível do tipo (v0.8, as bolinhas valem para todas).
+        nivel: c.tipo === "bairro" ? state.cidade.densidade - 1 : ehSubestacao(c.tipo) ? state.melhorias.subestacoes[c.tipo] : 0,
         lado: ladoConstrucao(c.tipo),
         semEscoamento: !!u && u.escoadoKw < u.brutoKw - 1e-9,
       });

@@ -9,6 +9,7 @@ import { BATERIA_REDE, DISTRITO_INDUSTRIAL, INSTITUTO } from "../content/era2";
 import { BAIRRO, LABORATORIO, UNIVERSIDADE } from "../content/cidade-era1";
 import { CABO, OBSTACULOS, TERRENOS, VIZINHANCA, ilhaDef, type IlhaId, type TipoObstaculo } from "../content/era1-arquipelago";
 import { custoUnidade } from "./custos";
+import { custoAcumuladoPorBairro } from "./cidade";
 import { arquipelagoDaEra1 } from "./gerarArquipelago";
 import { naPlataforma, type Arquipelago } from "./arquipelago";
 import {
@@ -86,15 +87,25 @@ export function desbloqueioDe(tipo: TipoConstrucao): Desbloqueio | undefined {
   return undefined;
 }
 
-/** Custo da próxima unidade do tipo: `custoBase × crescimento^n` (GDD §7). */
+/**
+ * Custo em ₵ da próxima unidade do tipo: `custoBase × crescimento^n` (GDD §7). O bairro nasce na
+ * densidade da cidade e soma o que a cidade pagou por bairro para chegar lá (§8.6, v0.8, Sessão 9).
+ */
 export function custoColocar(state: GameState, tipo: TipoConstrucao): number {
-  return custoUnidade(definicaoDeCusto(tipo), quantidadeDe(state, tipo));
+  const unidade = custoUnidade(definicaoDeCusto(tipo), quantidadeDe(state, tipo));
+  return tipo === "bairro" ? unidade + custoAcumuladoPorBairro(state.cidade.densidade).creditos : unidade;
 }
 
-/** Remover devolve metade do que a última unidade custou (GDD §2.4). */
+/** 🔬 que a colocação cobra: só o bairro, a parte em 🔬 das evoluções que ele já nasce tendo. */
+export function pesquisaColocar(state: GameState, tipo: TipoConstrucao): number {
+  return tipo === "bairro" ? custoAcumuladoPorBairro(state.cidade.densidade).pesquisa : 0;
+}
+
+/** Remover devolve metade dos ₵ que a última unidade custou (GDD §2.4). A 🔬 não volta. */
 export function valorRemocao(state: GameState, tipo: TipoConstrucao): number {
   const n = Math.max(0, quantidadeDe(state, tipo) - 1);
-  return custoUnidade(definicaoDeCusto(tipo), n) / 2;
+  const unidade = custoUnidade(definicaoDeCusto(tipo), n);
+  return (tipo === "bairro" ? unidade + custoAcumuladoPorBairro(state.cidade.densidade).creditos : unidade) / 2;
 }
 
 export function construcaoEm(mundo: MundoState, indice: number): Construcao | null {
@@ -202,6 +213,8 @@ export function avaliarCasa(state: GameState, indice: number, tipo: TipoConstruc
     if (obstaculo) return RECUSA(removendo(state.mundo, casa) ? "Removendo…" : `${OBSTACULOS[obstaculo].nome}: remova primeiro`);
   }
   if (state.creditos < custoColocar(state, tipo)) return RECUSA("₵ insuficientes");
+  const pesquisa = pesquisaColocar(state, tipo);
+  if (state.pesquisa < pesquisa) return RECUSA(`Precisa de 🔬 ${pesquisa}`);
   return { ok: true, motivo: null, aviso: avisoDaCasa(state, indice, tipo, arq) };
 }
 
@@ -275,11 +288,13 @@ function comMundo(state: GameState, mundo: MundoState, creditos: number, eventos
 export function colocar(state: GameState, indice: number, tipo: TipoConstrucao): GameState | null {
   if (!avaliarCasa(state, indice, tipo).ok) return null;
   const custo = custoColocar(state, tipo);
+  const pesquisa = pesquisaColocar(state, tipo);
   const construcoes = { ...state.mundo.construcoes, [indice]: { tipo, nivel: 0, colocadoEmMs: state.tempoMs } };
   const primeira = quantidadeDe(state, tipo) === 0;
   // A primeira unidade de alguns tipos dispara o card correspondente (GDD §10, Parte 2 §7).
   const eventos = primeira ? [...state.eventos, { tipo: "primeiraCompra" as const, item: tipo }] : state.eventos;
-  return comMundo(state, { ...state.mundo, construcoes }, state.creditos - custo, eventos);
+  const proximo = comMundo(state, { ...state.mundo, construcoes }, state.creditos - custo, eventos);
+  return pesquisa > 0 ? { ...proximo, pesquisa: state.pesquisa - pesquisa } : proximo;
 }
 
 /** Remover devolve 50 %. Tocar em qualquer das quatro casas de uma 2×2 remove a construção inteira. */

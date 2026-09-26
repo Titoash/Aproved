@@ -3,7 +3,7 @@
  *
  * Um bot simples joga a Era 1 seguindo os capítulos, com o **tick do sim** (100 ms de timestep fixo):
  * nada aqui reimplementa regra de jogo — todas as decisões passam pelas mesmas funções puras que a
- * interface usa (`colocar`, `pesquisar`, `evoluirBairro`, `comprarIlha`, `ligarCabo`, `tick`).
+ * interface usa (`colocar`, `pesquisar`, `evoluirCidade`, `melhorar`, `comprarIlha`, `ligarCabo`, `tick`).
  *
  *   npm run simular                  Era 1 (até 60 min) e Era 2 (75 min) nas duas rotas
  *   npm run simular -- 90            90 minutos de Era 1
@@ -20,7 +20,6 @@
 import { NOS, NO_POR_ID } from "../src/content/arvore";
 import { CAPITULOS } from "../src/content/capitulos";
 import { LABORATORIO, UNIVERSIDADE } from "../src/content/cidade-era1";
-import { DENSIDADES } from "../src/content/cidade";
 import { ILHAS, OBSTACULOS } from "../src/content/era1-arquipelago";
 import { NUCLEO, PECAS } from "../src/content/era1-nucleo";
 import { PECA_POR_ID } from "../src/content/pecas";
@@ -29,7 +28,7 @@ import { disponivel, pesquisado, pesquisar, podePesquisar, proximoNo } from "../
 import { desbloquearNucleo, colocarPeca, podeDesbloquearNucleo } from "../src/sim/acoesNucleo";
 import { indiceCasa, naPlataforma } from "../src/sim/arquipelago";
 import { capituloAtivo } from "../src/sim/capitulos";
-import { evoluirBairro, podeEvoluirBairro } from "../src/sim/cidade";
+import { custoEvolucaoCidade, defDaDensidade, evoluirCidade, podeEvoluirCidade } from "../src/sim/cidade";
 import { efeitosDe } from "../src/sim/efeitos";
 import { arquipelagoDaEra1 } from "../src/sim/gerarArquipelago";
 import {
@@ -180,6 +179,22 @@ function ajustarNucleo(state: GameState): GameState {
 /* Decisões do bot                                                     */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Evoluir a cidade sobe a demanda de **todos** os bairros de uma vez (v0.8): ×2,5 da aldeia para a vila.
+ * O bot só evolui quando a oferta que já tem cobre a demanda nova com `r ≥ 0,9` — é o que um jogador
+ * faz depois do primeiro apagão. A demanda dos bairros é a parte que muda; o resto fica.
+ */
+function evolucaoCabeNaOferta(s: GameState): boolean {
+  if (!podeEvoluirCidade(s)) return false;
+  const b = balancoDoEstado(s);
+  const a = analisar(s);
+  const atual = defDaDensidade(s.cidade.densidade);
+  const proxima = defDaDensidade(s.cidade.densidade + 1);
+  const bairrosAtendidos = a.contagem.bairro - a.bairrosSemEscoamento;
+  const demandaNova = b.demandaKw + bairrosAtendidos * (proxima.demandaKw - atual.demandaKw) * efeitosDe(s).demandaBairroFator;
+  return demandaNova > 0 && b.ofertaKw / demandaNova >= 0.9;
+}
+
 export interface Compra {
   o: string;
   quantos: number;
@@ -232,20 +247,17 @@ function decidir(state: GameState, compras: Map<string, number>): GameState {
   // Com caixa sobrando o bot cresce a cidade; mas oferta primeiro: crescer a demanda num apagão é
   // o erro que a primeira rodada da simulação cometeu (r caiu para 0,33 e ficou lá).
   const caixaSobrando = s.creditos > 20 * custoColocar(s, "bairro");
-  if (r < 1.0) {
+  // Dá para evoluir, mas a oferta não aguenta a demanda nova: primeiro usina (v0.8).
+  const prepararEvolucao = podeEvoluirCidade(s) && !evolucaoCabeNaOferta(s);
+  if (r < 1.0 || prepararEvolucao) {
     const tipo: TipoConstrucao = analise.contagem.turbinaEolica > 0 || s.pesquisados.includes("turbinaEolica") ? "turbinaEolica" : "cataVento";
     const escolhido = s.creditos >= custoColocar(s, tipo) ? tipo : "cataVento";
     const casa = melhorCasa(s, escolhido);
     if (casa !== null && s.creditos >= custoColocar(s, escolhido)) s = aplicar(colocar(s, casa, escolhido), USINAS[escolhido as "cataVento"].nome) ?? s;
   } else if (r > 1.05 || caixaSobrando) {
-    // primeiro evoluir (mais tarifa por kW), depois bairro novo
-    const bairros = Object.keys(s.mundo.construcoes)
-      .map(Number)
-      .filter((i) => s.mundo.construcoes[i].tipo === "bairro")
-      .sort((a, c) => s.mundo.construcoes[c].nivel - s.mundo.construcoes[a].nivel);
-    const evoluivel = bairros.find((i) => podeEvoluirBairro(s, i));
-    if (evoluivel !== undefined) {
-      s = aplicar(evoluirBairro(s, evoluivel), `bairro → ${DENSIDADES[Math.min(3, s.mundo.construcoes[evoluivel].nivel + 1)].nome}`) ?? s;
+    // primeiro evoluir a cidade inteira (mais tarifa por kW), depois bairro novo (v0.8)
+    if (evolucaoCabeNaOferta(s)) {
+      s = aplicar(evoluirCidade(s), `cidade → ${defDaDensidade(s.cidade.densidade + 1).nome}`) ?? s;
     } else if (s.creditos >= custoColocar(s, "bairro") * 2) {
       const casa = melhorCasa(s, "bairro");
       if (casa !== null) s = aplicar(colocar(s, casa, "bairro"), "bairro") ?? s;
@@ -276,7 +288,7 @@ function decidir(state: GameState, compras: Map<string, number>): GameState {
   const escolha = prioritarios.find((id) => podePesquisar(s, id)) ?? outros[0]?.id ?? proximoNo(s)?.id;
   if (escolha && podePesquisar(s, escolha)) {
     // guarda 🔬 para a próxima evolução de bairro se ela estiver perto
-    const guardar = capitulo?.condicao.tipo === "densidade" ? DENSIDADES[0].evolucao!.pesquisa : 0;
+    const guardar = capitulo?.condicao.tipo === "densidade" ? (custoEvolucaoCidade(s)?.pesquisa ?? 0) : 0;
     if (s.pesquisa - NO_POR_ID[escolha].pesquisa >= guardar || NO_POR_ID[escolha].pesquisa <= 40) {
       s = aplicar(pesquisar(s, escolha), `nó ${NO_POR_ID[escolha].nome}`) ?? s;
     }
@@ -471,8 +483,8 @@ export type Rota = "corrida" | "cidade";
 
 /** Distritos e institutos que a rota "cidade" quer ver de pé antes de correr para a saída. */
 const META_CIDADE = { distritos: 2, institutos: 2 } as const;
-/** Densidade da arcologia no `nivel` do bairro (0 = aldeia … 5 = arcologia). */
-const NIVEL_ARCOLOGIA = DENSIDADES.length - 1;
+/** Densidade da arcologia (1 = aldeia … 6 = arcologia). */
+const DENSIDADE_ARCOLOGIA = 6;
 
 /**
  * A rota "cidade" cumpriu o que queria antes da saída: todos os bairros na arcologia, os distritos e os
@@ -481,8 +493,7 @@ const NIVEL_ARCOLOGIA = DENSIDADES.length - 1;
 function metaDaCidade(s: GameState, rota: Rota): boolean {
   if (rota === "corrida") return true;
   const a = analisar(s);
-  const bairros = Object.values(s.mundo.construcoes).filter((c) => c.tipo === "bairro");
-  const todosNaArcologia = bairros.length > 0 && bairros.every((c) => c.nivel >= NIVEL_ARCOLOGIA);
+  const todosNaArcologia = s.cidade.densidade >= DENSIDADE_ARCOLOGIA;
   const exclusiva = s.pesquisados.includes("aguaPesada") || s.pesquisados.includes("altaTemperatura");
   return todosNaArcologia && a.contagem.distritoIndustrial >= META_CIDADE.distritos && a.contagem.institutoPesquisa >= META_CIDADE.institutos && exclusiva;
 }
@@ -526,9 +537,11 @@ function decidirEra2(state: GameState, compras: Map<string, number>, rota: Rota 
     }
   }
 
-  // 3. balança: abaixo da zona de ouro, mais MW; acima, mais cidade
+  // 3. balança: abaixo da zona de ouro, mais MW; acima, mais cidade — e mais MW antes de uma evolução
+  //    que a oferta não aguentaria (v0.8: a cidade inteira sobe de uma vez)
   const r = b.demandaKw > 0 ? b.ofertaKw / b.demandaKw : Infinity;
-  if (r < 1.0) {
+  const querEvoluir = !retaFinal && podeEvoluirCidade(s);
+  if (r < 1.0 || (querEvoluir && !evolucaoCabeNaOferta(s))) {
     // offshore primeiro (kW por casa e sem esteira), depois fazenda solar, e a térmica como last resort
     if (s.pesquisados.includes("subestacaoOffshore")) {
       const temSubOffshore = analise.contagem.subestacaoOffshore > 0;
@@ -556,13 +569,8 @@ function decidirEra2(state: GameState, compras: Map<string, number>, rota: Rota 
       }
     }
   } else {
-    const bairros = Object.keys(s.mundo.construcoes)
-      .map(Number)
-      .filter((i) => s.mundo.construcoes[i].tipo === "bairro")
-      .sort((a, c) => s.mundo.construcoes[c].nivel - s.mundo.construcoes[a].nivel);
-    const evoluivel = retaFinal ? undefined : bairros.find((i) => podeEvoluirBairro(s, i));
-    if (evoluivel !== undefined) {
-      s = aplicar(evoluirBairro(s, evoluivel), `bairro → densidade ${s.mundo.construcoes[evoluivel].nivel + 2}`) ?? s;
+    if (querEvoluir && evolucaoCabeNaOferta(s)) {
+      s = aplicar(evoluirCidade(s), `cidade → densidade ${s.cidade.densidade + 1}`) ?? s;
     } else if (
       s.pesquisados.includes("industriaPesada") &&
       s.creditos > custoColocar(s, "distritoIndustrial") * 2 &&
@@ -710,7 +718,7 @@ export async function main(args: string[] = []): Promise<void> {
     "Núcleo desbloqueado": null,
     "5 cata-ventos": null,
     "primeiro 🔬 gasto": null,
-    "primeira evolução de bairro": null,
+    "primeira evolução da cidade": null,
     "expedição de Ventania comprável": null,
     "Ventania aberta": null,
     "🔬 3 000 acumulados (saída da Era 1)": null,
@@ -746,7 +754,7 @@ export async function main(args: string[] = []): Promise<void> {
       marcar("Núcleo desbloqueado", s.nucleo !== null);
       marcar("5 cata-ventos", a.contagem.cataVento >= 5);
       marcar("primeiro 🔬 gasto", s.pesquisados.length > 1);
-      marcar("primeira evolução de bairro", Object.values(s.mundo.construcoes).some((c) => c.tipo === "bairro" && c.nivel > 0));
+      marcar("primeira evolução da cidade", s.cidade.densidade > 1);
       marcar("expedição de Ventania comprável", s.creditos >= (custoExpedicao("ventania") ?? 0));
       marcar("Ventania aberta", s.mundo.ilhasAbertas.includes("ventania"));
       marcar("🔬 3 000 acumulados (saída da Era 1)", pesquisaGanha >= 3000);
@@ -878,8 +886,8 @@ function simularEra2(estadoFinalEra1: GameState, rota: Rota, minutosEra2: number
       marcar("primeira eólica offshore", a.contagem.eolicaOffshore > 0);
       marcar("primeira térmica a gás", a.contagem.termicaGas > 0);
       marcar("10 MW instalados", a.brutoKw >= 10_000);
-      marcar("megacidade", Object.values(s.mundo.construcoes).some((c) => c.tipo === "bairro" && c.nivel >= 4));
-      marcar("arcologia", Object.values(s.mundo.construcoes).some((c) => c.tipo === "bairro" && c.nivel >= NIVEL_ARCOLOGIA));
+      marcar("megacidade", s.cidade.densidade >= 5);
+      marcar("arcologia", s.cidade.densidade >= DENSIDADE_ARCOLOGIA);
       marcar("distrito industrial", a.contagem.distritoIndustrial > 0);
       marcar("instituto de pesquisa", a.contagem.institutoPesquisa > 0);
       marcar("escolha exclusiva do reator", s.pesquisados.includes("aguaPesada") || s.pesquisados.includes("altaTemperatura"));

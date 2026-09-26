@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { CABO, type IlhaId } from "../../content/era1-arquipelago";
 import { arquipelagoDaEra1 } from "../gerarArquipelago";
 import { desserializar, serializar } from "../save";
-import { densidadeDoNivel } from "../cidade";
+
 import { analisar } from "../producao";
 import { VERSAO_SAVE } from "../state";
 import { estadoLimpo, plantar } from "./ajuda";
@@ -44,10 +44,9 @@ describe("migração v6 → v7 (GDD §8.5, §8.6, v0.6)", () => {
     const s = desserializar(JSON.stringify(saveV6()), 2000);
     const casas = Object.keys(s.mundo.construcoes).map(Number);
     expect(casas.length).toBeGreaterThan(0);
-    for (const i of casas) {
-      if (s.mundo.construcoes[i].tipo !== "bairro") continue;
-      expect(densidadeDoNivel(s.mundo.construcoes[i].nivel).densidade).toBe(1);
-    }
+    expect(casas.some((i) => s.mundo.construcoes[i].tipo === "bairro")).toBe(true);
+    // a densidade é da cidade desde a v9: um save de vilas entra como aldeia
+    expect(s.cidade.densidade).toBe(1);
   });
 
   it("🔬 acumulado vira saldo e o que já estava desbloqueado continua desbloqueado sem cobrar", () => {
@@ -83,6 +82,7 @@ describe("migração v6 → v7 (GDD §8.5, §8.6, v0.6)", () => {
     const cheio = {
       ...s0,
       melhorias: { ...s0.melhorias, cabos: 2 },
+      cidade: { densidade: 3 as const },
       pesquisa: 42,
       pesquisados: ["laboratorio", "laminasDeFibra", "subestacaoAltaTensao"],
       mundo: {
@@ -90,7 +90,7 @@ describe("migração v6 → v7 (GDD §8.5, §8.6, v0.6)", () => {
         cristais: [casa + 1],
         cabos: { ventania: 0 },
         ilhasAbertas: ["principal", "ventania"] as IlhaId[],
-        construcoes: { ...s0.mundo.construcoes, [casa]: { ...s0.mundo.construcoes[casa], nivel: 2 } },
+        construcoes: s0.mundo.construcoes,
       },
     };
     const lido = desserializar(serializar(cheio, 3000), 3000);
@@ -99,7 +99,7 @@ describe("migração v6 → v7 (GDD §8.5, §8.6, v0.6)", () => {
     expect(lido.mundo.cristais).toEqual([casa + 1]);
     expect(lido.mundo.cabos).toEqual({ ventania: 0 });
     expect(lido.melhorias.cabos).toBe(2);
-    expect(lido.mundo.construcoes[casa].nivel).toBe(2);
+    expect(lido.cidade.densidade).toBe(3);
     expect(analisar(lido).populacao).toBe(1600);
     // o alcance do nó comprado sobrevive à ida e volta
     expect(analisar(lido).subestacoes.length).toBeGreaterThan(0);

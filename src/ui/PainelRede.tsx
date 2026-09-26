@@ -7,13 +7,13 @@ import { BATERIA, type Desbloqueio } from "../content/era1";
 import { USINAS, ordemUsinas } from "../content/usinas";
 import { BATERIA_REDE, DISTRITO_INDUSTRIAL, INSTITUTO, SUBESTACAO_138, SUBESTACAO_OFFSHORE } from "../content/era2";
 import { BAIRRO, LABORATORIO, UNIVERSIDADE } from "../content/cidade-era1";
-import { DENSIDADES } from "../content/cidade";
 import { NO_POR_ID } from "../content/arvore";
 import { CABO, ILHAS, OBSTACULOS, SUBESTACAO, type IlhaId } from "../content/era1-arquipelago";
 import { TIPOS_CIENCIA } from "../content/melhorias";
 import { desbloqueado } from "../sim/acoes";
+import { defDaCidade } from "../sim/cidade";
 import { formatarCreditos, formatarNumero, formatarPotencia } from "../sim/formatar";
-import { custoCabo, custoColocar, custoExpedicao, ilhaAberta, podeComprarIlha, podeLigarCabo, temCabo, tetoCabo } from "../sim/mundo";
+import { custoCabo, custoColocar, custoExpedicao, ilhaAberta, pesquisaColocar, podeComprarIlha, podeLigarCabo, temCabo, tetoCabo } from "../sim/mundo";
 import { efeitosDe } from "../sim/arvore";
 import { fatorUsina } from "../sim/niveis";
 import { analisar } from "../sim/producao";
@@ -56,7 +56,9 @@ function itensDaPaleta(state: GameState): ItemPaleta[] {
     detalhe: `${formatarPotencia(USINAS[id].potenciaKw * fatorUsina(state.melhorias.usinas[id]) * efeitosDe(state).potencia[id])} por unidade${USINAS[id].lado === 2 ? " · 2×2" : ""}${USINAS[id].agua ? " · mar raso" : ""}${USINAS[id].combustivelPorSegundo ? ` · ${formatarCreditos(USINAS[id].combustivelPorSegundo)}/s de gás` : ""}`,
     desbloqueio: USINAS[id].desbloqueio,
   }));
-  itens.push({ id: "bairro", nome: BAIRRO.nome, detalhe: `${DENSIDADES[0].nome} · +${formatarPotencia(DENSIDADES[0].demandaKw)} · ${DENSIDADES[0].populacao} hab` });
+  // O bairro novo nasce na densidade da cidade (v0.8).
+  const cidade = defDaCidade(state);
+  itens.push({ id: "bairro", nome: BAIRRO.nome, detalhe: `${cidade.nome} · +${formatarPotencia(cidade.demandaKw)} · ${formatarNumero(cidade.populacao, 0)} hab` });
   itens.push({ id: "subestacao", nome: SUBESTACAO.nome, detalhe: `alcance ${efeitosDe(state).alcanceSubestacao} · teto ${formatarPotencia(SUBESTACAO.tetoKw)}` });
   itens.push({ id: "bateria", nome: BATERIA.nome, detalhe: `+${BATERIA.capacidadeKwh} kWh · ±${formatarPotencia(BATERIA.potenciaKw)}`, desbloqueio: BATERIA.desbloqueio });
   itens.push({ id: "laboratorio", nome: LABORATORIO.nome, detalhe: `🔬 ${LABORATORIO.pesquisaPorSegundo}/s · −${formatarPotencia(LABORATORIO.consumoKw)}`, desbloqueio: { no: "laboratorio" } });
@@ -82,7 +84,8 @@ function BotaoPaleta({ item }: { item: ItemPaleta }) {
   const selecionar = useGameStore((s) => s.selecionarFerramentaMundo);
   const bloqueio = textoBloqueio(state, item.desbloqueio);
   const custo = custoColocar(state, item.id as TipoConstrucao);
-  const caro = state.creditos < custo;
+  const pesquisa = pesquisaColocar(state, item.id as TipoConstrucao);
+  const caro = state.creditos < custo || state.pesquisa < pesquisa;
   return (
     <button
       type="button"
@@ -103,7 +106,10 @@ function BotaoPaleta({ item }: { item: ItemPaleta }) {
           <IconeCadeado /> {bloqueio.replace("Desbloqueia com ", "")}
         </span>
       ) : (
-        <span className={`paleta-custo ${caro ? "pilula-custo--caro" : ""}`}>{formatarCreditos(custo)}</span>
+        <span className={`paleta-custo ${caro ? "pilula-custo--caro" : ""}`}>
+          {formatarCreditos(custo)}
+          {pesquisa > 0 ? ` · 🔬 ${formatarNumero(pesquisa, 0)}` : ""}
+        </span>
       )}
       <span className="paleta-detalhe">{item.detalhe}</span>
     </button>

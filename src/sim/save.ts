@@ -10,6 +10,7 @@ import { NUCLEO } from "../content/era1-nucleo";
 import { VARETA } from "../content/era2-nucleo";
 import { PECA_POR_ID, ordemDasPecas } from "../content/pecas";
 import { NIVEL_CIENCIA, NIVEL_PECA, PECAS_SEM_NIVEL, TIPOS_CIENCIA } from "../content/melhorias";
+import { DENSIDADES, type Densidade } from "../content/cidade";
 import { ESCOAMENTO, ehDeAgua } from "./producao";
 import { arquipelagoDaEra1 } from "./gerarArquipelago";
 import { migrarParaMundo } from "./migracao-v6";
@@ -203,8 +204,8 @@ function normalizarMundo(bruto: unknown): MundoState {
     if (!ehTipoConstrucao(c.tipo)) continue;
     // Offshore mora no mar; o resto, em terra (GDD Parte 2 §3.1).
     if (ehDeAgua(c.tipo) ? arq.terra[i] === 1 : arq.terra[i] !== 1) continue;
-    // Só o bairro guarda nível na construção (a densidade); o resto sobe por tipo (v0.8).
-    construcoes[i] = { tipo: c.tipo, nivel: c.tipo === "bairro" ? inteiro(c.nivel, 0) : 0, colocadoEmMs: numero(c.colocadoEmMs, 0) };
+    // Nenhuma construção guarda nível desde a v9: os níveis são por tipo e a densidade é da cidade (v0.8).
+    construcoes[i] = { tipo: c.tipo, nivel: 0, colocadoEmMs: numero(c.colocadoEmMs, 0) };
   }
 
   const removidos = Array.isArray(m.removidos)
@@ -298,6 +299,7 @@ function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState 
     era,
     rede,
     melhorias: normalizarMelhorias(bruto.melhorias),
+    cidade: { densidade: Math.min(DENSIDADES.length, Math.max(1, inteiro(objeto(bruto.cidade).densidade, 1))) as Densidade },
     nucleo: normalizarNucleo(bruto.nucleo, era),
     pesquisados: normalizarPesquisados(bruto.pesquisados),
     capitulos: normalizarCapitulos(bruto.capitulos),
@@ -321,9 +323,11 @@ function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState 
  *          acumulado vira saldo e o que já estava desbloqueado fica desbloqueado sem cobrar.
  * v7 → v8: entra a **era** (GDD Parte 2 §2). Saves antigos são todos da Era 1 e continuam jogáveis;
  *          o Núcleo ganha `era`, `scramInicioMs` e `trocasEmFaixa`.
- * v8 → v9: níveis **por tipo** (GDD §7.1, v0.8). O nível das usinas sai de `rede.usinas` para
- *          `melhorias`; subestações e cabos, que subiam por unidade, passam a subir por tipo — cada tipo
- *          nasce no **maior** nível que já tinha, e os níveis por unidade zeram. Peças e ciência em 0.
+ * v8 → v9: níveis **por tipo** e cidade inteira (GDD §7.1, §8.6, v0.8). O nível das usinas sai de
+ *          `rede.usinas` para `melhorias`; subestações e cabos, que subiam por unidade, passam a subir por
+ *          tipo — cada tipo nasce no **maior** nível que já tinha. A densidade sai dos bairros e vai para
+ *          `cidade`, na **maior** entre eles (os mais baixos sobem de graça, uma vez). Os níveis por
+ *          unidade zeram. Peças e ciência começam em 0.
  */
 function migrar(bruto: Record<string, unknown>, agoraMs: number): Record<string, unknown> {
   const versao = bruto.versao;
@@ -412,12 +416,13 @@ function migrar(bruto: Record<string, unknown>, agoraMs: number): Record<string,
     const mundoBruto = objeto(atual.mundo);
     const subestacoes: Record<string, number> = { subestacao: 0, subestacao138: 0, subestacaoOffshore: 0 };
     const construcoes: Record<string, unknown> = {};
+    let densidade = 1;
     for (const [chave, valor] of Object.entries(objeto(mundoBruto.construcoes))) {
       const c = objeto(valor);
-      if (typeof c.tipo === "string" && c.tipo in subestacoes) {
-        subestacoes[c.tipo] = Math.max(subestacoes[c.tipo], inteiro(c.nivel, 0));
-        construcoes[chave] = { ...c, nivel: 0 };
-      } else construcoes[chave] = c;
+      if (typeof c.tipo === "string" && c.tipo in subestacoes) subestacoes[c.tipo] = Math.max(subestacoes[c.tipo], inteiro(c.nivel, 0));
+      // no v8 o bairro guardava a densidade − 1 no próprio nível
+      if (c.tipo === "bairro") densidade = Math.max(densidade, inteiro(c.nivel, 0) + 1);
+      construcoes[chave] = { ...c, nivel: 0 };
     }
     let cabos = 0;
     const ligados: Record<string, number> = {};
@@ -426,7 +431,14 @@ function migrar(bruto: Record<string, unknown>, agoraMs: number): Record<string,
       ligados[id] = 0;
     }
     const melhorias = { usinas, pecas: {}, subestacoes, cabos, ciencia: {} };
-    atual = { ...atual, rede: { bateria: objeto(redeBruta.bateria) }, melhorias, mundo: { ...mundoBruto, construcoes, cabos: ligados }, versao: 9 };
+    atual = {
+      ...atual,
+      rede: { bateria: objeto(redeBruta.bateria) },
+      melhorias,
+      cidade: { densidade },
+      mundo: { ...mundoBruto, construcoes, cabos: ligados },
+      versao: 9,
+    };
     v = 9;
   }
   return { ...atual, versao: v };

@@ -99,7 +99,7 @@ describe("desempenho do tick", () => {
     const cheio = mundoCheio();
     const t0 = performance.now();
     const N = 20;
-    for (let i = 0; i < N; i++) analisarMundo(cheio.mundo, cheio.melhorias, efeitosDe(cheio));
+    for (let i = 0; i < N; i++) analisarMundo(cheio.mundo, cheio.melhorias, efeitosDe(cheio), cheio.cidade.densidade);
     const ms = (performance.now() - t0) / N;
     console.log(`análise completa do mundo: ${ms.toFixed(3)} ms`);
     expect(ms).toBeLessThan(16);
