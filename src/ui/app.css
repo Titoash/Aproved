@@ -1177,6 +1177,15 @@ h2 {
   padding: 8px;
 }
 
+.rodape-confirmar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+  color: var(--ink);
+}
+
 .aviso {
   font-size: var(--t-12);
 }

@@ -51,6 +51,7 @@ Atualizado ao fim da **Sessão 9** (melhorias por tipo com a ciência com nível
 - **GDD v0.9 revisado** (32 achados da revisão adversarial aplicados) e **🔬 da megacidade e da arcologia recalibradas** (1 000 e 3 000 por bairro; com a cidade inteira a arcologia custava 🔬 450–750 mil).
 - **Balanceamento (`npm run simular`):** cada rota joga as duas eras; o bot compra níveis. Era 1: 41,5 / 42,3 min (piso da 🛡); Era 2 corrida **48,1 min**, cidade **68,3 min** (arcologia aos 67,3). Sem a ciência com nível: Era 2 corrida 51,7 e a cidade não fecha. Minutos parados até o fechamento: 15 de 91 (corrida) e 30 de 112 (cidade), contra ≈ 36 de ≈ 105 na medida da v0.9.
 - **Testes:** 502 no Vitest; `scripts/e2e/sessao-9.cjs` nos dois tamanhos; roteiros 6, 7 e 8 atualizados às APIs novas; capturas em `docs/capturas/sessao-9/`. Relatório: `docs/sessoes/sessao-9-relatorio.md`.
+- **Depois da entrega:** "Resetar" pede confirmação no próprio rodapé ("Apagar tudo" / "Cancelar", Esc cancela) em vez de `window.confirm`, que o visualizador do artifact bloqueia; no celular a pergunta rola para a vista.
 
 ## Próxima sessão
 `docs/sessoes/sessao-10.md` — **Ocorrências**, o sub-jogo opcional de operação do Núcleo, e a Estabilidade em 1,8/1,2 (GDD v0.9, revisado; `docs/correcoes-gdd-v0.9.md`). Antes da parte A, `docs/sessoes/sessao-9-ajustes.md` (a gestão escreve ao revisar a Sessão 9). A Era 3 é a Sessão 11.
@@ -84,6 +85,7 @@ Decisões da gestão sobre estas pendências: `docs/sessoes/sessao-8-ajustes.md`
 - **Rolagem automática na borda durante a seleção em área** não entrou (o retângulo para em 8×8 casas, que cabem na tela no zoom de jogo).
 - **Equipe de manutenção** só é comprada pelo bot na rota cidade (Nv 1 aos 34 min); na corrida o espaço não chega a travar.
 - **O pool de "+₵" e o diário não vão para o save** (estado de interface), por desenho.
+- **No artifact, "Exportar JSON" não baixa o arquivo** (o visualizador bloqueia downloads); o JSON continua indo para a caixa de texto, de onde dá para copiar. Fora do artifact o download funciona.
 
 ### Da Sessão 8
 - **O callout da subestação offshore** diz a ilha dela desde a Sessão 9 (resolvido).
