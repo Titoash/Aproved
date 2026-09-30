@@ -31,6 +31,8 @@ import { anel, podeColocar, podeRemover } from "../sim/nucleo";
 import { analisar, ehDeAgua, ehSubestacao, ladoConstrucao, obstaculoEm, type ConsumidorAnalise } from "../sim/producao";
 import { VARETA } from "../content/era2-nucleo";
 import { fracaoDecaimento } from "../sim/reator";
+import { OCORRENCIAS_DEF } from "../content/ocorrencias";
+import { fracaoDoPerfil, multiplicadoresDaPerturbacao, turbinasDo } from "../sim/ocorrencias";
 import type { GameState } from "../sim/state";
 import { balancoDoEstado } from "../sim/tick";
 import { useGameStore, type FerramentaMundo, type SelecaoArea } from "../store/gameStore";
@@ -54,6 +56,7 @@ import {
   type CristalCena,
   type EntradaCena,
   type ObstaculoCena,
+  type OcorrenciaCena,
   type PecaCena,
   type PlacaCena,
   type RemocaoCena,
@@ -103,6 +106,19 @@ const COR_FAIXA_CENA: Record<FaixaId, string> = {
 };
 
 /** A ferramenta da paleta é uma construção de água (eólica ou subestação offshore)? */
+/** A Ocorrência em curso como a cena precisa dela (Parte 1 §4.4, v0.9); null fora dela. */
+function ocorrenciaDaCena(state: GameState): OcorrenciaCena | null {
+  const a = state.ocorrencia.atual;
+  if (!a || a.fase !== "ativa" || !state.nucleo) return null;
+  const def = OCORRENCIAS_DEF[a.id];
+  const decorrido = state.tempoMs - a.inicioMs;
+  const fracao = fracaoDoPerfil(def, decorrido);
+  // O Seguimento de carga não perturba o motor, mas as barras aparecem no Vaso: a cena fica acesa a Ocorrência inteira.
+  const visivel = def.perturbacao ? fracao : decorrido > 0 && decorrido < def.duracaoS * 1000 ? 1 : 0;
+  const entrada = multiplicadoresDaPerturbacao(def, fracao, turbinasDo(state.nucleo)).entrada;
+  return { id: a.id, fracao: visivel, progresso: clamp01(decorrido / (def.duracaoS * 1000)), controle: a.controle, entrada };
+}
+
 function ferramentaDeAgua(f: FerramentaMundo): boolean {
   return f !== "remover" && f !== "desmatar" && ehDeAgua(f);
 }
@@ -233,6 +249,7 @@ export class TabuleiroScene extends Phaser.Scene {
         consumo: scram ? 0 : clamp01(T / 0.9),
         rastreamento: state.pesquisados.includes("rastreamentoSolar"),
         comTorre,
+        ocorrencia: ocorrenciaDaCena(state),
       };
       if (loja.casaSobPonteiro !== null && loja.casaSobPonteiro < nucleo.grade.length) {
         const [x, y] = casaDaGrade(loja.casaSobPonteiro, nucleo.lado);

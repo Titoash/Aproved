@@ -70,6 +70,22 @@ export interface NucleoCena {
   rastreamento: boolean;
   /** Era 2: há torre de resfriamento na grade (o Vaso ganha as torres hiperbólicas). */
   comTorre?: boolean;
+  /** Ocorrência em curso (Parte 1 §4.4, v0.9): a cena mostra a perturbação; ausente fora dela. */
+  ocorrencia?: OcorrenciaCena | null;
+}
+
+/** O que a cena precisa da Ocorrência em curso. */
+export interface OcorrenciaCena {
+  /** "nuvem", "ceuLimpoFrio", "turbinaMeiaCargaTorre", "xenonio", … */
+  id: string;
+  /** 0..1 do perfil: sobe na rampa de entrada, 1 no platô, desce na de saída. */
+  fracao: number;
+  /** 0..1 do tempo decorrido (a sombra da nuvem atravessa o campo nesse ritmo). */
+  progresso: number;
+  /** Controle do jogador (carga das turbinas ou potência das varetas), 1 = 100 %. */
+  controle: number;
+  /** Multiplicador da entrada agora (espelhos na Era 1): os feixes esmaecem sob a nuvem e acendem no céu limpo. */
+  entrada: number;
 }
 
 export type AncoraCallout = "torre" | "grade" | "vento" | "vila";
@@ -277,6 +293,8 @@ export interface Cena {
   cascata: CascataCena | null;
   /** `prefers-reduced-motion` lido na criação: sem tremor, onda curta. */
   reduzido: boolean;
+  /** Ocorrência em curso (sombra da nuvem, céu mais claro); null fora dela. */
+  ocorrencia: OcorrenciaCena | null;
   // — interno: mantido por criarCena/atualizarCena, não mexer de fora —
   arq: Arquipelago;
   semente: number;
@@ -842,6 +860,7 @@ export function criarCena(entrada: EntradaCena): Cena {
     rasoRealcado: false,
     cascata: null,
     reduzido: movimentoReduzido(),
+    ocorrencia: null,
     arq,
     semente,
     tempoMs: entrada.tempoMs,
@@ -974,7 +993,15 @@ export function atualizarCena(cena: Cena, entrada: EntradaCena): void {
   if (remontar) montar(cena);
 
   // --- Núcleo: estado dinâmico por peça
+  cena.ocorrencia = nu?.ocorrencia && nu.ocorrencia.fracao > 0 ? nu.ocorrencia : null;
   if (nu) {
+    const oc = cena.ocorrencia;
+    // Turbina em meia carga: a primeira turbina da grade gira pela metade (§4.4, Parte 2 §5.4).
+    const meiaCarga = oc && (oc.id === "turbinaMeiaCargaTorre" || oc.id === "turbinaMeiaCargaReator") ? 1 - 0.5 * oc.fracao : 1;
+    let primeiraTurbina = true;
+    // Os feixes dos espelhos acompanham a entrada: esmaecem sob a nuvem, acendem no céu limpo.
+    const forcaFeixe = 0.9 * Math.min(1.1, oc ? oc.entrada : 1);
+    for (let i = 0; i < cena.feixes.length; i++) cena.feixes[i].forca = forcaFeixe;
     const pecas = nu.pecas;
     for (let i = 0; i < pecas.length; i++) {
       const p = pecas[i];
@@ -984,6 +1011,8 @@ export function atualizarCena(cena: Cena, entrada: EntradaCena): void {
           e.T = nu.T;
           e.scram = nu.scram;
           e.comTorre = nu.comTorre;
+          // Era 2: as barras entram pelo topo do Vaso durante a Ocorrência (potência < 100 % = barras descendo).
+          e.barras = nu.era === 2 && oc ? oc.controle : undefined;
           break;
         case "vareta":
           // o gradiente apaga de cima para baixo a cada tick, e o brilho da gasta esmaece
@@ -992,15 +1021,13 @@ export function atualizarCena(cena: Cena, entrada: EntradaCena): void {
           e.decaimento = p.decaimento;
           break;
         case "turbinaAlta":
-          e.consumo = nu.consumo;
+        case "turbina":
+          e.consumo = primeiraTurbina ? nu.consumo * meiaCarga : nu.consumo;
           e.scram = nu.scram;
+          primeiraTurbina = false;
           break;
         case "heliostato":
           e.rastreamento = nu.rastreamento;
-          break;
-        case "turbina":
-          e.consumo = nu.consumo;
-          e.scram = nu.scram;
           break;
         case "radiador":
           e.atividade = nu.T;
@@ -1361,6 +1388,10 @@ export function desenharCena(ctx: CanvasRenderingContext2D, cena: Cena, cam: Cam
   // obstáculo que entra (no máximo 64) e o contorno tracejado do retângulo.
   if (cena.area) desenharArea(ctx, cena.area, z);
 
+  // 5c. Ocorrência (Parte 1 §4.4): a sombra da nuvem atravessa o campo de espelhos; o céu limpo e frio clareia tudo
+  const oc = cena.ocorrencia;
+  if (oc && !mapa) desenharOcorrencia(ctx, cena, oc, vx0, vy0, vx1, vy1);
+
   // 6. partículas de calor sobre a esfera, quantidade ∝ T (só perto, fora do SCRAM)
   const ex = cena.esfera[0];
   const ey = cena.esfera[1];
@@ -1420,6 +1451,38 @@ export function desenharCena(ctx: CanvasRenderingContext2D, cena: Cena, cam: Cam
     }
   }
   ctx.restore();
+}
+
+/**
+ * A perturbação da Ocorrência na cena, por cima dos objetos (a sombra cai também sobre eles). Barato: três elipses
+ * da nuvem ou um retângulo de clareamento, com α ∝ a fração do perfil.
+ */
+function desenharOcorrencia(ctx: CanvasRenderingContext2D, cena: Cena, oc: OcorrenciaCena, vx0: number, vy0: number, vx1: number, vy1: number): void {
+  if (oc.id === "nuvem") {
+    // A sombra entra pelo noroeste da plataforma e sai pelo sudeste enquanto a Ocorrência dura.
+    const { x0, y0, lado } = cena.arq.plataforma;
+    const a = centro(x0 - 4, y0 - 1);
+    const b = centro(x0 + lado + 3, y0 + lado);
+    const k = oc.progresso;
+    const cx = a[0] + (b[0] - a[0]) * k;
+    const cy = a[1] + (b[1] - a[1]) * k - ELEV;
+    ctx.save();
+    ctx.globalAlpha = 0.45 * oc.fracao;
+    ctx.fillStyle = "#050818";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 170, 74, 0, 0, TAU);
+    ctx.ellipse(cx - 110, cy + 20, 96, 46, 0, 0, TAU);
+    ctx.ellipse(cx + 118, cy + 12, 100, 48, 0, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  } else if (oc.id === "ceuLimpoFrio") {
+    // Um tom mais claro sobre tudo: o ar frio e seco deixa passar mais luz direta.
+    ctx.save();
+    ctx.globalAlpha = 0.14 * oc.fracao;
+    ctx.fillStyle = P.ink;
+    ctx.fillRect(vx0, vy0, vx1 - vx0, vy1 - vy0);
+    ctx.restore();
+  }
 }
 
 function desenharDiscos(ctx: CanvasRenderingContext2D, grupos: readonly GrupoMapa[], r: number, vx0: number, vy0: number, vx1: number, vy1: number): void {

@@ -199,6 +199,11 @@ export interface EstadoSprite {
   decaimento?: number;
   /** vaso: há torre de resfriamento na grade (desenha as duas torres hiperbólicas ao lado). */
   comTorre?: boolean;
+  /**
+   * vaso: potência das varetas escolhida na Ocorrência (0,5..1,25): as barras entram pelo topo, como no PWR —
+   * abaixo de 100 % descem (mais inseridas), acima sobem. Ausente fora da Ocorrência.
+   */
+  barras?: number;
 }
 
 /** Feixe do espelho (`de`, ponto do chão) ao centro da esfera (`para`, ponto do chão), em coordenadas de mundo. */
@@ -1708,6 +1713,16 @@ const S: Record<NomeSprite, FnSprite> = {
     if (longe) return;
     // anéis do vaso
     for (let i = 1; i <= 2; i++) rect(ctx, -15, -14 * i - 6, 30, 3, P.aco2);
+    if (e.barras !== undefined) {
+      // barras de controle saindo do topo da cúpula: o trecho à vista cresce quando elas sobem (mais potência)
+      const k = clamp01((e.barras - 0.5) / 0.75);
+      const visivel = 6 + 22 * k;
+      for (const x of [-8, 0, 8]) {
+        rect(ctx, x - 1.5, -61 - visivel, 3, visivel, P.acoEsc);
+        rect(ctx, x - 2.5, -63 - visivel, 5, 3, P.aco2);
+      }
+      rect(ctx, -12, -63, 24, 3, P.aco2);
+    }
     if (e.comTorre) {
       for (const lado of [-1, 1]) {
         const x = lado * 34;
