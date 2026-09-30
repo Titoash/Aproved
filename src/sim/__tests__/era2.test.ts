@@ -107,8 +107,8 @@ describe("transição para a Era 2 (GDD Parte 2 §2)", () => {
 });
 
 describe("save da era (GDD Parte 2 §2)", () => {
-  it("a versão é 9 e a era faz a ida e a volta", () => {
-    expect(VERSAO_SAVE).toBe(9);
+  it("a versão é 10 e a era faz a ida e a volta", () => {
+    expect(VERSAO_SAVE).toBe(10);
     const depois = construirReator(prontoParaOReator())!;
     const comVareta = colocarPeca(avancarTicks(depois, 100), 6, "vareta")!;
     const lido = desserializar(serializar(comVareta, 1000), 1000);

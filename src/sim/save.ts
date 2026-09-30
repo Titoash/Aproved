@@ -18,6 +18,7 @@ import { arquipelagoDaEra1 } from "./gerarArquipelago";
 import { migrarParaMundo } from "./migracao-v6";
 import { anel } from "./nucleo";
 import { calcularOffline, type RelatorioOffline } from "./offline";
+import { OCORRENCIAS, OCORRENCIAS_DEF, type OcorrenciaId } from "../content/ocorrencias";
 import {
   estadoInicial,
   gradeVazia,
@@ -25,6 +26,7 @@ import {
   melhoriasIniciais,
   mundoInicial,
   nucleoInicial,
+  ocorrenciasIniciais,
   VERSAO_SAVE,
   type Casa,
   type Construcao,
@@ -32,6 +34,8 @@ import {
   type MelhoriasState,
   type MundoState,
   type NucleoState,
+  type OcorrenciaEmCurso,
+  type OcorrenciasState,
   type PecaId,
   type RedeState,
   type RemocaoEmCurso,
@@ -308,6 +312,44 @@ function normalizarMelhorias(bruto: unknown): MelhoriasState {
   return { usinas, pecas, subestacoes, cabos: inteiro(m.cabos, 0), ciencia, equipe };
 }
 
+function ehOcorrenciaId(valor: unknown): valor is OcorrenciaId {
+  return typeof valor === "string" && valor in OCORRENCIAS_DEF;
+}
+
+/**
+ * Ocorrências (v0.9): relógio, semente e marcas sanitizados. Uma oferta ou Ocorrência em curso que chega
+ * aqui é descartada pelo offline no carregamento (`calcularOffline`); a recompensa pendente fica, porque já
+ * foi ganha.
+ */
+function normalizarOcorrencias(bruto: unknown): OcorrenciasState {
+  const base = ocorrenciasIniciais();
+  const o = objeto(bruto);
+  const a = objeto(o.atual);
+  const atual: OcorrenciaEmCurso | null =
+    ehOcorrenciaId(a.id) && (a.fase === "oferta" || a.fase === "ativa")
+      ? {
+          id: a.id,
+          fase: a.fase,
+          inicioMs: numero(a.inicioMs, 0),
+          controle: numero(a.controle, 1),
+          naMetaMs: numero(a.naMetaMs, 0),
+          potenciaRefKw: numero(a.potenciaRefKw, 0),
+          aposScram: booleano(a.aposScram, false),
+        }
+      : null;
+  const r = objeto(o.recompensa);
+  const recompensa = ehOcorrenciaId(r.id) ? { id: r.id, pesquisa: numero(r.pesquisa, 0) } : null;
+  return {
+    relogioMs: Math.min(OCORRENCIAS.intervaloMs, numero(o.relogioMs, 0)),
+    semente: inteiro(o.semente, base.semente) >>> 0 || base.semente,
+    primeiraOfertaFeita: booleano(o.primeiraOfertaFeita, false),
+    xenonioPendente: booleano(o.xenonioPendente, false),
+    atual,
+    recompensa,
+    superadas: inteiro(o.superadas, 0),
+  };
+}
+
 /** Preenche campos ausentes com o estado inicial e sanitiza números. `agoraMs` vira o carimbo de saves sem `salvoEmMs`. */
 function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState {
   const base = estadoInicial();
@@ -328,6 +370,7 @@ function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState 
     melhorias: normalizarMelhorias(bruto.melhorias),
     cidade: { densidade: Math.min(DENSIDADES.length, Math.max(1, inteiro(objeto(bruto.cidade).densidade, 1))) as Densidade },
     nucleo: normalizarNucleo(bruto.nucleo, era),
+    ocorrencia: normalizarOcorrencias(bruto.ocorrencia),
     pesquisados: normalizarPesquisados(bruto.pesquisados),
     capitulos: normalizarCapitulos(bruto.capitulos),
     salvoEmMs: typeof bruto.salvoEmMs === "number" && bruto.salvoEmMs > 0 ? bruto.salvoEmMs : agoraMs,
@@ -355,6 +398,8 @@ function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState 
  *          tipo — cada tipo nasce no **maior** nível que já tinha. A densidade sai dos bairros e vai para
  *          `cidade`, na **maior** entre eles (os mais baixos sobem de graça, uma vez). Os níveis por
  *          unidade zeram. Peças e ciência começam em 0.
+ * v9 → v10: entram as **Ocorrências** (GDD Parte 1 §4.4, v0.9): nenhuma em curso, relógio zerado e a
+ *          primeira oferta ainda por sair — a Nuvem na Era 1; num save que já chega na Era 2, o Xenônio.
  */
 function migrar(bruto: Record<string, unknown>, agoraMs: number): Record<string, unknown> {
   const versao = bruto.versao;
@@ -467,6 +512,10 @@ function migrar(bruto: Record<string, unknown>, agoraMs: number): Record<string,
       versao: 9,
     };
     v = 9;
+  }
+  if (v === 9) {
+    atual = { ...atual, ocorrencia: { relogioMs: 0, primeiraOfertaFeita: false, atual: null, recompensa: null }, versao: 10 };
+    v = 10;
   }
   return { ...atual, versao: v };
 }

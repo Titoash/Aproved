@@ -1,13 +1,14 @@
 /**
  * Textos do diário do tabuleiro (GDD Parte 1 §10.1, v0.8): uma linha curta por acontecimento, no molde de
  * `cardParaEvento`. Quem chama passa os nomes que dependem do mapa ou do nível; aqui só o texto.
- * A Sessão 10 acrescenta as Ocorrências.
+ * As Ocorrências (Sessão 10) registram a oferta, o resultado e a recompensa.
  */
 import type { EventoJogo } from "../sim/state";
 import { NO_POR_ID } from "./arvore";
 import { CAPITULO_POR_ID } from "./capitulos";
 import { DENSIDADES } from "./cidade";
 import { OBSTACULOS, ilhaDef, type TipoObstaculo } from "./era1-arquipelago";
+import { OCORRENCIAS_DEF } from "./ocorrencias";
 
 export interface ContextoDiario {
   /** Nome da ilha onde fica a casa ("Bosque"). */
@@ -57,6 +58,12 @@ export function textoDoDiario(evento: EventoJogo, ctx: ContextoDiario): string |
       return "O Reator acendeu: Era 2";
     case "nucleoDesbloqueado":
       return "Núcleo desbloqueado";
+    case "ocorrenciaOferecida":
+      return `Ocorrência: ${OCORRENCIAS_DEF[evento.id].nome} · ${OCORRENCIAS_DEF[evento.id].duracaoS} s`;
+    case "ocorrenciaTerminou":
+      return `${OCORRENCIAS_DEF[evento.id].nome}: ${evento.superada ? "superada" : "não superada"}`;
+    case "recompensaEscolhida":
+      return evento.recompensa === "estabilidade" ? `Recompensa: 🛡 +${evento.valor}` : `Recompensa: +🔬 ${Math.round(evento.valor)}`;
     case "primeiroCarregamento":
     case "primeiraCompra":
       return null;

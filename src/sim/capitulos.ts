@@ -7,8 +7,7 @@
 import { capitulosDaEra, type CapituloDef, type CondicaoCapitulo } from "../content/capitulos";
 import { contarBairros } from "./cidade";
 import { analisar, terrenoDeJogo } from "./producao";
-import { balancoDoEstado, potenciaNucleoEfetivaKw } from "./tick";
-import { efeitosDe } from "./efeitos";
+import { balancoDoEstado, potenciaNucleoDoEstado } from "./tick";
 import type { GameState } from "./state";
 
 export interface ProgressoCapitulo {
@@ -55,7 +54,7 @@ export function medir(state: GameState, condicao: CondicaoCapitulo): { atual: nu
     case "era":
       return { atual: state.era, alvo: condicao.minima };
     case "potenciaNucleoKw":
-      return { atual: potenciaNucleoEfetivaKw(state.nucleo, efeitosDe(state), state.tempoMs), alvo: condicao.kw };
+      return { atual: potenciaNucleoDoEstado(state), alvo: condicao.kw };
     case "trocaEmFaixa":
       return { atual: state.nucleo?.trocasEmFaixa ?? 0, alvo: condicao.n };
     case "pecas": {

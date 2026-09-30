@@ -18,6 +18,7 @@ import { avancarVaretasOffline, fatorVidaVareta, fissionando } from "./reator";
 import type { EfeitosArvore } from "./efeitos";
 import { analisar, derivarRede } from "./producao";
 import { passoRemocoes } from "./mundo";
+import { descartarAoCarregar } from "./ocorrencias";
 import { balancoRede } from "./rede";
 import type { GameState, NucleoState } from "./state";
 
@@ -179,6 +180,8 @@ export function calcularOffline(state: GameState, agoraMs: number): { state: Gam
     creditos: state.creditos + creditos,
     pesquisa: state.pesquisa + pesquisa,
     nucleo,
+    // Nunca offline (Parte 1 §4.4): a oferta e a Ocorrência em curso ao fechar são descartadas sem recompensa.
+    ocorrencia: descartarAoCarregar(state.ocorrencia),
   };
   const comFila = passoRemocoes(depois);
   const concluidas = comFila.eventos.slice(depois.eventos.length).filter((e) => e.tipo === "obstaculoRemovido");

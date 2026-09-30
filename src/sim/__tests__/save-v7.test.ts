@@ -29,8 +29,8 @@ function saveV6(extra: Record<string, unknown> = {}) {
 }
 
 describe("migração v6 → v7 (GDD §8.5, §8.6, v0.6)", () => {
-  it("a versão é 9", () => {
-    expect(VERSAO_SAVE).toBe(9);
+  it("a versão é 10", () => {
+    expect(VERSAO_SAVE).toBe(10);
   });
 
   it("os cabos viram ilha → nível, começando no nível 0", () => {

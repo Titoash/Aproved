@@ -19,7 +19,7 @@ export interface CardDef {
   gatilho: string;
   telas: readonly TelaCard[];
   bipe: { papel: BipePapel; expressao: BipeExpressao };
-  /** Só o card de abertura pausa o jogo (ele ainda nem começou). */
+  /** Pausa o jogo enquanto está aberto: a abertura (o jogo nem começou) e o das Ocorrências (a janela de 60 s correria). */
   pausa?: boolean;
 }
 
@@ -213,6 +213,26 @@ CARDS_ERA1.cristal = {
   ],
 };
 
+CARDS_ERA1.ocorrencias = {
+  id: "ocorrencias",
+  gatilho: "primeira Ocorrência oferecida (Parte 1 §4.4, v0.9)",
+  // Pausa como a abertura: o card chega com a janela de 60 s da oferta correndo, e as duas telas comeriam o tempo.
+  pausa: true,
+  bipe: { papel: "operador", expressao: "apontando" },
+  telas: [
+    {
+      titulo: "O Núcleo pede um operador",
+      texto:
+        "De tempos em tempos a física mexe no Núcleo: uma nuvem passa pelo campo de espelhos, uma turbina perde carga, o xenônio engole nêutrons. Quando isso acontece o 🔥 do HUD pisca e o painel do Núcleo mostra o cartão. **Aceitar é opcional** e recusar não custa nada. Quem aceita ganha **um controle só** — a carga das turbinas na Torre, as barras de controle no Reator — e tem de segurar o calor na zona de ouro por três quartos do tempo.",
+    },
+    {
+      titulo: "Você vê para onde o calor vai",
+      texto:
+        "A marca de Q* na barra de calor anda junto com o controle: ela mostra onde T vai parar antes de ele chegar. Superou? Escolha **🛡 +3 de Estabilidade** ou **60 s de 🔬** — pegue o que estiver travando você. A Cascata continua valendo: operar perto do limite é o risco de verdade, como numa sala de controle, onde o operador acompanha a planta a cada minuto.",
+    },
+  ],
+};
+
 /** Todos os cards das duas eras (a fila do store lê daqui). */
 export const CARDS: Record<string, CardDef> = { ...CARDS_ERA1, ...CARDS_ERA2 };
 
@@ -253,6 +273,11 @@ export function cardParaEvento(evento: EventoJogo): string | null {
     case "scram":
       return evento.era === 2 ? "scramEra2" : null;
     case "melhoria":
+      return null;
+    case "ocorrenciaOferecida":
+      return "ocorrencias";
+    case "ocorrenciaTerminou":
+    case "recompensaEscolhida":
       return null;
   }
 }

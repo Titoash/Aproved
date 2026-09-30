@@ -12,8 +12,8 @@ import { estadoLimpo, plantar } from "./ajuda";
 const arq = arquipelagoDaEra1();
 
 describe("save do mundo", () => {
-  it("a versão é 9", () => {
-    expect(VERSAO_SAVE).toBe(9);
+  it("a versão é 10", () => {
+    expect(VERSAO_SAVE).toBe(10);
   });
 
   it("ida e volta: construções, obstáculos removidos, fila, ilhas e cabos", () => {

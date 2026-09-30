@@ -4,6 +4,7 @@ import { ECONOMIA } from "../content/era1";
 import { ILHAS_INICIAIS, type IlhaId, type TipoObstaculo } from "../content/era1-arquipelago";
 import { NUCLEO } from "../content/era1-nucleo";
 import type { TipoCiencia } from "../content/melhorias";
+import { OCORRENCIAS, type OcorrenciaId } from "../content/ocorrencias";
 import type { Densidade } from "../content/cidade-tipos";
 import { arquipelagoDaEra1 } from "./gerarArquipelago";
 
@@ -186,6 +187,65 @@ export interface NucleoState {
   ultimaCascata: UltimaCascata | null;
 }
 
+/* ------------------------------------------------------------------ */
+/* Ocorrências (GDD Parte 1 §4.4 e Parte 2 §5.4, v0.9)                  */
+/* ------------------------------------------------------------------ */
+
+/** Oferta ou Ocorrência em curso. Uma por vez. */
+export interface OcorrenciaEmCurso {
+  id: OcorrenciaId;
+  /** "oferta": esperando o aceite (60 s); "ativa": o jogador opera o controle. */
+  fase: "oferta" | "ativa";
+  /** `tempoMs` do começo da fase: a oferta conta a janela; a ativa, o perfil e a duração. */
+  inicioMs: number;
+  /** Carga das turbinas (Era 1) ou potência das varetas ativas (Era 2); 1 = 100 %. Só vale na fase ativa. */
+  controle: number;
+  /** ms da fase ativa com a meta cumprida. */
+  naMetaMs: number;
+  /** Potência bruta do Núcleo no aceite, em kW: a referência da meta de potência (Seguimento de carga). */
+  potenciaRefKw: number;
+  /** A oferta saiu depois de um SCRAM (o cartão do Xenônio diz a causa). */
+  aposScram: boolean;
+}
+
+/** Ocorrência superada esperando a escolha da recompensa (🛡 ou 🔬). */
+export interface RecompensaPendente {
+  id: OcorrenciaId;
+  /** 🔬 da escolha "🔬": 60 s da 🔬/s total no instante em que a Ocorrência foi superada. */
+  pesquisa: number;
+}
+
+export interface OcorrenciasState {
+  /**
+   * Relógio dos 4 min: acumulador de tempo de tick (não um carimbo de `tempoMs`, que o offline avança).
+   * Só anda com o Núcleo desbloqueado e sem oferta, Ocorrência ou recompensa pendente; volta a 0 no fim de
+   * cada uma (superada ou não) e na oferta recusada ou expirada.
+   */
+  relogioMs: number;
+  /** Semente do sorteio (`sim/aleatorio.ts`); avança a cada sorteio. */
+  semente: number;
+  /** A primeira oferta do save já saiu (ela é a Nuvem, ou o Xenônio num save que chega já na Era 2). */
+  primeiraOfertaFeita: boolean;
+  /** Houve SCRAM na Era 2 desde a última oferta: a próxima é o Xenônio. */
+  xenonioPendente: boolean;
+  atual: OcorrenciaEmCurso | null;
+  recompensa: RecompensaPendente | null;
+  /** Quantas o jogador superou (para o relatório e a simulação). */
+  superadas: number;
+}
+
+export function ocorrenciasIniciais(): OcorrenciasState {
+  return {
+    relogioMs: 0,
+    semente: OCORRENCIAS.sementeInicial,
+    primeiraOfertaFeita: false,
+    xenonioPendente: false,
+    atual: null,
+    recompensa: null,
+    superadas: 0,
+  };
+}
+
 /** Eventos de um tick ou de uma ação, para a UI reagir (cards). Limpos a cada tick; não vão para o save. */
 export type EventoJogo =
   | { tipo: "primeiroCarregamento" }
@@ -204,7 +264,13 @@ export type EventoJogo =
   | { tipo: "varetaTrocada"; indice: number }
   | { tipo: "scram"; era: 1 | 2 }
   /** Um tipo subiu de nível (v0.8): o diário da cena registra. */
-  | { tipo: "melhoria"; alvo: AlvoMelhoria; nivel: number };
+  | { tipo: "melhoria"; alvo: AlvoMelhoria; nivel: number }
+  /** Uma Ocorrência foi oferecida (Parte 1 §4.4): o 🔥 pulsa, e a primeira abre o card. */
+  | { tipo: "ocorrenciaOferecida"; id: OcorrenciaId }
+  /** Uma Ocorrência aceita terminou: superada (a escolha da recompensa aparece) ou não. */
+  | { tipo: "ocorrenciaTerminou"; id: OcorrenciaId; superada: boolean }
+  /** O jogador escolheu a recompensa. */
+  | { tipo: "recompensaEscolhida"; id: OcorrenciaId; recompensa: "estabilidade" | "pesquisa"; valor: number };
 
 export interface GameState {
   versao: number;
@@ -226,6 +292,8 @@ export interface GameState {
   mundo: MundoState;
   /** `null` enquanto o Núcleo não foi desbloqueado. */
   nucleo: NucleoState | null;
+  /** Oferta, Ocorrência em curso, relógio e sorteio (v0.9). */
+  ocorrencia: OcorrenciasState;
   /** `Date.now()` do último save; 0 = nunca salvo. Base do cálculo offline (GDD §7). */
   salvoEmMs: number;
   /** Ids dos cards explicativos já mostrados. */
@@ -235,7 +303,7 @@ export interface GameState {
 }
 
 /** Versão do formato de save. Incrementar ao mudar a forma do estado. */
-export const VERSAO_SAVE = 9;
+export const VERSAO_SAVE = 10;
 
 /** Índice do Receptor: o centro de uma grade `lado × lado` (lado ímpar). */
 export function indiceReceptor(lado: number): number {
@@ -325,6 +393,7 @@ export function estadoInicial(): GameState {
     cidade: { densidade: 1 },
     mundo: mundoInicial(),
     nucleo: null,
+    ocorrencia: ocorrenciasIniciais(),
     salvoEmMs: 0,
     cardsVistos: [],
     eventos: [],
