@@ -155,13 +155,13 @@ describe("acoplamento Núcleo → Rede e ordem do tick", () => {
     expect(s.pesquisa).toBeCloseTo(2.08, 3);
   });
 
-  it("Estabilidade sobe +2,5/min na zona de ouro e +1,5/min fora dela", () => {
+  it("Estabilidade sobe +1,8/min na zona de ouro e +1,2/min fora dela (v0.9)", () => {
     const ouro = configuracao(5);
     const sOuro = avancarTicks(comNucleo(ouro, equilibrioU(ouro)), 600);
-    expect(sOuro.nucleo!.estabilidade).toBeCloseTo(52.5, 6);
+    expect(sOuro.nucleo!.estabilidade).toBeCloseTo(51.8, 6);
     const frio = configuracao(6, { tanques: 1 }); // T ≈ 40 %
     const sFrio = avancarTicks(comNucleo(frio, equilibrioU(frio) * 0.99), 600);
-    expect(sFrio.nucleo!.estabilidade).toBeCloseTo(51.5, 6);
+    expect(sFrio.nucleo!.estabilidade).toBeCloseTo(51.2, 6);
   });
 
   it("sem Núcleo o tick da Sessão 1 não muda", () => {
