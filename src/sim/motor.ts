@@ -7,17 +7,37 @@
  * O que muda é quem preenche cada número: espelhos, radiadores e turbinas a vapor na Era 1; varetas
  * com combustível finito, torres de resfriamento e turbinas de alta pressão na Era 2. Este módulo é o
  * único lugar que sabe qual das duas está em jogo.
+ *
+ * As Ocorrências (Parte 1 §4.4, v0.9) entram aqui como **multiplicadores** sobre três termos — entrada,
+ * dissipação e fator das turbinas —, e nenhuma fórmula muda. Na Era 2 a entrada multiplicável é só a
+ * injeção das varetas ativas: barras e Xenônio não mexem no decaimento (Parte 2 §5.4).
  */
 import { NUCLEO } from "../content/era1-nucleo";
 import { REATOR } from "../content/era2-nucleo";
 import { efeitosNeutros, type EfeitosArvore } from "./efeitos";
 import { capacidadeU, contar, espelhosEfetivosDe } from "./nucleo";
-import { capacidadeReatorU, contarReator, dissipacaoReatorUs, entradaReatorUs } from "./reator";
+import { capacidadeReatorU, contarReator, dissipacaoReatorUs, fluxosReatorUs } from "./reator";
 import type { NucleoState } from "./state";
 
+/**
+ * Multiplicadores das Ocorrências sobre o motor (Parte 1 §4.4): a perturbação e o controle. Tudo 1 fora delas.
+ * `entrada` é a entrada dos espelhos na Era 1 e só a injeção das varetas ativas na Era 2.
+ */
+export interface MultiplicadoresMotor {
+  entrada: number;
+  dissipacao: number;
+  turbina: number;
+}
+
+export const MULTIPLICADORES_NEUTROS: MultiplicadoresMotor = Object.freeze({ entrada: 1, dissipacao: 1, turbina: 1 });
+
 export interface MotorCalor {
-  /** u/s que entram no componente crítico (já com SCRAM e decaimento aplicados). */
+  /** u/s que entram no componente crítico (já com SCRAM, decaimento e multiplicadores aplicados). */
   entradaUs: number;
+  /** A parcela multiplicável da entrada, já multiplicada: espelhos (Era 1) ou varetas ativas (Era 2). */
+  entradaAtivaUs: number;
+  /** Calor de decaimento que entra no Vaso (0 na Era 1). Nenhum multiplicador mexe nele. */
+  decaimentoUs: number;
   /** u/s dissipados por radiadores (Era 1) ou torres de resfriamento (Era 2). */
   dissipacaoUs: number;
   /** Fração de `Q` consumida por segundo pelo conjunto de turbinas. */
@@ -33,13 +53,20 @@ export interface MotorCalor {
 }
 
 /** Motor da Torre Solar (GDD §8.3). */
-export function motorEra1(nucleo: NucleoState, efeitos: EfeitosArvore = efeitosNeutros()): MotorCalor {
+export function motorEra1(
+  nucleo: NucleoState,
+  efeitos: EfeitosArvore = efeitosNeutros(),
+  mult: MultiplicadoresMotor = MULTIPLICADORES_NEUTROS,
+): MotorCalor {
   const c = contar(nucleo.grade);
   const emScram = nucleo.scramRestanteMs > 0;
+  const entradaUs = emScram ? 0 : efeitos.calorPorEspelho * espelhosEfetivosDe(c) * mult.entrada;
   return {
-    entradaUs: emScram ? 0 : efeitos.calorPorEspelho * espelhosEfetivosDe(c),
-    dissipacaoUs: efeitos.dissipacaoRadiador * c.radiadoresAdjacentes,
-    fatorTurbina: emScram ? 0 : NUCLEO.consumoTurbina * c.turbinas,
+    entradaUs,
+    entradaAtivaUs: entradaUs,
+    decaimentoUs: 0,
+    dissipacaoUs: efeitos.dissipacaoRadiador * c.radiadoresAdjacentes * mult.dissipacao,
+    fatorTurbina: emScram ? 0 : NUCLEO.consumoTurbina * c.turbinas * mult.turbina,
     kwPorU: efeitos.turbinaKwPorUnidade,
     capacidadeU: capacidadeU(nucleo.grade, nucleo.receptorCeramico, efeitos),
     turbinas: c.turbinas,
@@ -52,13 +79,22 @@ export function motorEra1(nucleo: NucleoState, efeitos: EfeitosArvore = efeitosN
  * Motor do Reator PWR (GDD Parte 2 §5). Em SCRAM as turbinas param, mas o calor de decaimento
  * continua entrando: é o que faz a torre de resfriamento valer a pena.
  */
-export function motorEra2(nucleo: NucleoState, efeitos: EfeitosArvore = efeitosNeutros(), tempoMs = 0): MotorCalor {
+export function motorEra2(
+  nucleo: NucleoState,
+  efeitos: EfeitosArvore = efeitosNeutros(),
+  tempoMs = 0,
+  mult: MultiplicadoresMotor = MULTIPLICADORES_NEUTROS,
+): MotorCalor {
   const c = contarReator(nucleo.grade);
   const emScram = nucleo.scramRestanteMs > 0;
+  const f = fluxosReatorUs(nucleo, efeitos, tempoMs);
+  const entradaAtivaUs = f.ativaUs * mult.entrada;
   return {
-    entradaUs: entradaReatorUs(nucleo, efeitos, tempoMs),
-    dissipacaoUs: dissipacaoReatorUs(nucleo.grade, efeitos),
-    fatorTurbina: emScram ? 0 : REATOR.consumoTurbina * c.turbinas,
+    entradaUs: entradaAtivaUs + f.decaimentoUs,
+    entradaAtivaUs,
+    decaimentoUs: f.decaimentoUs,
+    dissipacaoUs: dissipacaoReatorUs(nucleo.grade, efeitos) * mult.dissipacao,
+    fatorTurbina: emScram ? 0 : REATOR.consumoTurbina * c.turbinas * mult.turbina,
     kwPorU: efeitos.reatorKwPorUnidade,
     capacidadeU: capacidadeReatorU(nucleo.grade, efeitos),
     turbinas: c.turbinas,
@@ -67,8 +103,13 @@ export function motorEra2(nucleo: NucleoState, efeitos: EfeitosArvore = efeitosN
   };
 }
 
-export function motorDoNucleo(nucleo: NucleoState, efeitos: EfeitosArvore = efeitosNeutros(), tempoMs = 0): MotorCalor {
-  return nucleo.era === 2 ? motorEra2(nucleo, efeitos, tempoMs) : motorEra1(nucleo, efeitos);
+export function motorDoNucleo(
+  nucleo: NucleoState,
+  efeitos: EfeitosArvore = efeitosNeutros(),
+  tempoMs = 0,
+  mult: MultiplicadoresMotor = MULTIPLICADORES_NEUTROS,
+): MotorCalor {
+  return nucleo.era === 2 ? motorEra2(nucleo, efeitos, tempoMs, mult) : motorEra1(nucleo, efeitos, mult);
 }
 
 /** dQ/dt, em u/s. */

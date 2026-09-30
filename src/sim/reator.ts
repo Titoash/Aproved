@@ -175,18 +175,27 @@ export function dissipacaoReatorUs(grade: readonly Casa[], efeitos: EfeitosArvor
   return contarReator(grade).torres * efeitos.dissipacaoTorreUs;
 }
 
+/** Calor que entra no Vaso separado em fissão e decaimento (Parte 2 §5.4, v0.9), em u/s. */
+export interface FluxosReator {
+  /** Injeção das varetas **ativas**: é o termo que as barras (Ocorrências) e o Xenônio multiplicam. */
+  ativaUs: number;
+  /** Calor de decaimento (varetas gastas, entulho quente, SCRAM): nada o multiplica. */
+  decaimentoUs: number;
+}
+
 /**
- * Calor que entra no Vaso, em u/s. Três situações por casa de vareta:
- *  - ligada e com combustível → o nominal inteiro;
+ * Calor que entra no Vaso, em u/s, por parcela. Três situações por casa de vareta:
+ *  - ligada e com combustível → o nominal inteiro, na parcela ativa;
  *  - gasta (ou entulho quente) → decaimento desde que esgotou, salvo se houver Piscina vizinha,
  *    e aí o calor vai para a piscina e não para o Vaso;
  *  - reator em SCRAM → toda vareta ainda com combustível entra em decaimento desde o SCRAM
  *    (a torre de resfriamento é o que segura `T` depois disso).
  */
-export function entradaReatorUs(nucleo: NucleoState, efeitos: EfeitosArvore = efeitosNeutros(), tempoMs = 0): number {
+export function fluxosReatorUs(nucleo: NucleoState, efeitos: EfeitosArvore = efeitosNeutros(), tempoMs = 0): FluxosReator {
   const lado = nucleo.lado;
   const emScram = nucleo.scramRestanteMs > 0;
-  let total = 0;
+  let ativaUs = 0;
+  let decaimentoUs = 0;
   nucleo.grade.forEach((casa, i) => {
     if (!casa || casa.tipo === "receptor") return;
     if (casa.id !== "vareta") return;
@@ -196,7 +205,7 @@ export function entradaReatorUs(nucleo: NucleoState, efeitos: EfeitosArvore = ef
     if (nominal <= 0) return;
     if (v.gastaDesdeMs !== null) {
       if (temPiscinaVizinha(nucleo.grade, i, lado)) return;
-      total += nominal * fracaoDecaimento(tempoMs - v.gastaDesdeMs);
+      decaimentoUs += nominal * fracaoDecaimento(tempoMs - v.gastaDesdeMs);
       return;
     }
     // Entulho de vareta ainda com combustível: a Cascata já marca `gastaDesdeMs`, mas um save
@@ -204,12 +213,18 @@ export function entradaReatorUs(nucleo: NucleoState, efeitos: EfeitosArvore = ef
     if (casa.tipo === "entulho") return;
     if (emScram) {
       const desde = nucleo.scramInicioMs ?? tempoMs;
-      total += nominal * fracaoDecaimento(tempoMs - desde);
+      decaimentoUs += nominal * fracaoDecaimento(tempoMs - desde);
       return;
     }
-    total += nominal;
+    ativaUs += nominal;
   });
-  return total;
+  return { ativaUs, decaimentoUs };
+}
+
+/** Calor total que entra no Vaso, em u/s: injeção ativa + decaimento. */
+export function entradaReatorUs(nucleo: NucleoState, efeitos: EfeitosArvore = efeitosNeutros(), tempoMs = 0): number {
+  const f = fluxosReatorUs(nucleo, efeitos, tempoMs);
+  return f.ativaUs + f.decaimentoUs;
 }
 
 /* ------------------------------------------------------------------ */
