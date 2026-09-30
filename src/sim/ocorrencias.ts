@@ -424,3 +424,66 @@ export function escolherRecompensa(state: GameState, tipo: TipoRecompensa): Game
 export function descartarAoCarregar(o: OcorrenciasState): OcorrenciasState {
   return o.atual ? encerrada(o) : o;
 }
+
+/* ------------------------------------------------------------------ */
+/* Resumo para a interface                                             */
+/* ------------------------------------------------------------------ */
+
+export interface ResumoOcorrencia {
+  def: OcorrenciaDef;
+  fase: "oferta" | "ativa";
+  /** Oferta: quanto falta para expirar. Ativa: quanto falta para acabar. */
+  restanteMs: number;
+  /** Fração de 0 a 1 do tempo já passado da fase. */
+  progresso: number;
+  naMetaMs: number;
+  /** ms na meta para superar (75 % da duração). */
+  metaMs: number;
+  /** Ainda dá para superar: o que falta cabe no tempo que resta. */
+  aindaDa: boolean;
+  controle: number;
+  /** `T` agora e o `T*` com a perturbação e o controle deste instante (a marca de `Q*` da barra). */
+  t: number;
+  tEquilibrio: number;
+  /** A meta está cumprida neste instante. */
+  cumprindo: boolean;
+  /** Meta de potência: potência bruta agora, a referência do aceite e a de equilíbrio com o controle atual. */
+  potenciaKw: number;
+  potenciaRefKw: number;
+  potenciaEquilibrioKw: number;
+  /** A causa que o cartão mostra (Xenônio). */
+  causa: string | null;
+}
+
+/** Tudo o que o cartão da Ocorrência mostra, tirado do estado. `null` sem oferta nem Ocorrência. */
+export function resumoOcorrencia(state: GameState): ResumoOcorrencia | null {
+  const a = state.ocorrencia.atual;
+  const n = state.nucleo;
+  if (!a || !n) return null;
+  const def = OCORRENCIAS_DEF[a.id];
+  const efeitos = efeitosDe(state);
+  const mult = multiplicadoresDoEstado(state);
+  const m = motorCom(n, efeitos, state.tempoMs, mult);
+  const qEq = equilibrioMotor(m);
+  const decorrido = Math.max(0, state.tempoMs - a.inicioMs);
+  const totalMs = a.fase === "oferta" ? OCORRENCIAS.janelaOfertaMs : def.duracaoS * 1000;
+  const restanteMs = Math.max(0, totalMs - decorrido);
+  const meta = metaMs(a.id);
+  return {
+    def,
+    fase: a.fase,
+    restanteMs,
+    progresso: Math.min(1, decorrido / totalMs),
+    naMetaMs: a.naMetaMs,
+    metaMs: meta,
+    aindaDa: a.fase === "oferta" || a.naMetaMs + restanteMs >= meta - 1e-6,
+    controle: a.controle,
+    t: temperatura(n.calorU, m.capacidadeU),
+    tEquilibrio: temperatura(qEq, m.capacidadeU),
+    cumprindo: a.fase === "ativa" && metaCumprida(state, a),
+    potenciaKw: potenciaBrutaKw(state, mult),
+    potenciaRefKw: a.potenciaRefKw,
+    potenciaEquilibrioKw: Number.isFinite(qEq) && n.scramRestanteMs === 0 ? potenciaMotor(m, qEq) : 0,
+    causa: a.aposScram && def.causaAposScram ? def.causaAposScram : (def.causa ?? null),
+  };
+}

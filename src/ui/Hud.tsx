@@ -24,6 +24,17 @@ function NotaDeCreditos() {
   );
 }
 
+/**
+ * Tocar no 🔥 abre o painel do Núcleo no cartão da Ocorrência (§10.1, v0.9): rola até ele e põe o foco em
+ * "Aceitar". Sem oferta, rola até o painel do Núcleo.
+ */
+function abrirPainelDoNucleo(): void {
+  const cartao = document.querySelector<HTMLElement>(".ocorrencia");
+  const alvo = cartao ?? document.querySelector<HTMLElement>(".barra-calor");
+  alvo?.scrollIntoView({ block: "center", behavior: "smooth" });
+  cartao?.querySelector<HTMLButtonElement>("[data-acao='aceitar-ocorrencia'], [data-acao='recompensa-estabilidade']")?.focus({ preventScroll: true });
+}
+
 /** "+₵ 12/s" ou "−₵ 5/s": a taxa líquida com sinal (as térmicas cobram combustível). */
 function taxaComSinal(taxa: number): string {
   return `${taxa < 0 ? "−" : "+"}${formatarTaxa(Math.abs(taxa))}`;
@@ -83,7 +94,14 @@ export function Hud() {
           </span>
         </div>
 
-        <div className="hud-item hud-item--calor" title={rotuloEstab}>
+        <button
+          type="button"
+          className={`hud-item hud-item--calor${h.ofertaOcorrencia ? " hud-item--oferta-ocorrencia" : ""}`}
+          title={h.ofertaOcorrencia ? "Ocorrência oferecida: toque para ver o cartão" : rotuloEstab}
+          aria-label={h.ofertaOcorrencia ? "Ocorrência oferecida: abrir o cartão no painel do Núcleo" : undefined}
+          data-acao="abrir-ocorrencia"
+          onClick={abrirPainelDoNucleo}
+        >
           <span className="hud-valor">
             🔥{" "}
             <span className="hud-anel" style={{ "--estab": `${estab}%` } as CSSProperties} role="img" aria-label={rotuloEstab}>
@@ -91,8 +109,8 @@ export function Hud() {
             </span>
             <span style={{ color: corCalor }}>{h.t !== null ? formatarPorcentagem(h.t) : "—"}</span>
           </span>
-          <span className="hud-rotulo">{h.faixaCalor ? h.faixaCalor.nome.toLowerCase() : "Núcleo bloqueado"}</span>
-        </div>
+          <span className="hud-rotulo">{h.ofertaOcorrencia ? "Ocorrência!" : h.faixaCalor ? h.faixaCalor.nome.toLowerCase() : "Núcleo bloqueado"}</span>
+        </button>
 
         <div className="hud-item hud-item--ciencia">
           <button type="button" className="hud-pesquisa" onClick={abrirArvore} title="Abrir a árvore de pesquisa: 🔬 se gasta em nós">

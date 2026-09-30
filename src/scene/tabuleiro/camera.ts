@@ -156,13 +156,18 @@ export class ControleCamera {
     return c;
   }
 
-  /** Enquadra a ilha na área livre (desktop: reserva a escada à esquerda; celular: pela largura, a 45 % da altura). */
-  presetIlha(nome: "ilha" | "nucleo"): Camera {
+  /**
+   * Enquadra a ilha na área livre (desktop: reserva a escada à esquerda; celular: pela largura, a 45 % da altura).
+   * "ocorrencia" enquadra o Núcleo mais longe e no terço de cima: o cartão da Ocorrência ocupa o pé do tabuleiro,
+   * e a plataforma (sombra da nuvem, turbina a meia rotação, barras no Vaso) precisa ficar à vista.
+   */
+  presetIlha(nome: "ilha" | "nucleo" | "ocorrencia"): Camera {
     const { w, h } = this;
-    if (nome === "nucleo") {
+    if (nome === "nucleo" || nome === "ocorrencia") {
       const c = this.deps.centroNucleo();
-      const zoom = 1.4;
-      return { zoom, tx: w / 2 - c[0] * zoom, ty: h / 2 - (c[1] - 56) * zoom, w, h };
+      const zoom = nome === "ocorrencia" ? 1 : 1.4;
+      const centroY = nome === "ocorrencia" ? h * 0.3 : h / 2;
+      return { zoom, tx: w / 2 - c[0] * zoom, ty: centroY - (c[1] - 56) * zoom, w, h };
     }
     const b = this.deps.limitesIlha();
     const x0 = b.x0;
@@ -249,9 +254,9 @@ export class ControleCamera {
   }
 
   /** Preset da ilha ('ilha' ou 'nucleo') ou um nível da escada. */
-  preset(nome: "ilha" | "nucleo" | NivelId, imediato = false): void {
+  preset(nome: "ilha" | "nucleo" | "ocorrencia" | NivelId, imediato = false): void {
     if (this.transicao && !imediato) return;
-    if (nome !== "ilha" && nome !== "nucleo" && NIVEIS.some((n) => n.id === nome)) {
+    if (nome !== "ilha" && nome !== "nucleo" && nome !== "ocorrencia" && NIVEIS.some((n) => n.id === nome)) {
       if (imediato || this.nivel === nome) {
         this.transicao = null;
         this.nivel = nome;
@@ -265,7 +270,7 @@ export class ControleCamera {
         this.nivel = "ilha";
       } else this.irPara("ilha");
     }
-    const destino = this.presetIlha(nome === "nucleo" ? "nucleo" : "ilha");
+    const destino = this.presetIlha(nome === "nucleo" || nome === "ocorrencia" ? nome : "ilha");
     if (imediato || this.nivel !== "ilha") {
       this.cams.ilha = destino;
       this.anim = null;

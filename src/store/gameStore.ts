@@ -26,6 +26,7 @@ import { carregar, exportarJson, importarJson, INTERVALO_SAVE_MS, limpar, salvar
 import { estadoInicial, type AlvoMelhoria, type EventoJogo, type GameState, type PecaId, type TipoConstrucao } from "../sim/state";
 import { descreverNivel } from "../ui/niveis";
 import { avancarTicks } from "../sim/tick";
+import * as ocorrencias from "../sim/ocorrencias";
 
 /** O que o clique numa casa da grade do Núcleo faz. */
 export type Ferramenta = PecaId | "remover";
@@ -86,7 +87,7 @@ export interface GameStore {
   /** Nível da escada de escalas em exibição (GDD §2.4). Estado de interface: não vai para o save. */
   nivel: NivelId;
   /** Pedido de enquadramento para a cena consumir (`null` = nenhum). */
-  presetPedido: { nome: "ilha" | "nucleo" | NivelId; serie: number } | null;
+  presetPedido: { nome: "ilha" | "nucleo" | "ocorrencia" | NivelId; serie: number } | null;
   /** Placa de expedição sob o ponteiro (vem do DOM; a cena só desenha o realce). */
   ilhaSobPonteiro: IlhaId | null;
   /** Casa do arquipélago sob o ponteiro (fora da plataforma). */
@@ -157,6 +158,17 @@ export interface GameStore {
   trocarTodasAsGastas: () => boolean;
   selecionarCasaNucleo: (indice: number | null) => void;
   setCasaSobPonteiro: (indice: number | null) => void;
+
+  // Ocorrências (Parte 1 §4.4, v0.9)
+  /** Aceita a oferta: o controle aparece e a câmera enquadra o Núcleo. Avisa se recusado. */
+  aceitarOcorrencia: () => boolean;
+  /** "Agora não": a oferta some sem custo. */
+  recusarOcorrencia: () => boolean;
+  /** Move o controle da Ocorrência (carga das turbinas ou potência das varetas), 1 = 100 %. */
+  ajustarControle: (valor: number) => boolean;
+  escolherRecompensa: (tipo: ocorrencias.TipoRecompensa) => boolean;
+  /** Última recompensa escolhida, para o "+3" aparecer no painel do Núcleo. Estado de interface. */
+  ultimaRecompensa: { tipo: ocorrencias.TipoRecompensa; valor: number; emTempoMs: number } | null;
   fecharRelatorioOffline: () => void;
   /** "Próximo" no card aberto; na última tela fecha e marca como visto. */
   avancarCard: () => void;
@@ -301,6 +313,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
     arvoreAberta: false,
     selecaoArea: null,
     diario: [],
+    ultimaRecompensa: null,
 
     avancarTicks(n) {
       const { state, salvoEmTempoMs, pausado } = get();
@@ -521,6 +534,32 @@ export const useGameStore = create<GameStore>()((set, get) => {
       return aplicar(proximo);
     },
     selecionarCasaNucleo: (indice) => set({ casaNucleoSelecionada: indice }),
+
+    aceitarOcorrencia() {
+      const proximo = ocorrencias.aceitarOcorrencia(get().state);
+      if (!proximo) {
+        avisar(-1, ocorrencias.avaliarAceite(get().state).motivo ?? "Não dá para aceitar agora.");
+        return false;
+      }
+      // A cena mostra a perturbação no Núcleo (sombra da nuvem, turbina a meia rotação, barras no Vaso).
+      set({ nivel: "ilha", presetPedido: { nome: "ocorrencia", serie: (get().presetPedido?.serie ?? 0) + 1 } });
+      return aplicar(proximo);
+    },
+    recusarOcorrencia: () => aplicar(ocorrencias.recusarOcorrencia(get().state)),
+    ajustarControle(valor) {
+      const proximo = ocorrencias.ajustarControle(get().state, valor);
+      if (!proximo) return false;
+      if (proximo !== get().state) set({ state: proximo });
+      return true;
+    },
+    escolherRecompensa(tipo) {
+      const antes = get().state;
+      const proximo = ocorrencias.escolherRecompensa(antes, tipo);
+      if (!proximo) return false;
+      const valor = tipo === "estabilidade" ? (proximo.nucleo?.estabilidade ?? 0) - (antes.nucleo?.estabilidade ?? 0) : proximo.pesquisa - antes.pesquisa;
+      set({ ultimaRecompensa: { tipo, valor, emTempoMs: proximo.tempoMs } });
+      return aplicar(proximo);
+    },
     setCasaSobPonteiro: (indice) => {
       if (get().casaSobPonteiro !== indice) set({ casaSobPonteiro: indice });
     },
@@ -552,7 +591,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
       // Um save exportado há tempo também rende offline desde o carimbo.
       const agora = Date.now();
       const { state, relatorio } = calcularOffline(importarJson(json, agora), agora);
-      set({ state, avisoGrade: null, relatorioOffline: relatorioVisivel(relatorio), cardAberto: null, filaCards: [], pausado: false, selecaoArea: null, diario: [] });
+      set({ state, avisoGrade: null, relatorioOffline: relatorioVisivel(relatorio), cardAberto: null, filaCards: [], pausado: false, selecaoArea: null, diario: [], ultimaRecompensa: null });
       salvarEstado(state);
     },
 
@@ -572,6 +611,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
         pausado: false,
         selecaoArea: null,
         diario: [],
+        ultimaRecompensa: null,
       });
       processarEventos(state);
     },

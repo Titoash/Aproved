@@ -23,7 +23,9 @@ import {
   multiplicadoresDaPerturbacao,
   multiplicadoresDoEstado,
   recusarOcorrencia,
+  resumoOcorrencia,
 } from "../ocorrencias";
+import { numerosDoHud } from "../../ui/hud";
 import { calcularOffline } from "../offline";
 import { analisar } from "../producao";
 import { desserializar, serializar } from "../save";
@@ -500,5 +502,38 @@ describe("save v10", () => {
     const fim = correr(aceita(torre(configuracao(5)), "nuvem"), "acompanha").s;
     const volta = desserializar(serializar(fim, 5000), 5000);
     expect(volta.ocorrencia).toEqual(fim.ocorrencia);
+  });
+});
+
+describe("resumo para a interface e o HUD", () => {
+  it("a oferta mostra os 60 s; a Ocorrência, o tempo que falta, o equilíbrio com o controle e se ainda dá", () => {
+    const oferta = tick(quaseNaHora(torre(configuracao(5))), TICK_MS);
+    const ro = resumoOcorrencia(oferta)!;
+    expect(ro.fase).toBe("oferta");
+    expect(ro.restanteMs).toBe(OCORRENCIAS.janelaOfertaMs);
+    expect(numerosDoHud(oferta).ofertaOcorrencia).toBe(true);
+
+    let s = aceita(torre(configuracao(5)), "nuvem");
+    expect(numerosDoHud(s).ofertaOcorrencia).toBe(false);
+    for (let i = 0; i < 200; i++) s = tick(s, TICK_MS); // 20 s: no platô
+    const parado = resumoOcorrencia(s)!;
+    expect(parado.fase).toBe("ativa");
+    expect(parado.restanteMs).toBe(25_000);
+    expect(parado.tEquilibrio).toBeCloseTo(0.5, 6);
+    // Parado em 100 % a Nuvem já não dá: o que falta não cobre os 33,75 s na meta.
+    expect(parado.aindaDa).toBe(false);
+    const comCarga = resumoOcorrencia(ajustarControle(s, 0.6)!)!;
+    expect(comCarga.controle).toBe(0.6);
+    expect(comCarga.tEquilibrio).toBeCloseTo(0.833, 3);
+  });
+
+  it("o controle respeita os limites da era", () => {
+    const s = aceita(torre(configuracao(5)), "nuvem");
+    expect(ajustarControle(s, 0.1)!.ocorrencia.atual!.controle).toBe(CONTROLE[1].min);
+    expect(ajustarControle(s, 9)!.ocorrencia.atual!.controle).toBe(CONTROLE[1].max);
+    const r = aceita(reator(), "xenonio");
+    expect(ajustarControle(r, 2)!.ocorrencia.atual!.controle).toBe(CONTROLE[2].max);
+    // Fora da Ocorrência não há controle.
+    expect(ajustarControle(torre(configuracao(5)), 0.8)).toBeNull();
   });
 });

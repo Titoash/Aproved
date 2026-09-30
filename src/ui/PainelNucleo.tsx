@@ -14,11 +14,15 @@ import { formatarCalor, formatarCreditos, formatarNumero, formatarPorcentagem, f
 import { efeitosDe, type EfeitosArvore } from "../sim/arvore";
 import { contar, espelhosEfetivos } from "../sim/nucleo";
 import type { NucleoState, PecaId } from "../sim/state";
-import { potenciaNucleoEfetivaKw } from "../sim/tick";
+import { potenciaNucleoDoEstado } from "../sim/tick";
+import { multiplicadoresDoEstado } from "../sim/ocorrencias";
+import { OCORRENCIAS_DEF } from "../content/ocorrencias";
+import type { GameState } from "../sim/state";
 import { setPalcoElement } from "../scene/layout";
 import { anexarPalco } from "../scene/tabuleiro/controle";
 import { CalloutCasa } from "./CalloutCasa";
 import { CalloutPeca } from "./CalloutPeca";
+import { CartaoOcorrencia } from "./CartaoOcorrencia";
 import { ConfirmacaoArea } from "./ConfirmacaoArea";
 import { DiarioTabuleiro } from "./DiarioTabuleiro";
 import { Escada } from "./Escada";
@@ -93,6 +97,7 @@ function Tabuleiro() {
       <CalloutPeca />
       <ConfirmacaoArea />
       <DiarioTabuleiro />
+      <CartaoOcorrencia />
     </div>
   );
 }
@@ -109,21 +114,33 @@ const TEXTO_DICA: Record<1 | 2, Record<"adicionarEspelhos" | "tirarEspelho", str
   },
 };
 
-function BarraCalor({ nucleo, efeitos, tempoMs }: { nucleo: NucleoState; efeitos: EfeitosArvore; tempoMs: number }) {
+/** A Ocorrência ativa com meta de calor: a barra desenha a faixa-alvo e a marca de `Q*` fica viva (§4.4). */
+function metaDeCalorAtiva(state: GameState): boolean {
+  const a = state.ocorrencia.atual;
+  return !!a && a.fase === "ativa" && OCORRENCIAS_DEF[a.id].meta.tipo === "calor";
+}
+
+function BarraCalor({ state, nucleo, efeitos, tempoMs }: { state: GameState; nucleo: NucleoState; efeitos: EfeitosArvore; tempoMs: number }) {
   const t = temperaturaNucleo(nucleo, efeitos);
   const faixa = faixaDeCalor(t);
-  const motor = motorDoNucleo(nucleo, efeitos, tempoMs);
+  // Com a Ocorrência em curso a marca de Q* anda com a perturbação e o controle: o jogador vê para onde T vai.
+  const motor = motorDoNucleo(nucleo, efeitos, tempoMs, multiplicadoresDoEstado(state));
   const capacidade = motor.capacidadeU;
   const qEq = equilibrioMotor(motor);
   const tEq = temperatura(qEq, capacidade);
-  const dica = dicaDeEquilibrio(tEq);
+  const emOcorrencia = state.ocorrencia.atual?.fase === "ativa";
+  const alvo = metaDeCalorAtiva(state);
+  // Durante a Ocorrência a resposta é o controle, não mexer na grade: a dica de espelhos some.
+  const dica = emOcorrencia ? null : dicaDeEquilibrio(tEq);
+  const ouro = FAIXAS_CALOR.find((f) => f.id === "ouro")!;
+  const inicioOuro = FAIXAS_CALOR[FAIXAS_CALOR.indexOf(ouro) - 1].ate;
   const escalaMax = 1.2;
   const pos = (v: number) => `${Math.min(100, Math.max(0, (v / escalaMax) * 100))}%`;
   const critico = faixa.id === "critico";
   const faltaMs = Math.max(0, CASCATA.atrasoMs - nucleo.tempoAcimaDoLimiteMs);
 
   return (
-    <div className={`barra-calor barra-calor--${faixa.id}`}>
+    <div className={`barra-calor barra-calor--${faixa.id}${alvo ? " barra-calor--com-alvo" : ""}`}>
       <div className="barra-rotulo">
         <span>🔥 Calor · {faixa.nome.toLowerCase()}</span>
         <span className="barra-valor" style={{ color: corDaRampaCss(Math.min(1, t)) }}>
@@ -136,8 +153,11 @@ function BarraCalor({ nucleo, efeitos, tempoMs }: { nucleo: NucleoState; efeitos
           const ate = Number.isFinite(f.ate) ? f.ate : escalaMax;
           return <div key={f.id} className={`barra-calor-faixa barra-calor-faixa--${f.id}`} style={{ left: pos(de), width: `calc(${pos(ate)} - ${pos(de)})` }} title={`${f.nome}: pesquisa ×${formatarNumero(f.pesquisa, 2)}`} />;
         })}
+        {alvo ? <div className="barra-calor-alvo" data-testid="faixa-alvo" style={{ left: pos(inicioOuro), width: `calc(${pos(ouro.ate)} - ${pos(inicioOuro)})` }} /> : null}
         <div className="barra-calor-preenchida" style={{ width: pos(t), background: corDaRampaCss(Math.min(1, t)) }} />
-        {Number.isFinite(tEq) && tEq > 0 ? <div className="barra-calor-marca" style={{ left: pos(tEq) }} title={`Equilíbrio: ${formatarPorcentagem(tEq)}`} /> : null}
+        {Number.isFinite(tEq) && tEq > 0 ? (
+          <div className={`barra-calor-marca${emOcorrencia ? " barra-calor-marca--viva" : ""}`} data-testid="marca-q" style={{ left: pos(tEq) }} title={`Equilíbrio: ${formatarPorcentagem(tEq)}`} />
+        ) : null}
         <div className="barra-calor-limite" style={{ left: pos(1) }} />
       </div>
       <div className="barra-legenda">
@@ -156,11 +176,24 @@ function BarraCalor({ nucleo, efeitos, tempoMs }: { nucleo: NucleoState; efeitos
   );
 }
 
+/** Quanto tempo de jogo o "+3" da recompensa fica ao lado da Estabilidade. */
+const DURACAO_RECOMPENSA_MS = 5000;
+
 function BarraEstabilidade({ nucleo }: { nucleo: NucleoState }) {
+  const ultima = useGameStore((s) => s.ultimaRecompensa);
+  const tempoMs = useGameStore((s) => s.state.tempoMs);
+  const mostrar = ultima?.tipo === "estabilidade" && tempoMs - ultima.emTempoMs < DURACAO_RECOMPENSA_MS;
   return (
     <div className="barra-estabilidade">
       <div className="barra-rotulo">
-        <span>🛡 Estabilidade</span>
+        <span>
+          🛡 Estabilidade
+          {mostrar ? (
+            <span className="estabilidade-ganho" data-testid="ganho-estabilidade">
+              {" "}🛡 +{formatarNumero(ultima.valor, 0)}
+            </span>
+          ) : null}
+        </span>
         <span className="barra-valor">{formatarPorcentagem(nucleo.estabilidade / 100, 1)}</span>
       </div>
       <div className="barra" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={nucleo.estabilidade}>
@@ -319,11 +352,11 @@ function Operacao({ nucleo }: { nucleo: NucleoState }) {
   const aviso = useGameStore((s) => s.avisoGrade);
 
   const efeitos = efeitosDe(state);
-  const potencia = potenciaNucleoEfetivaKw(nucleo, efeitos, state.tempoMs);
+  const potencia = potenciaNucleoDoEstado(state);
   const t = temperaturaNucleo(nucleo, efeitos);
   const emScram = nucleo.scramRestanteMs > 0;
   const era2 = nucleo.era === 2;
-  const motor = motorDoNucleo(nucleo, efeitos, state.tempoMs);
+  const motor = motorDoNucleo(nucleo, efeitos, state.tempoMs, multiplicadoresDoEstado(state));
   const c = contar(nucleo.grade);
   const cr = contarReator(nucleo.grade);
   const calorEspelho = efeitos.calorPorEspelho;
@@ -338,7 +371,7 @@ function Operacao({ nucleo }: { nucleo: NucleoState }) {
             : "Espelhos e turbinas parados; radiadores esfriando."}
         </p>
       ) : null}
-      <BarraCalor nucleo={nucleo} efeitos={efeitos} tempoMs={state.tempoMs} />
+      <BarraCalor state={state} nucleo={nucleo} efeitos={efeitos} tempoMs={state.tempoMs} />
       {/* 🛡 mora aqui desde que saiu do HUD (GDD §10.1, v0.8): logo abaixo do calor, que é o que a faz subir. */}
       <BarraEstabilidade nucleo={nucleo} />
       <p className="nucleo-status">

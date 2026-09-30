@@ -1941,6 +1941,348 @@ h2 {
   }
 }
 
+/* ---------- Ocorrências (GDD Parte 1 §4.4, §10.1, v0.9) ---------- */
+
+/* O 🔥 do HUD é um botão: tocar abre o painel do Núcleo no cartão da oferta. */
+button.hud-item--calor {
+  padding: 2px 8px 2px 4px;
+  margin: -2px 0 -2px -4px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+button.hud-item--calor:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.hud-item--oferta-ocorrencia .hud-anel {
+  animation: pulso-oferta 1.1s ease-in-out infinite;
+}
+
+.hud-item--oferta-ocorrencia .hud-rotulo {
+  color: var(--sun);
+  font-weight: 700;
+}
+
+@keyframes pulso-oferta {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(255, 210, 63, 0);
+  }
+
+  50% {
+    transform: scale(1.35);
+    box-shadow: 0 0 0 6px rgba(255, 210, 63, 0.35);
+  }
+}
+
+/* O cartão: sobre o pé do tabuleiro, à direita da escada; a barra de calor fica logo abaixo. */
+.ocorrencia {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 5;
+  width: min(400px, calc(100% - 170px));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px 12px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--sun) 45%, transparent);
+  background: color-mix(in srgb, var(--card) 94%, transparent);
+  box-shadow: var(--sombra-chapada-sm);
+  pointer-events: auto;
+}
+
+.ocorrencia--superada {
+  border-color: color-mix(in srgb, var(--leaf) 60%, transparent);
+}
+
+/* O diário fica atrás do cartão: ele conta a mesma história. */
+.tabuleiro:has(.ocorrencia) .diario {
+  opacity: 0;
+}
+
+.ocorrencia-topo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ocorrencia-nome {
+  font-family: var(--fonte-titulo);
+  font-weight: 600;
+  font-size: var(--t-16);
+}
+
+.ocorrencia-premio,
+.ocorrencia-tempo,
+.ocorrencia-contagem {
+  font-size: var(--t-12);
+  color: var(--sun);
+  font-weight: 700;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.ocorrencia-causa {
+  margin: 0;
+  font-size: var(--t-12);
+  color: var(--sun);
+}
+
+.ocorrencia-fisica,
+.ocorrencia-meta,
+.ocorrencia-dica {
+  margin: 0;
+  font-size: var(--t-12);
+  color: var(--muted);
+}
+
+.ocorrencia-meta {
+  color: var(--ink);
+}
+
+.ocorrencia-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.ocorrencia-acoes .pilula {
+  min-height: 40px;
+  padding: 8px 18px;
+}
+
+.ocorrencia-relogio,
+.ocorrencia-meta-barra {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.ocorrencia-relogio span,
+.ocorrencia-meta-barra span {
+  display: block;
+  height: 100%;
+  background: var(--sun);
+  transition: width 100ms linear;
+}
+
+.ocorrencia-meta-barra span {
+  background: var(--leaf);
+}
+
+.ocorrencia-corpo {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.ocorrencia-controle {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: none;
+}
+
+.ocorrencia--era1 .ocorrencia-controle {
+  flex: 1 1 55%;
+  min-width: 0;
+}
+
+.ocorrencia-leituras {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 auto;
+  font-size: var(--t-12);
+  font-variant-numeric: tabular-nums;
+}
+
+.ocorrencia-rotulo {
+  font-family: var(--fonte-titulo);
+  font-size: var(--t-16);
+  font-weight: 600;
+}
+
+.ocorrencia-na-meta {
+  color: var(--muted);
+}
+
+.ocorrencia-na-meta--sim {
+  color: var(--leaf);
+}
+
+.ocorrencia-potencia {
+  margin-top: 2px;
+}
+
+/* O controle grande: arrastar com o polegar (≥ 44 px de alvo). */
+.controle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.controle--vertical {
+  flex-direction: column;
+  gap: 4px;
+  flex: none;
+}
+
+.controle-icone {
+  width: 28px;
+  height: 44px;
+  flex: none;
+}
+
+.controle-trilho {
+  position: relative;
+  flex: 1 1 auto;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--card-borda);
+  touch-action: none;
+  cursor: pointer;
+  outline: none;
+}
+
+.controle-trilho:focus-visible {
+  box-shadow: 0 0 0 2px var(--sky);
+}
+
+.controle--horizontal .controle-trilho {
+  height: 44px;
+}
+
+.controle--vertical .controle-trilho {
+  width: 44px;
+  height: 128px;
+}
+
+.controle-preenchido {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--sun) 35%, transparent);
+}
+
+.controle--horizontal .controle-preenchido {
+  top: 0;
+}
+
+.controle--vertical .controle-preenchido {
+  right: 0;
+}
+
+.controle-cem {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.controle--horizontal .controle-cem {
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  margin-left: -1px;
+}
+
+.controle--vertical .controle-cem {
+  left: 6px;
+  right: 6px;
+  height: 2px;
+  margin-bottom: -1px;
+}
+
+.controle-polegar {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--sun);
+  border: 3px solid var(--navy);
+  box-shadow: var(--glow-sun);
+  pointer-events: none;
+}
+
+.controle--horizontal .controle-polegar {
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.controle--vertical .controle-polegar {
+  left: 50%;
+  transform: translate(-50%, 50%);
+}
+
+/* A faixa-alvo na barra de calor e a marca de Q* viva durante a Ocorrência. */
+.barra-calor-alvo {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  border: 2px dashed var(--sun);
+  border-radius: 6px;
+  background: rgba(255, 210, 63, 0.18);
+  pointer-events: none;
+}
+
+.barra-calor-marca--viva {
+  top: -10px;
+  margin-left: -7px;
+  border-left-width: 7px;
+  border-right-width: 7px;
+  border-top: 9px solid var(--sun);
+  transition: left 120ms linear;
+}
+
+.estabilidade-ganho {
+  color: var(--leaf);
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  /* no celular a escada é uma faixa no pé do tabuleiro */
+  .ocorrencia {
+    left: 12px;
+    right: 12px;
+    bottom: 76px;
+    width: auto;
+  }
+
+  .ocorrencia-fisica {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-item--oferta-ocorrencia .hud-anel {
+    animation: none;
+    box-shadow: 0 0 0 3px var(--sun);
+  }
+
+  .ocorrencia-relogio span,
+  .ocorrencia-meta-barra span,
+  .barra-calor-marca--viva {
+    transition: none;
+  }
+}
+
 /* Callout da peça do Núcleo (GDD Parte 2 §7) */
 .callout-casa--peca {
   left: auto;

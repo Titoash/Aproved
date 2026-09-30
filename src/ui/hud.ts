@@ -11,7 +11,7 @@ import { motorDoNucleo } from "../sim/motor";
 import { analisar } from "../sim/producao";
 import type { FaixaR } from "../content/era1";
 import type { GameState } from "../sim/state";
-import { balancoDoEstado, potenciaNucleoEfetivaKw } from "../sim/tick";
+import { balancoDoEstado, potenciaNucleoDoEstado } from "../sim/tick";
 
 export interface NumerosHud {
   creditos: number;
@@ -32,6 +32,8 @@ export interface NumerosHud {
   /** 🔬/s do Núcleo mais a da ciência (laboratórios, universidades, institutos). */
   taxaPesquisa: number;
   proximo: { nome: string; pesquisa: number } | null;
+  /** Há uma Ocorrência oferecida: o 🔥 pulsa (§10.1, v0.9). */
+  ofertaOcorrencia: boolean;
 }
 
 export function numerosDoHud(state: GameState): NumerosHud {
@@ -42,7 +44,8 @@ export function numerosDoHud(state: GameState): NumerosHud {
   // saíam diferentes das do tick (Tanque de dois sais, turbinas de alta pressão, fator de 🔬 da Era 2).
   const efeitos = efeitosDe(state);
   const t = nucleo ? temperaturaNucleo(nucleo, efeitos) : null;
-  const potenciaNucleo = potenciaNucleoEfetivaKw(nucleo, efeitos, state.tempoMs);
+  // A Ocorrência em curso entra como no tick: a carga das turbinas muda a potência a cada `Q`.
+  const potenciaNucleo = potenciaNucleoDoEstado(state);
   const pesquisaNucleo =
     nucleo && nucleo.scramRestanteMs === 0 && t !== null ? pesquisaPorSegundo(potenciaNucleo, t, motorDoNucleo(nucleo, efeitos, state.tempoMs).pesquisaPorKw) : 0;
   const proximo = proximoNo(state);
@@ -60,5 +63,6 @@ export function numerosDoHud(state: GameState): NumerosHud {
     pesquisa: state.pesquisa,
     taxaPesquisa: pesquisaNucleo + analise.pesquisaPorSegundo,
     proximo: proximo ? { nome: proximo.nome, pesquisa: proximo.pesquisa } : null,
+    ofertaOcorrencia: state.ocorrencia.atual?.fase === "oferta",
   };
 }
