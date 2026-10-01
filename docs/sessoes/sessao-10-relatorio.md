@@ -148,7 +148,8 @@ Medianas de três rodadas, em ms por quadro, com o Chromium por software do ambi
 - `npm test`: **554 testes**, 52 a mais que na Sessão 9.
 - `scripts/e2e/sessao-10.cjs`: **82 verificações** nos dois tamanhos (1280×800 e 390×844 com toque), capturas em `docs/capturas/sessao-10/`.
   - No celular o arrasto do controle é um toque de verdade (CDP).
-  - O roteiro rodou três vezes seguidas depois do "operador" dentro da página.
+  - Passou em três rodadas seguidas: a das capturas e mais duas.
+  - Antes do "operador" dentro da página, uma rodada em duas falhava na superação da Nuvem, porque o jogo anda em tempo real entre os passos.
 - **Regressões, com as capturas fora do repositório:**
 
   | Roteiro | Verificações |
