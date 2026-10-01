@@ -67,11 +67,11 @@ O jogador nunca fica só olhando uma barra subir. A cada ~4 minutos de jogo ativ
 Se não couber tudo, a ordem de corte é: cena da parte E, o Céu limpo e frio, o Seguimento de carga. Nunca cortar 0, A, B, C, D, F e G, nem a Nuvem, a Turbina em meia carga (nas duas eras) e o Xenônio.
 
 ## Checklist
-- [ ] ajustes da Sessão 9 aplicados
-- [ ] `sim/ocorrencias.ts`: oferta, relógio, sorteio determinístico, controle, meta, recompensa; multiplicadores no motor; save v10 com migração
-- [ ] `content/ocorrencias.ts` com as seis Ocorrências (menos as cortadas pela ordem de corte); Estabilidade 1,8/1,2
-- [ ] testes com as tabelas de Parte 1 §4.4 e Parte 2 §5.4, e o teste obrigatório
-- [ ] interface: cartão, 🔥 pulsando, controle, faixa-alvo, escolha da recompensa, diário, card; nos dois tamanhos
-- [ ] cena das Ocorrências dentro do orçamento
-- [ ] simulação com a rota operador; metas de ritmo; janelas paradas medidas nas três rotas; ajustes registrados
-- [ ] roteiro Playwright verde nos dois tamanhos; roteiros 6–9 verdes; capturas; `ESTADO.md`; relatório; `typecheck`, `test`, `lint`, `build`
+- [x] ajustes da Sessão 9 aplicados (não havia `sessao-9-ajustes.md`: nada a aplicar)
+- [x] `sim/ocorrencias.ts`: oferta, relógio, sorteio determinístico, controle, meta, recompensa; multiplicadores no motor; save v10 com migração
+- [x] `content/ocorrencias.ts` com as seis Ocorrências (menos as cortadas pela ordem de corte); Estabilidade 1,8/1,2
+- [x] testes com as tabelas de Parte 1 §4.4 e Parte 2 §5.4, e o teste obrigatório
+- [x] interface: cartão, 🔥 pulsando, controle, faixa-alvo, escolha da recompensa, diário, card; nos dois tamanhos
+- [x] cena das Ocorrências dentro do orçamento
+- [x] simulação com a rota operador; metas de ritmo; janelas paradas medidas nas três rotas; ajustes registrados
+- [x] roteiro Playwright verde nos dois tamanhos; roteiros 6–9 verdes; capturas; `ESTADO.md`; relatório; `typecheck`, `test`, `lint`, `build`

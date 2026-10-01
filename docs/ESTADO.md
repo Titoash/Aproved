@@ -1,6 +1,6 @@
 # Estado do projeto
 
-Atualizado ao fim da **Sessão 9** (melhorias por tipo com a ciência com nível, cidade que evolui inteira, Núcleo com nível por peça, remoção com N Bipes e em área, HUD limpo, "ver acontecendo"; GDD v0.8/v0.9). As Eras 1–2 continuam jogáveis de ponta a ponta.
+Atualizado ao fim da **Sessão 10** (Ocorrências, o sub-jogo opcional de operação do Núcleo, e a Estabilidade em 1,8/1,2; GDD v0.9). As Eras 1–2 continuam jogáveis de ponta a ponta.
 
 ## Implementado
 
@@ -53,8 +53,63 @@ Atualizado ao fim da **Sessão 9** (melhorias por tipo com a ciência com nível
 - **Testes:** 502 no Vitest; `scripts/e2e/sessao-9.cjs` nos dois tamanhos; roteiros 6, 7 e 8 atualizados às APIs novas; capturas em `docs/capturas/sessao-9/`. Relatório: `docs/sessoes/sessao-9-relatorio.md`.
 - **Depois da entrega:** "Resetar" pede confirmação no próprio rodapé ("Apagar tudo" / "Cancelar", Esc cancela) em vez de `window.confirm`, que o visualizador do artifact bloqueia; no celular a pergunta rola para a vista.
 
+### Sessão 10 — Ocorrências: a espera vira operação (GDD v0.9)
+- **Parte 0:** não havia `sessao-9-ajustes.md`. O autor mandou começar, e as decisões da Sessão 9 ficaram como estavam.
+- **Estabilidade em +1,8/min no ouro e +1,2/min fora dele** (Parte 1 §7), também offline com ×0,7.
+- **`content/ocorrencias.ts`:** as seis Ocorrências, cada uma com perturbação, perfil, exigência, meta e frase de física:
+  - Era 1: Nuvem, Céu limpo e frio, Turbina em meia carga;
+  - Era 2: Seguimento de carga, Xenônio, Turbina em meia carga.
+- **Motor:** multiplicadores das Ocorrências sobre a entrada, a dissipação e o fator das turbinas. Na Era 2, o `MotorCalor` separa a injeção ativa do decaimento, e barras e Xenônio só multiplicam a ativa. Nenhuma fórmula mudou.
+- **`sim/ocorrencias.ts`:**
+  - relógio de 4 min de jogo ativo, que só anda com o Núcleo desbloqueado;
+  - sorteio determinístico entre as Ocorrências que a grade pode ganhar;
+  - primeira oferta Nuvem (ou Xenônio na Era 2), e Xenônio depois de um SCRAM da Era 2;
+  - bloqueio em SCRAM, sem turbina ou desligado;
+  - aceitar, controle, recusar e recompensa (🛡 +3 ou 60 s de 🔬);
+  - meta no tick, com Cascata ou SCRAM reprovando;
+  - o offline descarta oferta e Ocorrência em curso.
+- **Save v10**, com migração a partir da v9.
+- **Interface:**
+  - cartão sobre o pé do tabuleiro, com oferta, Ocorrência em curso e escolha da recompensa;
+  - controle grande, horizontal para a carga e vertical com o ícone das barras;
+  - faixa-alvo e marca de Q* viva na barra de calor;
+  - 🔥 do HUD pulsando, e tocar nele leva ao cartão;
+  - "🛡 +3" ao lado da Estabilidade;
+  - diário e card "Ocorrências" (2 telas, pausa o jogo).
+- **Cena:**
+  - sombra da nuvem atravessando o campo, com os feixes esmaecendo;
+  - céu mais claro;
+  - turbina girando pela metade;
+  - barras de controle saindo do topo do Vaso.
+- **Simulação:** rota **operador**; corrida e cidade recusam toda oferta. Sem calibrar nada:
+
+  | Rota | Era 1 | Era 2 |
+  |---|---|---|
+  | corrida | 56,9 min | 57,8 min |
+  | cidade | 57,6 min | 67,0 min |
+  | operador | **43,0 min** | **47,3 min** |
+
+  A rota operador superou 24 Ocorrências em 24 e ficou no máximo 3 min parada. Resultado registrado na Parte 1 §4.4 e na Parte 2 §5.4.
+- **Defeito da Sessão 8 corrigido:** o card explicativo lia só os cards da Era 1. Os da Era 2 abriam invisíveis e travavam a fila.
+- **Testes:**
+  - Vitest com as duas tabelas e o teste obrigatório;
+  - `scripts/e2e/sessao-10.cjs` nos dois tamanhos, com regressões 6–9;
+  - capturas em `docs/capturas/sessao-10/`.
+- Relatório: `docs/sessoes/sessao-10-relatorio.md`.
+- **Branch:** a Sessão 10 entrou em `claude/adoring-fermat-wnbjgz`, por cima da 9, porque é o único branch em que esta sessão pode fazer push. Detalhes no relatório.
+
 ## Próxima sessão
-`docs/sessoes/sessao-10.md` — **Ocorrências**, o sub-jogo opcional de operação do Núcleo, e a Estabilidade em 1,8/1,2 (GDD v0.9, revisado; `docs/correcoes-gdd-v0.9.md`). Antes da parte A, `docs/sessoes/sessao-9-ajustes.md` (a gestão escreve ao revisar a Sessão 9). A Era 3 é a Sessão 11.
+A Era 3 (Tokamak, contenção magnética) é a Sessão 11 (Parte 1 §12; Parte 2 §6). A gestão escreve `docs/sessoes/sessao-11.md` e, ao revisar a 10, `docs/sessoes/sessao-10-ajustes.md`.
+
+## Decisões da Sessão 10 que a gestão precisa confirmar
+Estão detalhadas em `docs/sessoes/sessao-10-relatorio.md` e registradas na Parte 1 §4.4. Em resumo:
+1. **O cartão da Ocorrência fica sobre o pé do tabuleiro**, não dentro do painel do Núcleo (que tem ≈ 160 px visíveis no desktop). Aceitar enquadra o Núcleo no terço de cima.
+2. **O relógio dos 4 min só anda com o Núcleo desbloqueado.**
+3. **A meta de potência usa a potência bruta** (sem o ×0,7 do modo seguro, que senão cumpria o Seguimento sozinho).
+4. **A 🔬 da recompensa é a do instante em que a Ocorrência é superada.** A escolha pendente vai para o save e segura o relógio.
+5. **O card "Ocorrências" pausa o jogo.**
+6. **A primeira oferta e o Xenônio depois de um SCRAM são preferências:** se a grade não pode ganhá-los, sai o sorteio normal.
+7. **"Desligado" é o Núcleo sem calor líquido**, e a era nova descarta a oferta ou a Ocorrência em curso.
 
 ## Decisões da Sessão 9 que a gestão precisa confirmar
 Estão detalhadas em `docs/sessoes/sessao-9-relatorio.md`. Em resumo:
@@ -76,6 +131,12 @@ Estão detalhadas em `docs/sessoes/sessao-8-relatorio.md`. Em resumo:
 
 ## Pendências
 Decisões da gestão sobre estas pendências: `docs/sessoes/sessao-8-ajustes.md` (a Sessão 9 aplica antes da parte A).
+
+### Da Sessão 10
+- **A "Onda de calor" atingiu a condição de volta** (Parte 2 §5.4): as rotas cidade e operador terminam a Era 2 com 1 torre e `T*` de 84 % e 81 %. Não entrou, porque é uma sétima Ocorrência sem números no GDD. Decisão da gestão; a proposta está no relatório.
+- **A rota operador fecha com a cidade pequena** (Vila na saída da Era 1; 60 MW e 301 mil habitantes no fim da Era 2, contra 166 MW e 5,7 milhões na corrida). Operar troca crescimento por tempo; só o playtest diz se a Era 1 fica rápida demais para quem joga tudo.
+- **O roteiro e2e joga contra o relógio real:** o jogo anda entre os passos do Playwright. O roteiro compara antes e depois dentro da página e liga um "operador" enquanto captura.
+- **"1 ÷ multiplicador" (parte F)** só vale sem radiador e sem decaimento. A rota operador e os testes usam o controle que devolve o Q* de antes.
 
 ### Da Sessão 9
 - **Cortes da Sessão 9:** nenhum da ordem de corte (fumaça, "+🔬" e Escavadeiras entraram).
