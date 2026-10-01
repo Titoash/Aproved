@@ -629,10 +629,17 @@ declare global {
       analisar: typeof analisarMundo;
       /** Atalho: análise do estado atual. */
       analise: () => ReturnType<typeof analisarMundo>;
+      /** O controle que compensa a perturbação (o roteiro da Sessão 10 opera como a rota operador). */
+      ocorrencias: { controleQueCompensa: typeof ocorrencias.controleQueCompensa };
     };
   }
 }
 
 if (import.meta.env.DEV && typeof window !== "undefined") {
-  window.__jogo = { store: useGameStore, analisar: analisarMundo, analise: () => analisarMundo(useGameStore.getState().state) };
+  window.__jogo = {
+    store: useGameStore,
+    analisar: analisarMundo,
+    analise: () => analisarMundo(useGameStore.getState().state),
+    ocorrencias: { controleQueCompensa: ocorrencias.controleQueCompensa },
+  };
 }

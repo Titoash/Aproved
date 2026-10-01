@@ -31,7 +31,8 @@ function NotaDeCreditos() {
 function abrirPainelDoNucleo(): void {
   const cartao = document.querySelector<HTMLElement>(".ocorrencia");
   const alvo = cartao ?? document.querySelector<HTMLElement>(".barra-calor");
-  alvo?.scrollIntoView({ block: "center", behavior: "smooth" });
+  // instantâneo, como `rolarParaOTabuleiro`: com rolagem suave o toque seguinte cairia fora do cartão
+  alvo?.scrollIntoView({ block: "center", behavior: "auto" });
   cartao?.querySelector<HTMLButtonElement>("[data-acao='aceitar-ocorrencia'], [data-acao='recompensa-estabilidade']")?.focus({ preventScroll: true });
 }
 

@@ -69,11 +69,16 @@ function ControleGrande({ era, valor, onMudar }: { era: 1 | 2; valor: number; on
     return arredondar(def.min + Math.min(1, Math.max(0, f)) * (def.max - def.min));
   };
   const aoTocar = (e: PointerEvent<HTMLDivElement>) => {
-    e.currentTarget.setPointerCapture(e.pointerId);
+    try {
+      // o arrasto continua mesmo com o dedo saindo do trilho
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* ponteiro que o navegador não reconhece como ativo: segue sem captura */
+    }
     onMudar(valorDoPonteiro(e));
   };
   const aoMover = (e: PointerEvent<HTMLDivElement>) => {
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) onMudar(valorDoPonteiro(e));
+    if (e.currentTarget.hasPointerCapture(e.pointerId) || e.buttons > 0) onMudar(valorDoPonteiro(e));
   };
   const aoTeclar = (e: KeyboardEvent<HTMLDivElement>) => {
     const passos: Record<string, number> = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1, PageUp: 10, PageDown: -10 };
