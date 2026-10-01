@@ -7,7 +7,7 @@
  *
  *   npm run simular                            Era 1 (até 60 min) e Era 2 (75 min) nas duas rotas
  *   npm run simular -- 90                      90 minutos de Era 1
- *   npm run simular -- 60 75 cidade            só a rota "cidade" ("corrida", "cidade" ou "ambas")
+ *   npm run simular -- 60 75 cidade            só a rota "cidade" ("corrida", "cidade", "operador" ou "todas")
  *   npm run simular -- --sem-nivel-ciencia     o mesmo bot sem comprar nível de ciência (para medir o efeito)
  *
  * Rotas (ajuste 3 da Sessão 8; parte G da Sessão 9): **corrida** é o jogador que vai direto à saída;
@@ -19,8 +19,14 @@
  * saída, e o relatório mede as **janelas paradas** minuto a minuto (potência e população paradas, ₵ subindo),
  * com o que trava cada uma.
  *
- * O objetivo é medir ritmo, não vencer: se o bot fecha a Era 1 em 50–70 minutos, os números de §8.5 e
- * §8.6 estão no lugar.
+ * Desde a Sessão 10 há uma terceira rota, **operador** (parte F): joga a economia da "corrida", aceita toda
+ * Ocorrência (Parte 1 §4.4), acompanha o perfil a cada tick — põe o controle no valor que a fórmula de `Q*` pede
+ * para a perturbação daquele instante (`controleQueCompensa`), não no valor do platô desde o aceite — e escolhe
+ * 🛡 quando a barra é o que mais demora e 🔬 quando é a 🔬 dos nós da saída. "corrida" e "cidade" recusam toda
+ * oferta. Um minuto com Ocorrência em curso não conta como parado: o jogador estava operando.
+ *
+ * O objetivo é medir ritmo, não vencer: metas de era de Parte 1 §7 — 50–70 min recusando as Ocorrências,
+ * 40–50 min operando, sem janela parada de mais de 5 min na rota operador.
  */
 import { NOS, NO_POR_ID } from "../src/content/arvore";
 import { CAPITULOS } from "../src/content/capitulos";
@@ -64,6 +70,9 @@ import { fatorUsina } from "../src/sim/niveis";
 import { NIVEL_USINA, TIPOS_CIENCIA, USINAS_COM_NIVEL } from "../src/content/melhorias";
 import { estadoInicial, indiceReceptor, type AlvoMelhoria, type GameState, type PecaId, type TipoConstrucao } from "../src/sim/state";
 import { balancoDoEstado, tick, TICK_MS } from "../src/sim/tick";
+import { FAIXAS_CALOR } from "../src/content/era1-nucleo";
+import { aceitarOcorrencia, ajustarControle, controleQueCompensa, escolherRecompensa, recusarOcorrencia, type TipoRecompensa } from "../src/sim/ocorrencias";
+import { numerosDoHud } from "../src/ui/hud";
 
 const arq = arquipelagoDaEra1();
 const n = arq.n;
@@ -283,6 +292,8 @@ interface RegistroMinuto {
   kw: number;
   populacao: number;
   trava: string;
+  /** Houve Ocorrência em curso neste minuto (rota operador): o jogador estava operando, não esperando. */
+  ocorrencia?: boolean;
 }
 
 /** O que trava o jogador neste instante: 🛡 (a barra), 🔬 (o próximo nó ou evolução), ₵ (o Vaso ou a Fusão). */
@@ -320,7 +331,7 @@ function janelasParadas(registros: readonly RegistroMinuto[]): { de: number; ate
   for (let i = 1; i < registros.length; i++) {
     const a = registros[i - 1];
     const r = registros[i];
-    const parado = r.kw <= a.kw * 1.005 + 1e-9 && r.populacao === a.populacao && r.creditos > a.creditos;
+    const parado = r.kw <= a.kw * 1.005 + 1e-9 && r.populacao === a.populacao && r.creditos > a.creditos && !r.ocorrencia;
     if (parado) {
       if (inicio < 0) inicio = i;
     } else fechar(i - 1);
@@ -329,15 +340,105 @@ function janelasParadas(registros: readonly RegistroMinuto[]): { de: number; ate
   return janelas;
 }
 
-function imprimirJanelas(titulo: string, registros: readonly RegistroMinuto[]): number {
+function imprimirJanelas(titulo: string, registros: readonly RegistroMinuto[]): { total: number; maior: number } {
   const janelas = janelasParadas(registros);
   const total = janelas.reduce((soma, j) => soma + (j.ate - j.de), 0);
+  const maior = janelas.reduce((m, j) => Math.max(m, j.ate - j.de), 0);
   console.log(`
-${titulo}: ${total} de ${registros.length} min parados`);
+${titulo}: ${total} de ${registros.length} min parados (maior janela: ${maior} min)`);
   for (const j of janelas) {
     console.log(`  min ${String(j.de).padStart(2)}–${String(j.ate).padEnd(3)} ₵ ${num(j.creditos[0])} → ${num(j.creditos[1])}  · trava ${j.trava}`);
   }
-  return total;
+  return { total, maior };
+}
+
+/* ------------------------------------------------------------------ */
+/* Ocorrências (Sessão 10, parte F)                                    */
+/* ------------------------------------------------------------------ */
+
+interface ContaOcorrencias {
+  oferecidas: number;
+  aceitas: number;
+  superadas: number;
+  falhas: number;
+  escudo: number;
+  ciencia: number;
+  cienciaTotal: number;
+  /** Por Ocorrência: [oferecidas, superadas]. */
+  porId: Record<string, [number, number]>;
+}
+
+const novaConta = (): ContaOcorrencias => ({ oferecidas: 0, aceitas: 0, superadas: 0, falhas: 0, escudo: 0, ciencia: 0, cienciaTotal: 0, porId: {} });
+
+/**
+ * O que mais demora para a saída da era: a barra de 🛡 (na taxa do ouro) ou a 🔬 que falta para os nós da saída
+ * e os pré-requisitos deles (na 🔬/s de agora). O operador escolhe a recompensa pelo que trava.
+ */
+function travaDaSaida(s: GameState): TipoRecompensa {
+  const ouro = FAIXAS_CALOR.find((f) => f.id === "ouro")!.estabilidadePorMinuto;
+  const minEstab = (100 - (s.nucleo?.estabilidade ?? 0)) / ouro;
+  const faltam = new Set<string>();
+  const visitar = (id: string) => {
+    if (s.pesquisados.includes(id) || faltam.has(id)) return;
+    faltam.add(id);
+    for (const p of NO_POR_ID[id]?.pre ?? []) visitar(p);
+  };
+  for (const id of s.era === 1 ? ["fissaoBasica"] : ["reator7x7", "fusaoBasica"]) visitar(id);
+  const pesquisa = [...faltam].reduce((soma, id) => soma + NO_POR_ID[id].pesquisa, 0) - s.pesquisa;
+  const porS = numerosDoHud(s).taxaPesquisa;
+  const minPesq = pesquisa <= 0 ? 0 : porS > 0 ? pesquisa / porS / 60 : Infinity;
+  return minEstab >= minPesq ? "estabilidade" : "pesquisa";
+}
+
+/** Antes de cada tick: o operador escolhe a recompensa, aceita a oferta e acompanha o perfil; as outras rotas recusam. */
+function antesDoTick(state: GameState, rota: Rota, conta: ContaOcorrencias): GameState {
+  let s = state;
+  const o = s.ocorrencia;
+  if (rota !== "operador") return o.atual?.fase === "oferta" ? (recusarOcorrencia(s) ?? s) : s;
+  if (o.recompensa) {
+    const tipo = travaDaSaida(s);
+    const valor = o.recompensa.pesquisa;
+    const proximo = escolherRecompensa(s, tipo);
+    if (proximo) {
+      s = proximo;
+      if (tipo === "estabilidade") conta.escudo++;
+      else {
+        conta.ciencia++;
+        conta.cienciaTotal += valor;
+      }
+    }
+  }
+  if (s.ocorrencia.atual?.fase === "oferta") {
+    const aceito = aceitarOcorrencia(s);
+    if (aceito) {
+      s = aceito;
+      conta.aceitas++;
+    }
+  }
+  if (s.ocorrencia.atual?.fase === "ativa") s = ajustarControle(s, controleQueCompensa(s, s.tempoMs + TICK_MS)) ?? s;
+  return s;
+}
+
+/** Depois de cada tick: conta ofertas e resultados. */
+function depoisDoTick(s: GameState, conta: ContaOcorrencias): void {
+  for (const e of s.eventos) {
+    if (e.tipo === "ocorrenciaOferecida") {
+      conta.oferecidas++;
+      (conta.porId[e.id] ??= [0, 0])[0]++;
+    } else if (e.tipo === "ocorrenciaTerminou") {
+      if (e.superada) {
+        conta.superadas++;
+        (conta.porId[e.id] ??= [0, 0])[1]++;
+      } else conta.falhas++;
+    }
+  }
+}
+
+function textoOcorrencias(c: ContaOcorrencias): string {
+  const por = Object.entries(c.porId)
+    .map(([id, [o, sup]]) => `${id} ${sup}/${o}`)
+    .join(", ");
+  return `${c.oferecidas} oferecidas, ${c.aceitas} aceitas, ${c.superadas} superadas, ${c.falhas} falharam · 🛡 ${c.escudo}× · 🔬 ${c.ciencia}× (${num(c.cienciaTotal)})${por ? ` · ${por}` : ""}`;
 }
 
 /**
@@ -635,7 +736,7 @@ function melhorCasaDeAgua(state: GameState, tipo: TipoConstrucao): number | null
   return null;
 }
 
-export type Rota = "corrida" | "cidade";
+export type Rota = "corrida" | "cidade" | "operador";
 
 /** Distritos e institutos que a rota "cidade" quer ver de pé antes de correr para a saída. */
 const META_CIDADE = { distritos: 2, institutos: 2 } as const;
@@ -647,7 +748,7 @@ const DENSIDADE_ARCOLOGIA = 6;
  * institutos de pé, e a escolha exclusiva do reator feita. Na rota "corrida" não há meta.
  */
 function metaDaCidade(s: GameState, rota: Rota): boolean {
-  if (rota === "corrida") return true;
+  if (rota !== "cidade") return true;
   const a = analisar(s);
   const todosNaArcologia = s.cidade.densidade >= DENSIDADE_ARCOLOGIA;
   const exclusiva = s.pesquisados.includes("aguaPesada") || s.pesquisados.includes("altaTemperatura");
@@ -737,7 +838,7 @@ function decidirEra2(state: GameState, compras: Map<string, number>, rota: Rota 
     } else if (
       s.pesquisados.includes("industriaPesada") &&
       s.creditos > custoColocar(s, "distritoIndustrial") * 2 &&
-      (rota === "corrida" || analise.contagem.distritoIndustrial < META_CIDADE.distritos * 2)
+      (rota !== "cidade" || analise.contagem.distritoIndustrial < META_CIDADE.distritos * 2)
     ) {
       const casa = melhorCasa(s, "distritoIndustrial");
       if (casa !== null) s = aplicar(colocar(s, casa, "distritoIndustrial"), "distrito industrial") ?? s;
@@ -882,7 +983,7 @@ export async function main(args: string[] = []): Promise<void> {
   // 75 min de Era 2: a era fecha dentro da janela de 50–70 min, e o resto é folga para a medição
   // enxergar o fechamento (a saída custa 🔬 40 000 e chega pouco depois da Estabilidade cheia).
   const minutosEra2 = Number(posicionais[1]) || 75;
-  const rotas: Rota[] = posicionais[2] === "corrida" || posicionais[2] === "cidade" ? [posicionais[2] as Rota] : ["corrida", "cidade"];
+  const rotas: Rota[] = ["corrida", "cidade", "operador"].includes(posicionais[2]) ? [posicionais[2] as Rota] : ["corrida", "cidade", "operador"];
 
   console.log(`\nKARDASHEV — simulação de ${minutos} min de Era 1 + ${minutosEra2} min de Era 2 (tick de ${TICK_MS} ms)`);
   if (OPCOES.semNivelCiencia) console.log("(sem comprar nível de ciência: --sem-nivel-ciencia)");
@@ -899,14 +1000,16 @@ export async function main(args: string[] = []): Promise<void> {
   }
   if (resumos.length > 1) {
     console.log("=".repeat(120));
-    console.log("AS DUAS ROTAS NAS DUAS ERAS (ajuste 3 da Sessão 8; parte G da Sessão 9)\n");
+    console.log("AS ROTAS NAS DUAS ERAS (ajuste 3 da Sessão 8; parte G da Sessão 9; rota operador da Sessão 10)\n");
     const min = (v: number | null) => (v === null ? "não fechou" : `${num(v, 1)} min`);
     const linhas: [string, (r: ResumoEra2) => string][] = [
       ["Era 1 fecha em", (r) => min(r.era1.fechou)],
-      ["Era 1 parada", (r) => `${r.era1.parados} de ${r.era1.minutos} min`],
+      ["Era 1 parada", (r) => `${r.era1.parados} de ${r.era1.minutos} min (maior ${r.era1.maiorParada})`],
+      ["Era 1: Ocorrências", (r) => `${r.era1.ocorrencias.superadas}/${r.era1.ocorrencias.oferecidas} · 🛡 ${r.era1.ocorrencias.escudo}× 🔬 ${r.era1.ocorrencias.ciencia}×`],
       ["Era 1: cidade no fim", (r) => r.era1.cidade],
       ["Era 2 fecha em", (r) => min(r.fechou)],
-      ["Era 2 parada", (r) => `${r.parados} de ${r.minutos} min`],
+      ["Era 2 parada", (r) => `${r.parados} de ${r.minutos} min (maior ${r.maiorParada})`],
+      ["Era 2: Ocorrências", (r) => `${r.ocorrencias.superadas}/${r.ocorrencias.oferecidas} · 🛡 ${r.ocorrencias.escudo}× 🔬 ${r.ocorrencias.ciencia}×`],
       ["Estabilidade 100 %", (r) => (r.estabilidade100 === null ? "—" : `${num(r.estabilidade100, 1)} min`)],
       ["potência instalada", (r) => kw(r.potenciaKw)],
       ["população", (r) => num(r.populacao)],
@@ -930,6 +1033,8 @@ interface ResumoEra1 {
   pesquisaGanha: number;
   pesquisaAnterior: number;
   parados: number;
+  maiorParada: number;
+  ocorrencias: ContaOcorrencias;
   minutos: number;
   cidade: string;
   creditosEmNiveis: number;
@@ -972,9 +1077,14 @@ function simularEra1(rota: Rota, minutos: number): ResumoEra1 {
   console.log(`ERA 1, rota "${rota}" — os dez primeiros minutos, minuto a minuto:\n`);
 
   const compras = new Map<string, number>();
+  const conta = novaConta();
   for (let minuto = 1; minuto <= minutos; minuto++) {
+    let operando = false;
     for (let t = 0; t < ticksPorMinuto; t++) {
+      s = antesDoTick(s, rota, conta);
       s = tick(s);
+      depoisDoTick(s, conta);
+      if (s.ocorrencia.atual?.fase === "ativa") operando = true;
       // o bot decide a cada 2 s de jogo: é o ritmo de um jogador ativo, não de um script
       if (t % 20 === 0) {
         const antes = s;
@@ -1009,7 +1119,7 @@ function simularEra1(rota: Rota, minutos: number): ResumoEra1 {
       marcar("nó Fissão básica comprado (saída da Era 1)", s.pesquisados.includes("fissaoBasica"));
     }
     const a = analisar(s);
-    registros.push({ minuto, creditos: s.creditos, kw: a.brutoKw, populacao: a.populacao, trava: travaDe(s) });
+    registros.push({ minuto, creditos: s.creditos, kw: a.brutoKw, populacao: a.populacao, trava: travaDe(s), ocorrencia: operando });
     if (minuto <= 10 || minuto % 5 === 0 || podeConstruirReator(s)) {
       console.log(linha(s, minuto, compras));
       compras.clear();
@@ -1029,7 +1139,8 @@ function simularEra1(rota: Rota, minutos: number): ResumoEra1 {
   const fim = ["nó Fissão básica comprado (saída da Era 1)", "Estabilidade 100 % (saída da Era 1)"].map((k) => marcos[k]);
   const fechou = fim.every((v) => v !== null) ? Math.max(...(fim as number[])) : null;
   console.log(`\nEra 1 fecharia em: ${fechou === null ? "não fechou dentro da simulação" : `${num(fechou, 1)} min`} (alvo: 50–70 min)`);
-  const parados = imprimirJanelas(`Janelas paradas da Era 1 (rota "${rota}")`, registros);
+  const { total: parados, maior: maiorParada } = imprimirJanelas(`Janelas paradas da Era 1 (rota "${rota}")`, registros);
+  console.log(`\nOcorrências da Era 1 (rota "${rota}"): ${textoOcorrencias(conta)}`);
   imprimirEstado(s, pesquisaGanha, `Estado no fim da Era 1 (rota "${rota}")`);
   return {
     estado: s,
@@ -1038,6 +1149,8 @@ function simularEra1(rota: Rota, minutos: number): ResumoEra1 {
     pesquisaGanha,
     pesquisaAnterior,
     parados,
+    maiorParada,
+    ocorrencias: conta,
     minutos: registros.length - 1,
     cidade: `${defDaDensidade(s.cidade.densidade).nome}, ${analisar(s).contagem.bairro} bairros`,
     creditosEmNiveis,
@@ -1048,6 +1161,8 @@ interface ResumoEra2 {
   rota: Rota;
   era1: ResumoEra1;
   parados: number;
+  maiorParada: number;
+  ocorrencias: ContaOcorrencias;
   minutos: number;
   megacidade: number | null;
   creditosEmNiveis: number;
@@ -1109,10 +1224,15 @@ function simularEra2(
   let creditosEmNiveis = era1.creditosEmNiveis;
   const registros: RegistroMinuto[] = [{ minuto: 0, creditos: s.creditos, kw: analisar(s).brutoKw, populacao: analisar(s).populacao, trava: travaDe(s) }];
   const compras = new Map<string, number>();
+  const conta = novaConta();
   for (let minuto = 1; minuto <= minutosEra2; minuto++) {
     let negativoNoMinuto = 0;
+    let operando = false;
     for (let t = 0; t < ticksPorMinuto; t++) {
+      s = antesDoTick(s, rota, conta);
       s = tick(s);
+      depoisDoTick(s, conta);
+      if (s.ocorrencia.atual?.fase === "ativa") operando = true;
       if (t % 20 === 0) {
         const antes = s;
         s = decidirEra2(s, compras, rota);
@@ -1154,7 +1274,7 @@ function simularEra2(
 
     {
       const a = analisar(s);
-      registros.push({ minuto, creditos: s.creditos, kw: a.brutoKw, populacao: a.populacao, trava: travaDe(s) });
+      registros.push({ minuto, creditos: s.creditos, kw: a.brutoKw, populacao: a.populacao, trava: travaDe(s), ocorrencia: operando });
     }
     if (minuto <= 10 || minuto % 5 === 0) {
       console.log(linhaEra2(s, minuto, compras));
@@ -1173,13 +1293,16 @@ function simularEra2(
   console.log(`Receita líquida negativa: ${minutosNegativos} minuto(s), pior sequência ${piorSequencia} (alvo: nunca mais de 1)`);
   // até o fechamento: depois dele o resto da simulação é folga, não espera
   const ate = fechou2 === null ? registros.length : Math.ceil(fechou2) + 1;
-  const parados = imprimirJanelas(`Janelas paradas da Era 2 (rota "${rota}", até o fechamento)`, registros.slice(0, ate));
+  const { total: parados, maior: maiorParada } = imprimirJanelas(`Janelas paradas da Era 2 (rota "${rota}", até o fechamento)`, registros.slice(0, ate));
+  console.log(`\nOcorrências da Era 2 (rota "${rota}"): ${textoOcorrencias(conta)}`);
   imprimirEstado(s, pesquisaGanha, `Estado no fim da Era 2 (rota "${rota}")`);
   const a = analisar(s);
   return {
     rota,
     era1,
     parados,
+    maiorParada,
+    ocorrencias: conta,
     minutos: Math.min(registros.length, ate) - 1,
     megacidade: marcos2["megacidade"],
     creditosEmNiveis,

@@ -145,7 +145,9 @@ Frases de física:
 - Xenônio: "Horas depois de um reator baixar a potência ou desligar, o iodo-135 acumulado ainda vira xenônio-135, que engole nêutrons: o reator perde reatividade e o operador retira barras para compensar. No jogo, as horas viram segundos."
 - Turbina em meia carga: "Quando a turbina perde carga de repente, o vapor que sobra é desviado direto para o condensador e as barras entram para baixar a potência. Em alguns reatores, como os de Palo Verde, um grupo inteiro de barras cai de uma vez."
 
-*(v0.9)* A "Onda de calor" (torres rendendo menos com ar quente e úmido), citada na proposta, ficou de fora por ora: a torre dissipa um valor fixo (30 u/s), e pela metade ela sobe `T` 12,5 pontos (capacidade 500, 2 turbinas). Isso só tira do ouro grades com `T*` acima de 77,5 %, por exemplo 8 varetas (5 + 3) com 2 turbinas e 1 torre, que vão de 83 % a 96 %; com 4 + 4 fica em 75 % → 87,5 %. É a mesma ordem do Xenônio (16,7 pontos). Volta se a simulação da Sessão 10 mostrar grades com torre acima de 77 % ou com várias torres.
+**Medido (Sessão 10, parte F).** Na rota operador a Era 2 fecha aos 47,3 min, com 15 Ocorrências superadas em 15 (6 Xenônios, 5 Seguimentos de carga, 4 Turbinas em meia carga); recusando, aos 57,8 (corrida) e aos 67,0 (cidade). Detalhes na Parte 1 §4.4.
+
+*(v0.9)* A "Onda de calor" (torres rendendo menos com ar quente e úmido), citada na proposta, ficou de fora por ora: a torre dissipa um valor fixo (30 u/s), e pela metade ela sobe `T` 12,5 pontos (capacidade 500, 2 turbinas). Isso só tira do ouro grades com `T*` acima de 77,5 %, por exemplo 8 varetas (5 + 3) com 2 turbinas e 1 torre, que vão de 83 % a 96 %; com 4 + 4 fica em 75 % → 87,5 %. É a mesma ordem do Xenônio (16,7 pontos). Volta se a simulação da Sessão 10 mostrar grades com torre acima de 77 % ou com várias torres. *(Sessão 10: a condição foi atingida — as rotas cidade e operador terminam a Era 2 com 1 torre e `T*` de 84 % e 81 %, com piscina. A Onda de calor não entrou: é uma sétima Ocorrência sem linha na tabela, e decidir os números dela é da gestão.)*
 
 ## 6. Árvore da Era 2 (🔬 gasto; cada nó com uma frase de física de verdade)
 
