@@ -126,13 +126,40 @@ A janela "min 40–44, tudo parado esperando a barra" da v0.9 virou, na rota ope
 
 A rota cidade continua a mais parada no começo da Era 2: ela junta ₵ e 🔬 para levar a cidade inteira à megacidade (pendência da Sessão 9). Mesmo assim, nenhuma janela passa de 4 min.
 
-### 4.3 Desempenho
+### 4.3 Desempenho (`scripts/e2e/perf-cena.cjs`)
 
-(preenchido na verificação)
+O roteiro ganhou duas medidas, as duas no mundo cheio com 6 Bipes:
+- `quadroOcorrencia`: o enquadramento do aceite sem Ocorrência;
+- `ocorrencia`: o mesmo enquadramento com a Nuvem em curso.
+
+Medianas de três rodadas, em ms por quadro, com o Chromium por software do ambiente:
+
+| | ilha | nucleo | enquadramento do aceite | com a Nuvem |
+|---|---|---|---|---|
+| desktop | 3,35 | 4,34 | 6,55 | 6,77 |
+| celular | 3,54 | 3,52 | 4,91 | 4,98 |
+
+- **O efeito da Ocorrência custa +0,22 ms no desktop e +0,07 ms no celular.** É a sombra da nuvem: três elipses por quadro. O teto de §10.1 é +3 ms.
+- **O enquadramento do aceite custa mais que o "nucleo".** O zoom 1 mostra mais mundo no LOD de perto, o mesmo custo de o jogador chegar a esse zoom à mão.
 
 ### 4.4 Verificação
 
-(preenchido na verificação)
+- `npm run typecheck`, `npm run lint` e `npm run build` passam.
+- `npm test`: **554 testes**, 52 a mais que na Sessão 9.
+- `scripts/e2e/sessao-10.cjs`: **82 verificações** nos dois tamanhos (1280×800 e 390×844 com toque), capturas em `docs/capturas/sessao-10/`.
+  - No celular o arrasto do controle é um toque de verdade (CDP).
+  - O roteiro rodou três vezes seguidas depois do "operador" dentro da página.
+- **Regressões, com as capturas fora do repositório:**
+
+  | Roteiro | Verificações |
+  |---|---|
+  | 6 | 52 |
+  | 7 | 76 |
+  | 8 | 82 |
+  | 9 | 52 |
+
+  Todas verdes.
+- **Um alarme falso:** o teste de tempo da análise do mundo cheio (`desempenho.test.ts`, < 16 ms) falhou uma vez rodando junto com as regressões, com o Chromium a 300 % de CPU. Sozinho e na suíte inteira com a máquina livre, passa. A Sessão 10 não toca na análise do mundo.
 
 ## 5. Conflitos com o GDD
 

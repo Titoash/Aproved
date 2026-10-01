@@ -6,8 +6,9 @@
  *   NODE_PATH=/opt/node22/lib/node_modules node scripts/e2e/perf-cena.cjs
  *
  * Monta um mundo cheio (todas as ilhas abertas, construção em toda casa de terra, Núcleo na zona de ouro,
- * seis remoções em curso quando a Equipe existe), mede nos enquadramentos "ilha" e "nucleo" nos dois tamanhos
- * e imprime a mediana de três rodadas de ~4 s, em ms por quadro, por etapa.
+ * seis remoções em curso quando a Equipe existe), mede nos enquadramentos "ilha" e "nucleo" nos dois tamanhos,
+ * e desde a Sessão 10 também com a Nuvem em curso no enquadramento do aceite ("ocorrencia"), e imprime a
+ * mediana de três rodadas de ~4 s, em ms por quadro, por etapa.
  */
 const { chromium } = require("playwright");
 
@@ -94,8 +95,25 @@ function mediana(v) {
     await page.waitForTimeout(500);
     await fecharCards(page);
     const bipes = await page.evaluate(() => window.__jogo.store.getState().state.mundo.remocoes.filter((r) => r.fimMs > 0).length);
-    for (const preset of ["ilha", "nucleo"]) {
-      await page.evaluate((p) => window.__jogo.store.getState().pedirPreset(p), preset);
+    // "quadroOcorrencia" é o mesmo enquadramento do aceite sem a Ocorrência: a diferença para "ocorrencia" é o
+    // custo do efeito em si (o enquadramento mais aberto mostra mais mundo e custa por conta própria).
+    for (const preset of ["ilha", "nucleo", "quadroOcorrencia", "ocorrencia"]) {
+      if (preset === "quadroOcorrencia") {
+        await page.evaluate(() => {
+          const loja = window.__jogo.store;
+          loja.setState({ presetPedido: { nome: "ocorrencia", serie: (loja.getState().presetPedido?.serie ?? 0) + 1 } });
+        });
+      } else if (preset === "ocorrencia") {
+        // Sessão 10: a Nuvem em curso (sombra atravessando o campo, feixes esmaecidos) no enquadramento do aceite
+        await page.evaluate(() => {
+          const loja = window.__jogo.store;
+          const st = loja.getState().state;
+          const atual = { id: "nuvem", fase: "oferta", inicioMs: st.tempoMs, controle: 1, naMetaMs: 0, potenciaRefKw: 0, aposScram: false };
+          loja.setState({ state: { ...st, ocorrencia: { ...st.ocorrencia, recompensa: null, atual } } });
+          loja.getState().aceitarOcorrencia();
+          loja.getState().ajustarControle(0.6);
+        });
+      } else await page.evaluate((p) => window.__jogo.store.getState().pedirPreset(p), preset);
       await page.waitForTimeout(900);
       const rodadas = [];
       for (let r = 0; r < 3; r++) {

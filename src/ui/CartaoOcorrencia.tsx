@@ -20,7 +20,7 @@ const segundos = (ms: number) => `${Math.ceil(ms / 1000)} s`;
 const pct = (v: number) => `${formatarNumero(v * 100, 0)} %`;
 
 /** "Carga das turbinas · 60 %" ou "Barras de controle · potência 70 %". */
-export function rotuloDoControle(era: 1 | 2, valor: number): string {
+function rotuloDoControle(era: 1 | 2, valor: number): string {
   const c = CONTROLE[era];
   return `${c.nome} · ${c.rotuloValor ? `${c.rotuloValor} ` : ""}${pct(valor)}`;
 }
