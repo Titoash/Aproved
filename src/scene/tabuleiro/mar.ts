@@ -7,6 +7,7 @@
  */
 import type { Arquipelago } from "../../sim/arquipelago";
 import { ISO, PALETA, alfa, clarear, entardecer, escurecer, iso, movimentoReduzido, type Camera } from "./base";
+import { VIDA } from "../../content/vida";
 
 const P = {
   ...PALETA,
@@ -168,6 +169,31 @@ export interface CaboCena {
   de: number;
   para: number;
   ligado: boolean;
+  /** Uso do cabo ÷ teto, 0..1: a velocidade dos pulsos (GDD §10.1). */
+  fluxo?: number;
+  /** 1 = da ilha para a principal (exportando); −1 = ao contrário. */
+  sentido?: 1 | -1;
+  /** Cor da faixa de r. */
+  cor?: string;
+}
+
+/** Polilinha de cada rota (px de mundo) e o comprimento acumulado: a rota é estável, o cálculo é uma vez. */
+const POLILINHAS = new WeakMap<readonly number[], { xy: Float32Array; acum: Float32Array; total: number }>();
+function polilinha(cabo: CaboCena, n: number) {
+  let p = POLILINHAS.get(cabo.casas);
+  if (p) return p;
+  const casas = [cabo.de, ...cabo.casas, cabo.para];
+  const xy = new Float32Array(casas.length * 2);
+  const acum = new Float32Array(casas.length);
+  casas.forEach((casa, i) => {
+    const q = iso((casa % n) + 0.5, Math.floor(casa / n) + 0.5);
+    xy[i * 2] = q[0];
+    xy[i * 2 + 1] = q[1];
+    if (i > 0) acum[i] = acum[i - 1] + Math.hypot(q[0] - xy[i * 2 - 2], q[1] - xy[i * 2 - 1]);
+  });
+  p = { xy, acum, total: acum[casas.length - 1] };
+  POLILINHAS.set(cabo.casas, p);
+  return p;
 }
 
 /** Cabos submarinos: linha tracejada sob a água; ligada em `sun`, apenas prevista em `muted`. */
@@ -180,9 +206,12 @@ export function desenharCabos(ctx: CanvasRenderingContext2D, arq: Arquipelago, c
   for (const cabo of cabos) {
     if (cabo.casas.length === 0) continue;
     // do litoral de partida ao de chegada, passando pelas casas de mar: o cabo precisa ser visto
-    const pontos = [cabo.de, ...cabo.casas, cabo.para].map((casa) => iso((casa % n) + 0.5, Math.floor(casa / n) + 0.5));
+    const linha = polilinha(cabo, n);
+    const pts = linha.xy;
+    const m = pts.length / 2;
     ctx.beginPath();
-    pontos.forEach((p, i) => (i === 0 ? ctx.moveTo(p[0], p[1]) : ctx.lineTo(p[0], p[1])));
+    ctx.moveTo(pts[0], pts[1]);
+    for (let i = 1; i < m; i++) ctx.lineTo(pts[i * 2], pts[i * 2 + 1]);
     ctx.setLineDash([10 / z, 8 / z]);
     ctx.lineDashOffset = cabo.ligado ? -((t * 18) % 18) / z : 0;
     ctx.strokeStyle = cabo.ligado ? alfa(P.sun, 0.95) : alfa(P.muted, 0.55);
@@ -190,9 +219,32 @@ export function desenharCabos(ctx: CanvasRenderingContext2D, arq: Arquipelago, c
     ctx.lineWidth = Math.max(cabo.ligado ? 3 : 2, 2.5 / z);
     ctx.stroke();
     ctx.setLineDash([]);
+    // pulsos de energia no sentido do fluxo, mais rápidos com o cabo mais cheio (GDD §10.1)
+    const fluxo = cabo.fluxo ?? 0;
+    if (cabo.ligado && fluxo > 0.01 && linha.total > 0) {
+      const espaco = VIDA.pulsoEspacamento * 36;
+      const desloc = movimentoReduzido() ? 0 : ((t * VIDA.pulsoVelocidade * 36 * (0.3 + 0.7 * fluxo)) % espaco) * (cabo.sentido ?? 1);
+      const r = Math.max(2.5, 3.5 / z);
+      ctx.fillStyle = cabo.cor ?? P.sun;
+      ctx.beginPath();
+      let seg = 1;
+      for (let d = ((desloc % espaco) + espaco) % espaco; d < linha.total; d += espaco) {
+        while (seg < m - 1 && linha.acum[seg] < d) seg++;
+        const a = linha.acum[seg - 1];
+        const k = (d - a) / Math.max(1e-6, linha.acum[seg] - a);
+        const x = pts[(seg - 1) * 2] + (pts[seg * 2] - pts[(seg - 1) * 2]) * k;
+        const y = pts[(seg - 1) * 2 + 1] + (pts[seg * 2 + 1] - pts[(seg - 1) * 2 + 1]) * k;
+        ctx.moveTo(x + r, y);
+        ctx.arc(x, y, r, 0, TAU);
+      }
+      ctx.fill();
+    }
     // caixas de conexão nas duas pontas
     const cor = cabo.ligado ? P.sun : P.muted;
-    for (const p of [pontos[0], pontos[pontos.length - 1]]) {
+    for (const p of [
+      [pts[0], pts[1]],
+      [pts[(m - 1) * 2], pts[(m - 1) * 2 + 1]],
+    ]) {
       const r = Math.max(4, 5 / z);
       ctx.fillStyle = cor;
       ctx.beginPath();

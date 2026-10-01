@@ -8,14 +8,14 @@ import { BATERIA_REDE, DISTRITO_INDUSTRIAL, INSTITUTO, SUBESTACAO_138, SUBESTACA
 import { DENSIDADES } from "../../content/cidade";
 import { avaliarConstruirReator, construirReator, era3Pronta, podeConstruirReator, reembolsoDaTorre } from "../era";
 import { avaliarCasa, colocar, custoColocar, remover } from "../mundo";
-import { avaliarEvolucao, evoluirBairro } from "../cidade";
+import { avaliarEvolucaoCidade, evoluirCidade } from "../cidade";
 import { arquipelagoDaEra1 } from "../gerarArquipelago";
 import { analisar, casasDaConstrucao, construcaoQueOcupa, ehMarRaso, ilhaDaCasa, ilhaEfetivaDe, tetoCabo, tetoDeSubestacao } from "../producao";
-import { efeitosDos } from "../efeitos";
+import { efeitosDe, efeitosDos } from "../efeitos";
 import { colocarPeca } from "../acoesNucleo";
 import { desserializar, serializar } from "../save";
 import { avancarTicks, balancoDoEstado } from "../tick";
-import { calcularOffline } from "../offline";
+import { calcularOffline, trechosDoNucleoOffline } from "../offline";
 import { nucleoInicial, VERSAO_SAVE, type GameState } from "../state";
 import { estadoLimpo, plantar } from "./ajuda";
 
@@ -106,9 +106,9 @@ describe("transição para a Era 2 (GDD Parte 2 §2)", () => {
   });
 });
 
-describe("save v8 (GDD Parte 2 §2)", () => {
-  it("a versão é 8 e a era faz a ida e a volta", () => {
-    expect(VERSAO_SAVE).toBe(8);
+describe("save da era (GDD Parte 2 §2)", () => {
+  it("a versão é 10 e a era faz a ida e a volta", () => {
+    expect(VERSAO_SAVE).toBe(10);
     const depois = construirReator(prontoParaOReator())!;
     const comVareta = colocarPeca(avancarTicks(depois, 100), 6, "vareta")!;
     const lido = desserializar(serializar(comVareta, 1000), 1000);
@@ -134,7 +134,7 @@ describe("save v8 (GDD Parte 2 §2)", () => {
       cardsVistos: [],
     };
     const s = desserializar(JSON.stringify(v7), 1000);
-    expect(s.versao).toBe(8);
+    expect(s.versao).toBe(VERSAO_SAVE);
     expect(s.era).toBe(1);
     expect(s.nucleo!.era).toBe(1);
     expect(s.nucleo!.estabilidade).toBe(40);
@@ -242,6 +242,9 @@ describe("escoamento e custo de operação da Era 2 (GDD Parte 2 §3.1, §3.2)",
     expect(desligada.escoadoKw).toBe(0);
     expect(desligada.brutoKw).toBe(0);
     expect(semEscoamento.custoOperacaoPorSegundo).toBe(0);
+    // a chaminé da cena lê a fração ligada (GDD §10.1, parte F)
+    expect(termica.fracaoLigada).toBe(1);
+    expect(desligada.fracaoLigada).toBe(0);
   });
 
   it("o nó Cabo HVDC multiplica o teto de todos os cabos por 10", () => {
@@ -290,6 +293,75 @@ describe("offline na Era 2 (GDD Parte 2 §5.2)", () => {
     expect(relatorio.nucleoDesligado).toBe(false);
   });
 
+  it("o reator não rende a janela inteira: 8 h fora rendem quase o mesmo que 10 min com as mesmas varetas", () => {
+    const s = { ...construirReator(prontoParaOReator(1e7))!, creditos: 1e7 };
+    let comVaretas = s;
+    for (const [i, peca] of [[11, "turbinaAlta"], [13, "turbinaAlta"], [6, "vareta"], [7, "vareta"], [8, "vareta"], [16, "vareta"], [0, "vareta"], [4, "vareta"]] as const) {
+      comVaretas = colocarPeca(comVaretas, i, peca) ?? comVaretas;
+    }
+    const salvo = { ...comVaretas, salvoEmMs: 1_000_000 };
+    // sem laboratório nem universidade: toda a 🔬 offline vem do reator
+    expect(analisar(salvo).pesquisaPorSegundo).toBe(0);
+    const dez = calcularOffline(salvo, 1_000_000 + 10 * 60 * 1000).relatorio;
+    const oito = calcularOffline(salvo, 1_000_000 + 8 * 60 * 60 * 1000).relatorio;
+    expect(dez.pesquisa).toBeGreaterThan(0);
+    // as varetas de 600 s acabam aos 10 min; o resto é decaimento (≈ 1 % a mais), não 48× (defeito da v0.8)
+    expect(oito.pesquisa).toBeGreaterThanOrEqual(dez.pesquisa);
+    expect(oito.pesquisa).toBeLessThanOrEqual(dez.pesquisa * 1.05);
+  });
+
+  it("offline, a Estabilidade só sobe enquanto há fissão, e o Vaso volta frio com as varetas gastas", () => {
+    const s = { ...construirReator(prontoParaOReator(1e7))!, creditos: 1e7 };
+    let comVaretas = s;
+    for (const [i, peca] of [[11, "turbinaAlta"], [13, "turbinaAlta"], [6, "vareta"], [7, "vareta"], [8, "vareta"], [16, "vareta"], [0, "vareta"], [4, "vareta"]] as const) {
+      comVaretas = colocarPeca(comVaretas, i, peca) ?? comVaretas;
+    }
+    const salvo = { ...comVaretas, salvoEmMs: 1_000_000 };
+    const dez = calcularOffline(salvo, 1_000_000 + 10 * 60 * 1000);
+    const oito = calcularOffline(salvo, 1_000_000 + 8 * 60 * 60 * 1000);
+    expect(dez.relatorio.estabilidade).toBeGreaterThan(0);
+    // o reator morto não enche a barra (antes: +100 em 8 h pela faixa fria do decaimento)
+    expect(oito.relatorio.estabilidade).toBeLessThanOrEqual(dez.relatorio.estabilidade * 1.05);
+    // na volta, o Vaso está no equilíbrio do fim da ausência, não no do começo
+    expect(oito.state.nucleo!.calorU).toBeLessThan(1);
+  });
+
+  it("online, o reator sem combustível não faz a Estabilidade andar (Parte 2 §5.2, Sessão 9)", () => {
+    const s = { ...construirReator(prontoParaOReator(1e7))!, creditos: 1e7 };
+    let comVaretas = s;
+    for (const [i, peca] of [[11, "turbinaAlta"], [13, "turbinaAlta"], [6, "vareta"], [7, "vareta"]] as const) {
+      comVaretas = colocarPeca(comVaretas, i, peca) ?? comVaretas;
+    }
+    const grade = comVaretas.nucleo!.grade.map((casa) =>
+      casa && casa.tipo === "peca" && casa.id === "vareta" ? { ...casa, vareta: { restanteS: 0, gastaDesdeMs: comVaretas.tempoMs } } : casa,
+    );
+    const gastas = { ...comVaretas, nucleo: { ...comVaretas.nucleo!, grade, calorU: 50 } };
+    const depois = avancarTicks(gastas, 600);
+    expect(depois.nucleo!.estabilidade).toBe(gastas.nucleo!.estabilidade);
+    // com as mesmas duas varetas cheias, ela anda
+    const cheias = avancarTicks(comVaretas, 600);
+    expect(cheias.nucleo!.estabilidade).toBeGreaterThan(comVaretas.nucleo!.estabilidade);
+  });
+
+  it("offline, a 🔬 do reator é a integral da potência enquanto as varetas queimam", () => {
+    const s = { ...construirReator(prontoParaOReator(1e7))!, creditos: 1e7 };
+    let comVaretas = s;
+    for (const [i, peca] of [[11, "turbinaAlta"], [13, "turbinaAlta"], [6, "vareta"], [7, "vareta"], [8, "vareta"], [16, "vareta"], [0, "vareta"], [4, "vareta"]] as const) {
+      comVaretas = colocarPeca(comVaretas, i, peca) ?? comVaretas;
+    }
+    const salvo = { ...comVaretas, salvoEmMs: 1_000_000 };
+    // metade da vida: o reator ficou os 300 s inteiros ligado, com a mesma grade do começo
+    const trechos = trechosDoNucleoOffline(salvo.nucleo!, efeitosDe(salvo), salvo.tempoMs, 300);
+    const inicial = trechos[0];
+    expect(trechos.reduce((soma, tr) => soma + tr.segundos, 0)).toBeCloseTo(300, 9);
+    for (const tr of trechos) expect(tr.potenciaKw).toBeCloseTo(inicial.potenciaKw, 6);
+    // depois de esgotar, a potência cai para o decaimento (7 % do nominal, meia-vida de 60 s)
+    const depois = trechosDoNucleoOffline(salvo.nucleo!, efeitosDe(salvo), salvo.tempoMs, 1200);
+    const logoApos = depois.find((_, k) => depois.slice(0, k).reduce((a, x) => a + x.segundos, 0) >= 601)!;
+    expect(logoApos.potenciaKw).toBeLessThan(inicial.potenciaKw * 0.08);
+    expect(logoApos.potenciaKw).toBeGreaterThan(0);
+  });
+
   it("a térmica a gás também cobra combustível offline", () => {
     let s = { ...construirReator(prontoParaOReator(1e7))!, creditos: 1e7 };
     s = { ...s, pesquisados: [...s.pesquisados, "subestacaoDe138kV"] };
@@ -318,17 +390,18 @@ describe("cidade da Era 2 (GDD Parte 2 §4)", () => {
 
   it("a megacidade e a arcologia só evoluem com o nó da árvore", () => {
     let s = plantar(naEra2(), "bairro", 1);
-    const casa = Object.keys(s.mundo.construcoes).map(Number).find((i) => s.mundo.construcoes[i].tipo === "bairro")!;
     // sobe até metrópole com 🔬 de sobra
     s = { ...s, pesquisa: 1e6 };
-    for (let k = 0; k < 3; k++) s = evoluirBairro(s, casa)!;
-    expect(s.mundo.construcoes[casa].nivel).toBe(3);
-    expect(avaliarEvolucao(s, casa).motivo).toContain("Megacidade");
+    for (let k = 0; k < 3; k++) s = evoluirCidade(s)!;
+    expect(s.cidade.densidade).toBe(4);
+    expect(avaliarEvolucaoCidade(s).motivo).toContain("Megacidade");
     const comNo = { ...s, pesquisados: [...s.pesquisados, "megacidade"] };
-    expect(avaliarEvolucao(comNo, casa).ok).toBe(true);
-    const mega = evoluirBairro(comNo, casa)!;
-    expect(analisar(mega).populacao).toBe(DENSIDADES[4].populacao);
-    expect(avaliarEvolucao(mega, casa).motivo).toContain("Arcologia");
+    expect(avaliarEvolucaoCidade(comNo).ok).toBe(true);
+    const mega = evoluirCidade(comNo)!;
+    // a aldeia de nascença também é bairro: todos sobem juntos
+    const bairros = Object.values(mega.mundo.construcoes).filter((c) => c.tipo === "bairro").length;
+    expect(analisar(mega).populacao).toBe(bairros * DENSIDADES[4].populacao);
+    expect(avaliarEvolucaoCidade(mega).motivo).toContain("Arcologia");
   });
 
   it("o distrito industrial exige subestação de 138 kV no alcance", () => {

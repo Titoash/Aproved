@@ -155,28 +155,47 @@ export function contarReator(grade: readonly Casa[]): ContagemReator {
   return c;
 }
 
-/** Capacidade do Vaso: 500 u + 250 u por Piscina adjacente (GDD Parte 2 §5.1). */
-export function capacidadeReatorU(grade: readonly Casa[]): number {
-  return REATOR.capacidadeVasoU + contarReator(grade).piscinas * REATOR.capacidadePiscinaU;
+/**
+ * O reator está fissionando: há pelo menos uma vareta com combustível na grade (entulho não conta) e ele
+ * não está em SCRAM. Só assim ele conta como operando para a Estabilidade (Parte 2 §5.2, Sessão 9): o
+ * calor de decaimento de um reator sem combustível ainda gira as turbinas, mas não faz a barra andar.
+ */
+export function fissionando(nucleo: NucleoState): boolean {
+  if (nucleo.scramRestanteMs > 0) return false;
+  return nucleo.grade.some((casa) => !!casa && casa.tipo === "peca" && casa.id === "vareta" && !!casa.vareta && casa.vareta.gastaDesdeMs === null);
 }
 
-/** Dissipação das torres de resfriamento adjacentes, em u/s. */
-export function dissipacaoReatorUs(grade: readonly Casa[]): number {
-  return contarReator(grade).torres * REATOR.dissipacaoTorre;
+/** Capacidade do Vaso: 500 u + 250 u por Piscina adjacente (GDD Parte 2 §5.1), +10 % por nível da piscina. */
+export function capacidadeReatorU(grade: readonly Casa[], efeitos: EfeitosArvore = efeitosNeutros()): number {
+  return REATOR.capacidadeVasoU + contarReator(grade).piscinas * efeitos.capacidadePiscinaU;
+}
+
+/** Dissipação das torres de resfriamento adjacentes, em u/s (30 cada, +10 % por nível da torre). */
+export function dissipacaoReatorUs(grade: readonly Casa[], efeitos: EfeitosArvore = efeitosNeutros()): number {
+  return contarReator(grade).torres * efeitos.dissipacaoTorreUs;
+}
+
+/** Calor que entra no Vaso separado em fissão e decaimento (Parte 2 §5.4, v0.9), em u/s. */
+export interface FluxosReator {
+  /** Injeção das varetas **ativas**: é o termo que as barras (Ocorrências) e o Xenônio multiplicam. */
+  ativaUs: number;
+  /** Calor de decaimento (varetas gastas, entulho quente, SCRAM): nada o multiplica. */
+  decaimentoUs: number;
 }
 
 /**
- * Calor que entra no Vaso, em u/s. Três situações por casa de vareta:
- *  - ligada e com combustível → o nominal inteiro;
+ * Calor que entra no Vaso, em u/s, por parcela. Três situações por casa de vareta:
+ *  - ligada e com combustível → o nominal inteiro, na parcela ativa;
  *  - gasta (ou entulho quente) → decaimento desde que esgotou, salvo se houver Piscina vizinha,
  *    e aí o calor vai para a piscina e não para o Vaso;
  *  - reator em SCRAM → toda vareta ainda com combustível entra em decaimento desde o SCRAM
  *    (a torre de resfriamento é o que segura `T` depois disso).
  */
-export function entradaReatorUs(nucleo: NucleoState, efeitos: EfeitosArvore = efeitosNeutros(), tempoMs = 0): number {
+export function fluxosReatorUs(nucleo: NucleoState, efeitos: EfeitosArvore = efeitosNeutros(), tempoMs = 0): FluxosReator {
   const lado = nucleo.lado;
   const emScram = nucleo.scramRestanteMs > 0;
-  let total = 0;
+  let ativaUs = 0;
+  let decaimentoUs = 0;
   nucleo.grade.forEach((casa, i) => {
     if (!casa || casa.tipo === "receptor") return;
     if (casa.id !== "vareta") return;
@@ -186,7 +205,7 @@ export function entradaReatorUs(nucleo: NucleoState, efeitos: EfeitosArvore = ef
     if (nominal <= 0) return;
     if (v.gastaDesdeMs !== null) {
       if (temPiscinaVizinha(nucleo.grade, i, lado)) return;
-      total += nominal * fracaoDecaimento(tempoMs - v.gastaDesdeMs);
+      decaimentoUs += nominal * fracaoDecaimento(tempoMs - v.gastaDesdeMs);
       return;
     }
     // Entulho de vareta ainda com combustível: a Cascata já marca `gastaDesdeMs`, mas um save
@@ -194,12 +213,18 @@ export function entradaReatorUs(nucleo: NucleoState, efeitos: EfeitosArvore = ef
     if (casa.tipo === "entulho") return;
     if (emScram) {
       const desde = nucleo.scramInicioMs ?? tempoMs;
-      total += nominal * fracaoDecaimento(tempoMs - desde);
+      decaimentoUs += nominal * fracaoDecaimento(tempoMs - desde);
       return;
     }
-    total += nominal;
+    ativaUs += nominal;
   });
-  return total;
+  return { ativaUs, decaimentoUs };
+}
+
+/** Calor total que entra no Vaso, em u/s: injeção ativa + decaimento. */
+export function entradaReatorUs(nucleo: NucleoState, efeitos: EfeitosArvore = efeitosNeutros(), tempoMs = 0): number {
+  const f = fluxosReatorUs(nucleo, efeitos, tempoMs);
+  return f.ativaUs + f.decaimentoUs;
 }
 
 /* ------------------------------------------------------------------ */
@@ -287,6 +312,23 @@ export interface RecusaTroca {
 /** Quanto uma vareta gasta espera para poder sair: 3 meias-vidas (180 s), GDD Parte 2 §5.2 e §5.3. */
 export function esperaParaTrocaMs(): number {
   return VARETA.meiaVidaS * 1000 * VARETA.meiasVidasParaTroca;
+}
+
+/**
+ * A vareta desta casa já pode sair, sem contar o dinheiro: está gasta e esfriou (3 meias-vidas, 180 s)
+ * ou tem Piscina nas 8 vizinhas. É a regra que "Trocar todas as gastas" usa para escolher o lote.
+ */
+export function prontaParaTroca(nucleo: NucleoState | null, indice: number, tempoMs: number): RecusaTroca {
+  const recusa = (motivo: string, faltaMs = 0): RecusaTroca => ({ ok: false, motivo, faltaMs });
+  if (!nucleo || nucleo.era !== 2) return recusa("O reator ainda não existe.");
+  const casa = nucleo.grade[indice];
+  if (!casa || casa.tipo !== "peca" || casa.id !== "vareta") return recusa("Só varetas se trocam.");
+  const v = casa.vareta;
+  if (!v || v.gastaDesdeMs === null) return recusa("A vareta ainda tem combustível.");
+  if (temPiscinaVizinha(nucleo.grade, indice, nucleo.lado)) return { ok: true, motivo: null, faltaMs: 0 };
+  const falta = esperaParaTrocaMs() - (tempoMs - v.gastaDesdeMs);
+  if (falta > 0) return recusa("Quente demais: espere o decaimento cair (ou ponha uma Piscina ao lado).", falta);
+  return { ok: true, motivo: null, faltaMs: 0 };
 }
 
 /**

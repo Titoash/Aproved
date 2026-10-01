@@ -62,7 +62,9 @@ export type EfeitoNo =
   /** Energia e potência da bateria de rede × `fator`. */
   | { tipo: "bateriaRede"; fator: number }
   /** Eólica offshore passa a caber em mar fundo (fundação flutuante). */
-  | { tipo: "marFundo" };
+  | { tipo: "marFundo" }
+  /** Tempo de remoção de obstáculos × `fator` (Máquinas pesadas, Escavadeiras; §8.5, v0.8). */
+  | { tipo: "tempoRemocao"; fator: number };
 
 export interface NoDef {
   id: string;

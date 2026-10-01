@@ -12,8 +12,8 @@ import { estadoLimpo, plantar } from "./ajuda";
 const arq = arquipelagoDaEra1();
 
 describe("save do mundo", () => {
-  it("a versão é 8", () => {
-    expect(VERSAO_SAVE).toBe(8);
+  it("a versão é 10", () => {
+    expect(VERSAO_SAVE).toBe(10);
   });
 
   it("ida e volta: construções, obstáculos removidos, fila, ilhas e cabos", () => {
@@ -24,7 +24,7 @@ describe("save do mundo", () => {
     s = removerObstaculo(s, arvore)!;
     const meio = avancarTicks(s, 5); // fila ainda em curso
     const lido = desserializar(serializar(meio, 1000), 1000);
-    expect(lido.versao).toBe(8);
+    expect(lido.versao).toBe(VERSAO_SAVE);
     expect(lido.mundo.construcoes).toEqual(meio.mundo.construcoes);
     expect(lido.mundo.ilhasAbertas).toEqual(["principal", "ventania"]);
     expect(lido.mundo.cabos).toEqual({ ventania: 0 });
@@ -56,7 +56,8 @@ describe("save do mundo", () => {
     expect(s.mundo.removidos).toEqual([]);
     expect(s.mundo.remocoes).toEqual([]);
     expect(s.mundo.ilhasAbertas).toEqual(["principal", "ventania"]);
-    expect(s.mundo.cabos).toEqual({ solar: 2 });
+    // desde a v0.8 o valor do cabo só marca a ligação: o nível é global (`melhorias.cabos`)
+    expect(s.mundo.cabos).toEqual({ solar: 0 });
   });
 
   it("migra v5 colocando as unidades na principal e reembolsando o que não coube", () => {
@@ -83,8 +84,8 @@ describe("save do mundo", () => {
       salvoEmMs: 1000,
     };
     const s = desserializar(JSON.stringify(v5), 1000);
-    expect(s.versao).toBe(8);
-    expect(s.rede.usinas.cataVento.nivel).toBe(1);
+    expect(s.versao).toBe(VERSAO_SAVE);
+    expect(s.melhorias.usinas.cataVento).toBe(1);
     expect(quantidadeDe(s, "cataVento")).toBe(12);
     expect(quantidadeDe(s, "painelSolar")).toBe(4);
     expect(quantidadeDe(s, "turbinaEolica")).toBe(2);

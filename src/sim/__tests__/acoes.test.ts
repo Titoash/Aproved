@@ -1,15 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { BATERIA } from "../../content/era1";
 import { USINAS } from "../../content/usinas";
-import { custoProximaMelhoria, desbloqueado, melhorarUsina, tipoDisponivel } from "../acoes";
-import { custoMelhoria } from "../custos";
-import { derivarRede } from "../producao";
-import { potenciaOfertadaKw } from "../rede";
+import { desbloqueado, tipoDisponivel } from "../acoes";
 import { pesquisar } from "../arvore";
 import { NO_POR_ID } from "../../content/arvore";
 import { estadoLimpo, plantar } from "./ajuda";
 
-describe("ações da Rede (desbloqueios e níveis)", () => {
+describe("ações da Rede (desbloqueios; os níveis estão em melhorias.test.ts)", () => {
   it("respeita o desbloqueio por quantidade colocada", () => {
     const s = estadoLimpo();
     expect(desbloqueado(s, USINAS.painelSolar.desbloqueio)).toBe(false);
@@ -35,21 +32,5 @@ describe("ações da Rede (desbloqueios e níveis)", () => {
 
     const comTurbina = pesquisar(comBateria, "turbinaEolica")!;
     expect(tipoDisponivel(comTurbina, "turbinaEolica")).toBe(true);
-  });
-
-  it("melhorar exige ao menos uma unidade colocada e sobe o nível", () => {
-    const s = estadoLimpo();
-    expect(melhorarUsina(s, "cataVento")).toBeNull();
-    const s1 = plantar(s, "cataVento", 1);
-    const s2 = melhorarUsina(s1, "cataVento")!;
-    expect(s2.rede.usinas.cataVento.nivel).toBe(1);
-    expect(s1.creditos - s2.creditos).toBeCloseTo(custoMelhoria(USINAS.cataVento, 0), 10);
-    expect(custoProximaMelhoria(s2, "cataVento")).toBeCloseTo(custoMelhoria(USINAS.cataVento, 1), 10);
-    expect(potenciaOfertadaKw(derivarRede(s2))).toBeGreaterThan(potenciaOfertadaKw(derivarRede(s1)));
-  });
-
-  it("não melhora sem créditos", () => {
-    const s = { ...plantar(estadoLimpo(), "cataVento", 1), creditos: 1 };
-    expect(melhorarUsina(s, "cataVento")).toBeNull();
   });
 });

@@ -1,5 +1,6 @@
 /** Balança do Calor (GDD §4.2): temperatura T = Q ÷ capacidade e faixas. */
 import { FAIXAS_CALOR, NUCLEO, type FaixaCalor } from "../content/era1-nucleo";
+import { efeitosNeutros, type EfeitosArvore } from "./efeitos";
 import { capacidadeDoNucleo } from "./motor";
 import type { NucleoState } from "./state";
 
@@ -8,8 +9,12 @@ export function temperatura(calorU: number, capacidade: number): number {
   return calorU / capacidade;
 }
 
-export function temperaturaNucleo(nucleo: NucleoState): number {
-  return temperatura(nucleo.calorU, capacidadeDoNucleo(nucleo));
+/**
+ * T do Núcleo agora. Passe os efeitos do estado (`efeitosDe(state)`): o Tanque de dois sais, o Receptor
+ * cerâmico e os níveis de tanque e piscina mudam a capacidade — sem eles a T mostrada sai diferente da do tick.
+ */
+export function temperaturaNucleo(nucleo: NucleoState, efeitos: EfeitosArvore = efeitosNeutros()): number {
+  return temperatura(nucleo.calorU, capacidadeDoNucleo(nucleo, efeitos));
 }
 
 export function faixaDeCalor(t: number): FaixaCalor {

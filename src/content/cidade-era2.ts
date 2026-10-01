@@ -2,7 +2,8 @@
  * Cidade da Era 2 (GDD Parte 2 §4.1): as densidades 5 e 6. Só dados.
  *
  * A curva de ₵ continua quase exponencial e dá um salto de escala a partir da megacidade — a era subiu
- * ×100 em potência, e a cidade acompanha. A de 🔬 continua ×5 por degrau. Bairros novos continuam
+ * ×100 em potência, e a cidade acompanha. A de 🔬 é mais baixa que a escada da Era 1 pediria (1 000 e 3 000 por
+ * bairro, Sessão 9): a cidade evolui inteira, e a 🔬 multiplica pelos bairros. Bairros novos continuam
  * baratos: colocar é fácil, **evoluir** é o gasto.
  */
 import type { DensidadeDef } from "./cidade-tipos";
@@ -16,7 +17,7 @@ export const DENSIDADES_ERA2: readonly DensidadeDef[] = [
     demandaKw: 400,
     populacao: 25_000,
     tarifa: 1.7,
-    evolucao: { creditos: 244_000, pesquisa: 15_000 },
+    evolucao: { creditos: 244_000, pesquisa: 3_000 },
     no: "megacidade",
   },
   {

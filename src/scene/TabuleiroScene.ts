@@ -9,20 +9,38 @@ import { NUCLEO } from "../content/era1-nucleo";
 import { USINAS } from "../content/usinas";
 import { BAIRRO } from "../content/cidade-era1";
 import { faixaDeCalor, temperaturaNucleo } from "../sim/calor";
+import { efeitosDe } from "../sim/efeitos";
 import { emScram, podeLimparEntulho } from "../sim/cascata";
 import { formatarCreditos, formatarNumero, formatarPorcentagem, formatarPotencia } from "../sim/formatar";
 import { arquipelagoDaEra1 } from "../sim/gerarArquipelago";
 import { potenciaInstaladaW } from "../sim/kardashev";
-import { avaliarCasa, avaliarRemocaoObstaculo, ancoraDoObstaculo, ancoraEm, casasDoObstaculo, custoExpedicao, ilhaAberta, rotaDoCabo, temCabo } from "../sim/mundo";
+import {
+  avaliarCasa,
+  avaliarRemocaoObstaculo,
+  ancoraDoObstaculo,
+  ancoraEm,
+  casasDoObstaculo,
+  custoExpedicao,
+  ilhaAberta,
+  orcarArea,
+  retanguloDaArea,
+  rotaDoCabo,
+  temCabo,
+} from "../sim/mundo";
 import { anel, podeColocar, podeRemover } from "../sim/nucleo";
-import { analisar, ehDeAgua, ladoConstrucao, obstaculoEm } from "../sim/producao";
+import { analisar, ehDeAgua, ehSubestacao, ladoConstrucao, obstaculoEm, type ConsumidorAnalise } from "../sim/producao";
 import { VARETA } from "../content/era2-nucleo";
 import { fracaoDecaimento } from "../sim/reator";
+import { OCORRENCIAS_DEF } from "../content/ocorrencias";
+import { fracaoDoPerfil, multiplicadoresDaPerturbacao, turbinasDo } from "../sim/ocorrencias";
 import type { GameState } from "../sim/state";
 import { balancoDoEstado } from "../sim/tick";
-import { useGameStore, type FerramentaMundo } from "../store/gameStore";
+import { useGameStore, type FerramentaMundo, type SelecaoArea } from "../store/gameStore";
 import { getPalcoRect } from "./layout";
-import { PALETA, alfa, clamp01, definirEraVisual, movimentoReduzido, type Camera } from "./tabuleiro/base";
+import { PALETA, alfa, centro, clamp01, definirEraVisual, movimentoReduzido, type Camera } from "./tabuleiro/base";
+import { desenharFlutuantes, vagaDeFlutuante } from "./tabuleiro/vida";
+import { VIDA } from "../content/vida";
+import type { FaixaId } from "../content/era1";
 import {
   atualizarCena,
   criarCena,
@@ -31,14 +49,17 @@ import {
   dispararCascata,
   tremorCena,
   type AlcanceCena,
+  type AreaCena,
   type CalloutCena,
   type Cena,
   type ConstrucaoCena,
   type CristalCena,
   type EntradaCena,
   type ObstaculoCena,
+  type OcorrenciaCena,
   type PecaCena,
   type PlacaCena,
+  type RemocaoCena,
 } from "./tabuleiro/cena";
 import { casaDaGrade, controleCamera, LARGURA_DESKTOP_PX, MINIMAPA, registrarCena, RESERVA_ESCADA_PX } from "./tabuleiro/controle";
 import { desenharEscala, type Reserva } from "./tabuleiro/escalas";
@@ -72,7 +93,32 @@ if (MEDINDO) {
   };
 }
 
+/** Onde o diário começa no desktop: depois da escada e dos rótulos dela (espelha `.diario` em app.css). */
+const DIARIO_ESQUERDA_PX = 150;
+
+/** Cor de cada faixa de r nos pulsos (espelha `ui/faixas.ts`, que usa variáveis CSS). */
+const COR_FAIXA_CENA: Record<FaixaId, string> = {
+  apagao: PALETA.coral,
+  neutroBaixo: PALETA.muted,
+  zonaDeOuro: PALETA.sun,
+  neutroAlto: PALETA.muted,
+  saturacao: PALETA.sky,
+};
+
 /** A ferramenta da paleta é uma construção de água (eólica ou subestação offshore)? */
+/** A Ocorrência em curso como a cena precisa dela (Parte 1 §4.4, v0.9); null fora dela. */
+function ocorrenciaDaCena(state: GameState): OcorrenciaCena | null {
+  const a = state.ocorrencia.atual;
+  if (!a || a.fase !== "ativa" || !state.nucleo) return null;
+  const def = OCORRENCIAS_DEF[a.id];
+  const decorrido = state.tempoMs - a.inicioMs;
+  const fracao = fracaoDoPerfil(def, decorrido);
+  // O Seguimento de carga não perturba o motor, mas as barras aparecem no Vaso: a cena fica acesa a Ocorrência inteira.
+  const visivel = def.perturbacao ? fracao : decorrido > 0 && decorrido < def.duracaoS * 1000 ? 1 : 0;
+  const entrada = multiplicadoresDaPerturbacao(def, fracao, turbinasDo(state.nucleo)).entrada;
+  return { id: a.id, fracao: visivel, progresso: clamp01(decorrido / (def.duracaoS * 1000)), controle: a.controle, entrada };
+}
+
 function ferramentaDeAgua(f: FerramentaMundo): boolean {
   return f !== "remover" && f !== "desmatar" && ehDeAgua(f);
 }
@@ -97,6 +143,11 @@ export class TabuleiroScene extends Phaser.Scene {
   /** Transição de era em curso: `[começo em s, já voltou?]` (GDD Parte 2 §2: afasta 3 s e volta). */
   private transicaoEra: { t0: number; voltou: boolean } | null = null;
   private transicaoEraVista: number | null = null;
+  private areaCache: { state: GameState; sel: SelecaoArea; cena: AreaCena } | null = null;
+  private fiosCache: { ref: readonly ConsumidorAnalise[]; fios: Float32Array } | null = null;
+  private flutRef: readonly ConsumidorAnalise[] | null = null;
+  private flutUltimo = new Float64Array(0);
+  private flutCursor = 0;
 
   constructor() {
     super(TabuleiroScene.KEY);
@@ -146,7 +197,11 @@ export class TabuleiroScene extends Phaser.Scene {
       if (loja.nivel !== ctl.nivel) loja.irParaNivel(ctl.nivel);
     }
 
-    this.sincronizarCena(loja.state, loja);
+    // a entrada é montada a cada quadro e entra no orçamento de 3 ms da §10.1 (Sessão 9, parte F)
+    marcar("entrada", () => {
+      this.sincronizarCena(loja.state, loja);
+      this.emitirFlutuantes(loja.state, this.tempoS);
+    });
   }
 
   /** Tudo o que a cena precisa do estado, montado uma vez por frame. */
@@ -177,10 +232,12 @@ export class TabuleiroScene extends Phaser.Scene {
             combustivel: v ? v.restanteS / VARETA.combustivelS : undefined,
             gasta: v ? v.gastaDesdeMs !== null : undefined,
             decaimento: v && v.gastaDesdeMs !== null ? fracaoDecaimento(state.tempoMs - v.gastaDesdeMs) : undefined,
+            // o nível é do tipo (v0.8): a cena só desenha o selo "Nv n"
+            nivelPeca: state.melhorias.pecas[casa.id] || undefined,
           });
         } else pecas.push({ x, y, tipo: "entulho", anel: a, gratis: podeLimparEntulho(casa, state.tempoMs), desdeMs: casa.desdeMs });
       });
-      const T = temperaturaNucleo(nucleo);
+      const T = temperaturaNucleo(nucleo, efeitosDe(state));
       const scram = emScram(nucleo);
       const comTorre = nucleo.grade.some((c) => c?.tipo === "peca" && c.id === "torreResfriamento");
       nucleoCena = {
@@ -192,6 +249,7 @@ export class TabuleiroScene extends Phaser.Scene {
         consumo: scram ? 0 : clamp01(T / 0.9),
         rastreamento: state.pesquisados.includes("rastreamentoSolar"),
         comTorre,
+        ocorrencia: ocorrenciaDaCena(state),
       };
       if (loja.casaSobPonteiro !== null && loja.casaSobPonteiro < nucleo.grade.length) {
         const [x, y] = casaDaGrade(loja.casaSobPonteiro, nucleo.lado);
@@ -217,20 +275,24 @@ export class TabuleiroScene extends Phaser.Scene {
         x: i % n,
         y: Math.floor(i / n),
         tipo: c.tipo,
-        nivel: c.nivel,
+        // Bairro: a densidade − 1 da cidade. Subestação: o nível do tipo (v0.8, as bolinhas valem para todas).
+        nivel: c.tipo === "bairro" ? state.cidade.densidade - 1 : ehSubestacao(c.tipo) ? state.melhorias.subestacoes[c.tipo] : 0,
         lado: ladoConstrucao(c.tipo),
         semEscoamento: !!u && u.escoadoKw < u.brutoKw - 1e-9,
+        atividade: u?.fracaoLigada,
       });
     }
     construcoes.sort((p, q) => p.y * n + p.x - (q.y * n + q.x));
 
+    // Progresso de cada remoção em curso (uma por Bipe); as que esperam mostram a barra vazia.
     const emRemocao = new Map<number, number>();
-    const fila = state.mundo.remocoes;
-    if (fila.length > 0 && fila[0].fimMs > 0) {
-      const total = OBSTACULOS[fila[0].tipo].tempoMs || 1;
-      emRemocao.set(fila[0].indice, clamp01(1 - (fila[0].fimMs - state.tempoMs) / total));
+    const remocoes: RemocaoCena[] = [];
+    for (const r of state.mundo.remocoes) {
+      if (r.fimMs > 0) {
+        emRemocao.set(r.indice, clamp01((state.tempoMs - r.inicioMs) / Math.max(1, r.fimMs - r.inicioMs)));
+        remocoes.push({ x: r.indice % n, y: Math.floor(r.indice / n), bipe: r.bipe ?? 0 });
+      } else emRemocao.set(r.indice, 0);
     }
-    for (let k = 1; k < fila.length; k++) emRemocao.set(fila[k].indice, 0);
 
     const obstaculos: ObstaculoCena[] = [];
     const vistos = new Set<number>();
@@ -247,10 +309,16 @@ export class TabuleiroScene extends Phaser.Scene {
 
     // --- cabos: rota de cada ilha aberta (ligada em `sun`, prevista em `muted`)
     const cabos: CaboCena[] = [];
+    const corFaixa = COR_FAIXA_CENA[b.faixa.id];
     for (const def of ILHAS) {
       if (def.id === "principal" || !ilhaAberta(state.mundo, def.id)) continue;
       const rota = rotaDoCabo(def.id, arq);
-      if (rota) cabos.push({ casas: rota.casas, de: rota.de, para: rota.para, ligado: temCabo(state.mundo, def.id) });
+      if (!rota) continue;
+      // pulsos no sentido do fluxo: exportando, da ilha para a principal; importando, ao contrário (GDD §10.1)
+      const uso = analise.cabos.find((x) => x.ilha === def.id);
+      const fluxo = uso && uso.tetoKw > 0 ? Math.min(1, uso.usadoKw / uso.tetoKw) : 0;
+      const sentido = uso && uso.importadoKw > uso.exportadoKw ? -1 : 1;
+      cabos.push({ casas: rota.casas, de: rota.de, para: rota.para, ligado: temCabo(state.mundo, def.id), fluxo, sentido, cor: corFaixa });
     }
 
     // --- alcance: a subestação sob o ponteiro, ou todas quando a ferramenta é a subestação
@@ -265,7 +333,7 @@ export class TabuleiroScene extends Phaser.Scene {
     // --- callouts
     const callouts: CalloutCena[] = [];
     if (nucleo) {
-      const T = temperaturaNucleo(nucleo);
+      const T = temperaturaNucleo(nucleo, efeitosDe(state));
       const nomeNucleo = nucleo.era === 2 ? "Reator PWR" : "Torre Solar";
       callouts.push({ chave: "torre", ancora: "torre", texto: `${nomeNucleo} · ${formatarPorcentagem(T)} · ${faixaDeCalor(T).nome.toLowerCase()}` });
       callouts.push({ chave: "grade", ancora: "grade", texto: `Grade ${nucleo.lado}×${nucleo.lado} · ${nucleo.lado * nucleo.lado} casas` });
@@ -295,7 +363,6 @@ export class TabuleiroScene extends Phaser.Scene {
 
     // Mar raso realçado quando a ferramenta é offshore: é ali que ela cabe (GDD Parte 2 §3.1).
     const rasoRealcado = ferramentaDeAgua(loja.ferramentaMundo);
-    const primeira = fila.length > 0 && fila[0].fimMs > 0 ? fila[0].indice : null;
     const capacidadeKwh = analise.contagem.bateria * 20;
 
     return {
@@ -313,9 +380,105 @@ export class TabuleiroScene extends Phaser.Scene {
       bateriaCarga: capacidadeKwh > 0 ? Math.min(1, state.rede.bateria.kwh / capacidadeKwh) : 0,
       realce,
       rasoRealcado,
-      remocao: primeira === null ? null : { x: primeira % n, y: Math.floor(primeira / n) },
+      remocoes,
+      area: this.areaDaCena(state, loja.selecaoArea),
+      luzCidade: b.demandaKw > 0 ? Math.min(1, (b.vendaDiretaKw + b.cobertoKw) / b.demandaKw) : 1,
+      apagao: b.faixa.id === "apagao",
+      fios: this.fiosDa(analise.consumidores),
+      corFaixa,
       tempoMs: state.tempoMs,
     };
+  }
+
+  /**
+   * Fios subestação → consumidor em px de mundo, refeitos só quando a análise muda (não por quadro).
+   * O consumidor 2×2 (distrito, instituto) liga pelo centro do bloco.
+   */
+  private fiosDa(consumidores: readonly ConsumidorAnalise[]): Float32Array {
+    if (this.fiosCache && this.fiosCache.ref === consumidores) return this.fiosCache.fios;
+    const n = this.arq.n;
+    const fios = new Float32Array(consumidores.length * 4);
+    consumidores.forEach((c, i) => {
+      const s = centro(c.subestacao % n, Math.floor(c.subestacao / n));
+      const meio = (ladoConstrucao(c.tipo) - 1) / 2;
+      const d = centro((c.indice % n) + meio, Math.floor(c.indice / n) + meio);
+      fios.set([s[0], s[1], d[0], d[1]], i * 4);
+    });
+    this.fiosCache = { ref: consumidores, fios };
+    return fios;
+  }
+
+  /**
+   * "+₵" e "+🔬" (GDD §10.1): cada consumidor agrega 2 s de jogo; a cada quadro olha-se uma fatia da lista
+   * (round-robin) e só nasce o que está na tela e cabe no pool de 12. O resto descarta, sem fila.
+   */
+  private emitirFlutuantes(state: GameState, t: number) {
+    const cena = this.cena;
+    if (!cena || controleCamera().nivel !== "ilha") return;
+    const analise = analisar(state);
+    const cons = analise.consumidores;
+    const agora = state.tempoMs;
+    if (this.flutRef !== cons) {
+      this.flutRef = cons;
+      // fases espalhadas: os prédios não piscam todos juntos
+      this.flutUltimo = Float64Array.from(cons, (_, i) => agora - ((i * 611) % VIDA.janelaFlutuanteMs));
+      this.flutCursor = 0;
+    }
+    if (cons.length === 0) return;
+    const b = balancoDoEstado(state);
+    const cam = controleCamera().camDe("ilha");
+    const n = this.arq.n;
+    const olhar = Math.min(cons.length, 48);
+    for (let k = 0; k < olhar; k++) {
+      const i = (this.flutCursor + k) % cons.length;
+      const decorrido = agora - this.flutUltimo[i];
+      if (decorrido < VIDA.janelaFlutuanteMs) continue;
+      this.flutUltimo[i] = agora;
+      cena.vidaContagem.olhados++;
+      const c = cons[i];
+      const s = Math.min(decorrido, 2 * VIDA.janelaFlutuanteMs) / 1000;
+      const moeda = c.peso > 0;
+      const valor = moeda ? b.receitaPorSegundo * c.peso * s : c.pesquisaPorSegundo * s;
+      if (!(valor > 0)) continue;
+      const meio = (ladoConstrucao(c.tipo) - 1) / 2;
+      const p = centro((c.indice % n) + meio, Math.floor(c.indice / n) + meio);
+      const sx = p[0] * cam.zoom + cam.tx;
+      const sy = p[1] * cam.zoom + cam.ty;
+      if (sx < 0 || sx > cam.w || sy < 0 || sy > cam.h) {
+        cena.vidaContagem.foraDaTela++;
+        continue;
+      }
+      const vaga = vagaDeFlutuante(cena.flutuantes, t);
+      if (!vaga) {
+        cena.vidaContagem.semVaga++;
+        continue;
+      }
+      cena.vidaContagem.emitidos++;
+      vaga.ativo = true;
+      vaga.wx = p[0];
+      vaga.wy = p[1] - 34;
+      vaga.moeda = moeda;
+      vaga.texto = moeda ? `+${formatarNumero(valor, valor < 10 ? 1 : 0)}` : `+${formatarNumero(valor, 1)}`;
+      vaga.t0 = t;
+    }
+    this.flutCursor = (this.flutCursor + olhar) % cons.length;
+  }
+
+  /** O retângulo da seleção e o que ele pega, recalculado só quando o estado ou a seleção mudam. */
+  private areaDaCena(state: GameState, sel: SelecaoArea | null): AreaCena | null {
+    if (!sel) return null;
+    const cache = this.areaCache;
+    if (cache && cache.state === state && cache.sel === sel) return cache.cena;
+    const n = this.arq.n;
+    const ret = retanguloDaArea(sel.a, sel.b, n);
+    const o = orcarArea(state, ret, this.arq);
+    const cena: AreaCena = {
+      ...ret,
+      alvos: o.alvos.map((i) => ({ x: i % n, y: Math.floor(i / n), lado: OBSTACULOS[obstaculoEm(state.mundo, i, this.arq)!].lado })),
+      valido: o.ok,
+    };
+    this.areaCache = { state, sel, cena };
+    return cena;
   }
 
   private mesmaCasaOuVizinha(a: number, b: number): boolean {
@@ -342,7 +505,7 @@ export class TabuleiroScene extends Phaser.Scene {
     if (construcao) {
       const ilhaId = this.arq.ilhas[this.arq.ilha[i]]?.id;
       if (construcao.tipo === ferramenta && (ferramenta === "subestacao" || ferramenta === "subestacao138" || ferramenta === "subestacaoOffshore")) {
-        return { x, y, valido: true, texto: "melhorar subestação" };
+        return { x, y, valido: true, texto: "subir o nível das subestações (todas)" };
       }
       return { x, y, valido: false, texto: ilhaId ? "casa ocupada" : null };
     }
@@ -378,11 +541,20 @@ export class TabuleiroScene extends Phaser.Scene {
 
   private reservas(w: number, h: number): Reserva[] {
     const ctl = controleCamera();
-    return [
+    const lista: Reserva[] = [
       [0, 0, ctl.reservaEsquerda, h],
       [w - 240, 0, 240, 56],
       [w - MINIMAPA.w - MINIMAPA.margem * 2, h - MINIMAPA.h - MINIMAPA.margem * 2, MINIMAPA.w + MINIMAPA.margem * 2, MINIMAPA.h + MINIMAPA.margem * 2],
     ];
+    // o diário ocupa o rodapé enquanto tem linha viva: callouts e placas desviam dele (GDD §10.1)
+    const loja = useGameStore.getState();
+    const vivas = loja.diario.filter((l) => loja.state.tempoMs - l.emTempoMs < VIDA.diarioLinhaMs).length;
+    if (vivas > 0) {
+      const altura = 12 + vivas * 22;
+      const x0 = ctl.reservaEsquerda > 0 ? DIARIO_ESQUERDA_PX : 0;
+      lista.push([x0, h - altura, w - x0 - MINIMAPA.w - MINIMAPA.margem * 2, altura]);
+    }
+    return lista;
   }
 
   /** Desenha um nível inteiro (fundo opcional + conteúdo) num contexto já com `setTransform(dpr)`. */
@@ -405,6 +577,7 @@ export class TabuleiroScene extends Phaser.Scene {
       marcar("cena", () => desenharCena(ctx, this.cena!, c, t));
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       desenharCallouts(ctx, this.cena, c, this.reservas(w, h));
+      marcar("flutuantes", () => desenharFlutuantes(ctx, this.cena!.flutuantes, c, t, this.reduzido));
     } else {
       const def = NIVEIS.find((n) => n.id === id);
       if (!def) return;

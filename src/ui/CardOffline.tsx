@@ -31,6 +31,15 @@ export function CardOffline() {
             <span>🛡 Estabilidade</span>
             <strong>+{formatarNumero(relatorio.estabilidade, 1)} pontos</strong>
           </li>
+          {relatorio.obstaculosRemovidos > 0 && (
+            <li>
+              <span>Os Bipes removeram</span>
+              <strong>
+                {relatorio.obstaculosRemovidos} {relatorio.obstaculosRemovidos === 1 ? "obstáculo" : "obstáculos"}
+                {relatorio.cristal ? " · cristal" : ""}
+              </strong>
+            </li>
+          )}
         </ul>
         {relatorio.nucleoDesligado ? (
           <p className="aviso aviso--erro">

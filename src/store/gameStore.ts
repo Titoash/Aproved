@@ -7,26 +7,51 @@
 import { create } from "zustand";
 import { cardParaEvento, CARDS } from "../content/cards-era1";
 import { OFFLINE } from "../content/era1";
-import { OBSTACULOS, type IlhaId } from "../content/era1-arquipelago";
+import { OBSTACULOS, ilhaDef, type IlhaId, type TipoObstaculo } from "../content/era1-arquipelago";
+import { textoDeRemocao, textoDoDiario, type ContextoDiario } from "../content/diario";
+import { VIDA } from "../content/vida";
 import type { NivelId } from "../content/escalas";
-import * as acoes from "../sim/acoes";
 import * as nucleo from "../sim/acoesNucleo";
 import { construirReator } from "../sim/era";
 import { cardVisto, marcarCardVisto } from "../sim/cards";
 import { pesquisar } from "../sim/arvore";
-import { avaliarEvolucao, evoluirBairro } from "../sim/cidade";
+import { avaliarEvolucaoCidade, evoluirCidade } from "../sim/cidade";
+import { arquipelagoDaEra1 } from "../sim/gerarArquipelago";
 import * as mundo from "../sim/mundo";
-import { analisar as analisarMundo } from "../sim/producao";
+import { avaliarMelhoria, melhorar } from "../sim/melhorias";
+import { formatarCreditos } from "../sim/formatar";
+import { analisar as analisarMundo, ehSubestacao, ilhaDaCasa } from "../sim/producao";
 import { calcularOffline, type RelatorioOffline } from "../sim/offline";
 import { carregar, exportarJson, importarJson, INTERVALO_SAVE_MS, limpar, salvar } from "../sim/save";
-import { estadoInicial, type GameState, type PecaId, type TipoConstrucao, type UsinaId } from "../sim/state";
+import { estadoInicial, type AlvoMelhoria, type EventoJogo, type GameState, type PecaId, type TipoConstrucao } from "../sim/state";
+import { descreverNivel } from "../ui/niveis";
 import { avancarTicks } from "../sim/tick";
+import * as ocorrencias from "../sim/ocorrencias";
 
 /** O que o clique numa casa da grade do Núcleo faz. */
 export type Ferramenta = PecaId | "remover";
 
 /** O que o clique numa casa do arquipélago faz (paleta de construção, GDD §2.1, v0.6). */
 export type FerramentaMundo = TipoConstrucao | "remover" | "desmatar";
+
+/**
+ * Seleção em área (§8.5, v0.8): `a` é a casa onde o gesto começou, `b` a casa sob o ponteiro. Estado de
+ * interface, não vai para o save. Ao soltar vira "confirmar" e a UI mostra o custo antes de cobrar.
+ */
+export interface SelecaoArea {
+  a: number;
+  b: number;
+  fase: "arrastando" | "confirmar";
+  /** O cartão de confirmação vai para a metade do tabuleiro oposta à do gesto, para não cobrir a área. */
+  cartaoEmCima: boolean;
+}
+
+/** Uma linha do diário do tabuleiro (GDD §10.1): some depois de `VIDA.diarioLinhaMs` de jogo. */
+export interface LinhaDiario {
+  id: number;
+  texto: string;
+  emTempoMs: number;
+}
 
 export interface CardAberto {
   id: string;
@@ -62,7 +87,7 @@ export interface GameStore {
   /** Nível da escada de escalas em exibição (GDD §2.4). Estado de interface: não vai para o save. */
   nivel: NivelId;
   /** Pedido de enquadramento para a cena consumir (`null` = nenhum). */
-  presetPedido: { nome: "ilha" | "nucleo" | NivelId; serie: number } | null;
+  presetPedido: { nome: "ilha" | "nucleo" | "ocorrencia" | NivelId; serie: number } | null;
   /** Placa de expedição sob o ponteiro (vem do DOM; a cena só desenha o realce). */
   ilhaSobPonteiro: IlhaId | null;
   /** Casa do arquipélago sob o ponteiro (fora da plataforma). */
@@ -77,25 +102,33 @@ export interface GameStore {
   transicaoEraEm: number | null;
   /** Tela da árvore de pesquisa aberta. */
   arvoreAberta: boolean;
+  selecaoArea: SelecaoArea | null;
+  /** As últimas linhas do diário (no máximo três). Estado de interface: não vai para o save. */
+  diario: LinhaDiario[];
 
   avancarTicks: (n: number) => void;
 
   // Rede e mundo
-  melhorarUsina: (id: UsinaId) => boolean;
+  /** Sobe o nível de um tipo inteiro (v0.8): usina, peça, subestação, cabos ou ciência. Avisa se recusado. */
+  melhorar: (alvo: AlvoMelhoria) => boolean;
   /** Compra um nó da árvore de pesquisa: gasta 🔬 (e ₵, quando o nó cobra). */
   pesquisar: (id: string) => boolean;
-  /** Evolui um bairro: gasta ₵ + 🔬 e sobe a densidade (GDD §8.6). */
-  evoluirBairro: (indice: number) => boolean;
+  /** Evolui a cidade inteira: gasta ₵ + 🔬 × N bairros e sobe a densidade de todos (GDD §8.6, v0.8). */
+  evoluirCidade: () => boolean;
   selecionarFerramentaMundo: (f: FerramentaMundo) => void;
   /** Aplica a ferramenta da paleta na casa do arquipélago. Devolve `false` e avisa se recusado. */
   agirNoMundo: (indice: number) => boolean;
   colocar: (indice: number, tipo: TipoConstrucao) => boolean;
   removerConstrucao: (indice: number) => boolean;
   desmatar: (indice: number) => boolean;
+  /** Seleção em área: começar, estender, soltar (vira confirmação), confirmar (cobra) e cancelar. */
+  iniciarArea: (casa: number) => void;
+  estenderArea: (casa: number) => void;
+  soltarArea: (cartaoEmCima?: boolean) => void;
+  confirmarArea: () => boolean;
+  cancelarArea: () => void;
   comprarIlha: (id: IlhaId) => boolean;
   ligarCabo: (id: IlhaId) => boolean;
-  melhorarCabo: (id: IlhaId) => boolean;
-  melhorarSubestacao: (indice: number) => boolean;
   setCasaMundoSobPonteiro: (indice: number | null) => void;
   selecionarCasa: (indice: number | null) => void;
   abrirArvore: () => void;
@@ -121,8 +154,21 @@ export interface GameStore {
   construirReator: () => boolean;
   /** Troca uma vareta gasta por uma nova (₵ 8 000). */
   trocarVareta: (indice: number) => boolean;
+  /** Troca todas as gastas que já podem sair, com um débito só (Parte 2 §5.1, v0.8). */
+  trocarTodasAsGastas: () => boolean;
   selecionarCasaNucleo: (indice: number | null) => void;
   setCasaSobPonteiro: (indice: number | null) => void;
+
+  // Ocorrências (Parte 1 §4.4, v0.9)
+  /** Aceita a oferta: o controle aparece e a câmera enquadra o Núcleo. Avisa se recusado. */
+  aceitarOcorrencia: () => boolean;
+  /** "Agora não": a oferta some sem custo. */
+  recusarOcorrencia: () => boolean;
+  /** Move o controle da Ocorrência (carga das turbinas ou potência das varetas), 1 = 100 %. */
+  ajustarControle: (valor: number) => boolean;
+  escolherRecompensa: (tipo: ocorrencias.TipoRecompensa) => boolean;
+  /** Última recompensa escolhida, para o "+3" aparecer no painel do Núcleo. Estado de interface. */
+  ultimaRecompensa: { tipo: ocorrencias.TipoRecompensa; valor: number; emTempoMs: number } | null;
   fecharRelatorioOffline: () => void;
   /** "Próximo" no card aberto; na última tela fecha e marca como visto. */
   avancarCard: () => void;
@@ -136,6 +182,16 @@ export interface GameStore {
 }
 
 /** Só vale a pena mostrar o relatório para ausências a partir de `minimoRelatorioMs`. */
+/** "Um Bipe está a caminho" ou "na fila, k à frente": o jogador sabe se a remoção já começou. */
+function mensagemDaFila(depois: GameState, ancora: number, nome: string): string {
+  const fila = depois.mundo.remocoes;
+  const r = fila.find((x) => x.indice === ancora);
+  if (!r || r.fimMs > 0) return `${nome}: um Bipe está a caminho.`;
+  const aFrente = fila.filter((x) => x.fimMs === 0).findIndex((x) => x.indice === ancora);
+  if (aFrente === 0) return `${nome}: é a próxima da fila (os ${mundo.bipesDe(depois)} Bipes estão ocupados).`;
+  return `${nome}: na fila, ${aFrente} à frente.`;
+}
+
 function relatorioVisivel(relatorio: RelatorioOffline | null): RelatorioOffline | null {
   return relatorio && relatorio.duracaoMs >= OFFLINE.minimoRelatorioMs ? relatorio : null;
 }
@@ -167,7 +223,44 @@ export const useGameStore = create<GameStore>()((set, get) => {
   const cardsIniciais = cardsDosEventos(inicial, []);
 
   /** Lê `state.eventos`, enfileira os cards devidos e abre o primeiro se nada está aberto. */
+  // Diário: cada evento entra uma vez só. As ações reaproveitam a fila do tick anterior
+  // (`[...state.eventos, novo]`), então o mesmo objeto chega de novo; o WeakSet barra a repetição.
+  const vistosNoDiario = new WeakSet<EventoJogo>();
+  let serieDiario = 0;
+  const arqDiario = arquipelagoDaEra1();
+  const registrarNoDiario = (state: GameState) => {
+    const novos = state.eventos.filter((e) => !vistosNoDiario.has(e));
+    if (novos.length === 0) return;
+    for (const e of novos) vistosNoDiario.add(e);
+    const nomeIlha = (indice: number) => {
+      const id = ilhaDaCasa(indice, arqDiario);
+      return id ? ilhaDef(id).nome : "alto-mar";
+    };
+    const ctx: ContextoDiario = { nomeIlha, nomeDoNivel: (e) => descreverNivel(state, e.alvo).nome, formatarCreditos };
+    // Remoções do mesmo lote agrupam por ilha ("12 obstáculos caíram em Bosque"); o resto, uma linha cada.
+    const linhas: { texto: string; ilha?: string; obstaculos?: TipoObstaculo[] }[] = [];
+    for (const e of novos) {
+      if (e.tipo === "obstaculoRemovido") {
+        const ilha = nomeIlha(e.indice);
+        const grupo = linhas.find((l) => l.ilha === ilha);
+        if (grupo) grupo.obstaculos!.push(e.obstaculo);
+        else linhas.push({ texto: "", ilha, obstaculos: [e.obstaculo] });
+        continue;
+      }
+      const texto = textoDoDiario(e, ctx);
+      if (texto) linhas.push({ texto });
+    }
+    if (linhas.length === 0) return;
+    const novas = linhas.map((l) => ({
+      id: ++serieDiario,
+      texto: l.obstaculos ? textoDeRemocao(l.obstaculos, l.ilha!) : l.texto,
+      emTempoMs: state.tempoMs,
+    }));
+    set({ diario: [...get().diario, ...novas].slice(-VIDA.diarioLinhas) });
+  };
+
   const processarEventos = (state: GameState) => {
+    registrarNoDiario(state);
     const { cardAberto, filaCards } = get();
     const enfileirados = [...filaCards, ...(cardAberto ? [cardAberto.id] : [])];
     const novos = cardsDosEventos(state, enfileirados);
@@ -218,6 +311,9 @@ export const useGameStore = create<GameStore>()((set, get) => {
     casaNucleoSelecionada: null,
     transicaoEraEm: null,
     arvoreAberta: false,
+    selecaoArea: null,
+    diario: [],
+    ultimaRecompensa: null,
 
     avancarTicks(n) {
       const { state, salvoEmTempoMs, pausado } = get();
@@ -228,13 +324,19 @@ export const useGameStore = create<GameStore>()((set, get) => {
       if (proximo.tempoMs - salvoEmTempoMs >= INTERVALO_SAVE_MS) salvarEstado(proximo);
     },
 
-    melhorarUsina: (id) => aplicar(acoes.melhorarUsina(get().state, id)),
-    pesquisar: (id) => aplicar(pesquisar(get().state, id)),
-    evoluirBairro(indice) {
-      const proximo = evoluirBairro(get().state, indice);
+    melhorar(alvo) {
+      const proximo = melhorar(get().state, alvo);
       if (!proximo) {
-        const v = avaliarEvolucao(get().state, indice);
-        avisar(indice, v.motivo ?? "Não dá para evoluir este bairro.");
+        avisar(-1, avaliarMelhoria(get().state, alvo).motivo ?? "Não dá para subir este nível.");
+        return false;
+      }
+      return aplicar(proximo);
+    },
+    pesquisar: (id) => aplicar(pesquisar(get().state, id)),
+    evoluirCidade() {
+      const proximo = evoluirCidade(get().state);
+      if (!proximo) {
+        avisar(get().casaSelecionada ?? -1, avaliarEvolucaoCidade(get().state).motivo ?? "Não dá para evoluir a cidade.");
         return false;
       }
       return aplicar(proximo);
@@ -259,7 +361,13 @@ export const useGameStore = create<GameStore>()((set, get) => {
           avisar(indice, v.motivo ?? "Não dá para remover aqui.");
           return false;
         }
-        return aplicar(mundo.removerObstaculo(state, indice));
+        const proximo = mundo.removerObstaculo(state, indice);
+        const ancora = mundo.ancoraDoObstaculo(state.mundo, indice);
+        // Com a ferramenta Desmatar só avisa quando a remoção fica esperando: tocar em série é o uso normal.
+        if (proximo && proximo.mundo.remocoes.some((r) => r.indice === ancora && r.fimMs === 0)) {
+          avisar(indice, mensagemDaFila(proximo, ancora, OBSTACULOS[mundo.obstaculoEm(state.mundo, indice)!].nome));
+        }
+        return aplicar(proximo);
       }
       const obstaculo = mundo.obstaculoEm(state.mundo, indice);
       if (obstaculo) {
@@ -268,22 +376,21 @@ export const useGameStore = create<GameStore>()((set, get) => {
           avisar(indice, v.motivo ?? "Não dá para remover aqui.");
           return false;
         }
-        avisar(indice, `${OBSTACULOS[obstaculo].nome}: o Bipe está a caminho.`);
-        return aplicar(mundo.removerObstaculo(state, indice));
+        const proximo = mundo.removerObstaculo(state, indice);
+        if (proximo) avisar(indice, mensagemDaFila(proximo, mundo.ancoraDoObstaculo(state.mundo, indice), OBSTACULOS[obstaculo].nome));
+        return aplicar(proximo);
       }
       const construcao = mundo.construcaoEm(state.mundo, indice);
       // Tocar numa construção sempre a seleciona: o callout da cena mostra os números e as ações
       // (ajuste 5 da Sessão 7). O painel da Cidade continua como segunda via.
       if (construcao) set({ casaSelecionada: indice });
-      if (construcao?.tipo === "bairro") {
-        // Com o bairro selecionado na paleta, tocar num bairro existente evolui (₵ + 🔬).
-        if (ferramentaMundo === "bairro") return get().evoluirBairro(indice);
-        return false;
-      }
-      if (construcao?.tipo === "subestacao" && ferramentaMundo === "subestacao") {
-        if (aplicar(mundo.melhorarSubestacao(state, indice))) return true;
-        const v = mundo.avaliarMelhoriaSubestacao(state, indice);
-        avisar(indice, v.motivo ?? "₵ insuficientes para o próximo nível da subestação.");
+      // Tocar num bairro só seleciona: evoluir custa × N bairros e fica no botão do callout e do painel.
+      if (construcao?.tipo === "bairro") return false;
+      // Com o mesmo tipo de subestação na paleta, tocar numa subestação sobe o nível do **tipo** (v0.8).
+      if (construcao && ehSubestacao(construcao.tipo) && ferramentaMundo === construcao.tipo) {
+        const alvo: AlvoMelhoria = { tipo: "subestacao", id: construcao.tipo };
+        if (aplicar(melhorar(state, alvo))) return true;
+        avisar(indice, avaliarMelhoria(state, alvo).motivo ?? "₵ insuficientes para o próximo nível das subestações.");
         return false;
       }
       if (construcao) return false;
@@ -298,6 +405,36 @@ export const useGameStore = create<GameStore>()((set, get) => {
     colocar: (indice, tipo) => aplicar(mundo.colocar(get().state, indice, tipo)),
     removerConstrucao: (indice) => aplicar(mundo.remover(get().state, indice)),
     desmatar: (indice) => aplicar(mundo.removerObstaculo(get().state, indice)),
+
+    iniciarArea: (casa) => set({ selecaoArea: { a: casa, b: casa, fase: "arrastando", cartaoEmCima: false }, casaSelecionada: null }),
+    estenderArea(casa) {
+      const sel = get().selecaoArea;
+      if (sel && sel.fase === "arrastando" && sel.b !== casa) set({ selecaoArea: { ...sel, b: casa } });
+    },
+    soltarArea(cartaoEmCima = false) {
+      const sel = get().selecaoArea;
+      if (!sel || sel.fase !== "arrastando") return;
+      const orcamento = mundo.orcarArea(get().state, mundo.retanguloDaArea(sel.a, sel.b, arquipelagoDaEra1().n));
+      if (orcamento.alvos.length === 0) {
+        avisar(sel.b, orcamento.motivo ?? "Nada para remover nesta área.");
+        set({ selecaoArea: null });
+        return;
+      }
+      set({ selecaoArea: { ...sel, fase: "confirmar", cartaoEmCima } });
+    },
+    confirmarArea() {
+      const { state, selecaoArea: sel } = get();
+      if (!sel) return false;
+      const ret = mundo.retanguloDaArea(sel.a, sel.b, arquipelagoDaEra1().n);
+      const proximo = mundo.removerArea(state, ret);
+      if (!proximo) {
+        avisar(sel.b, mundo.orcarArea(state, ret).motivo ?? "Não dá para remover esta área.");
+        return false;
+      }
+      set({ selecaoArea: null });
+      return aplicar(proximo);
+    },
+    cancelarArea: () => set({ selecaoArea: null }),
     comprarIlha(id) {
       const proximo = mundo.comprarIlha(get().state, id);
       if (!proximo) {
@@ -314,15 +451,6 @@ export const useGameStore = create<GameStore>()((set, get) => {
       }
       return aplicar(proximo);
     },
-    melhorarCabo(id) {
-      const proximo = mundo.melhorarCabo(get().state, id);
-      if (!proximo) {
-        avisar(-1, "₵ insuficientes para o próximo nível do cabo.");
-        return false;
-      }
-      return aplicar(proximo);
-    },
-    melhorarSubestacao: (indice) => aplicar(mundo.melhorarSubestacao(get().state, indice)),
     selecionarCasa: (indice) => set({ casaSelecionada: indice }),
     abrirArvore: () => set({ arvoreAberta: true }),
     fecharArvore: () => set({ arvoreAberta: false }),
@@ -397,7 +525,41 @@ export const useGameStore = create<GameStore>()((set, get) => {
       }
       return aplicar(proximo);
     },
+    trocarTodasAsGastas() {
+      const proximo = nucleo.trocarTodasAsGastas(get().state);
+      if (!proximo) {
+        avisar(-1, nucleo.avaliarTrocarTodas(get().state).motivo ?? "Nenhuma vareta pronta para trocar.");
+        return false;
+      }
+      return aplicar(proximo);
+    },
     selecionarCasaNucleo: (indice) => set({ casaNucleoSelecionada: indice }),
+
+    aceitarOcorrencia() {
+      const proximo = ocorrencias.aceitarOcorrencia(get().state);
+      if (!proximo) {
+        avisar(-1, ocorrencias.avaliarAceite(get().state).motivo ?? "Não dá para aceitar agora.");
+        return false;
+      }
+      // A cena mostra a perturbação no Núcleo (sombra da nuvem, turbina a meia rotação, barras no Vaso).
+      set({ nivel: "ilha", presetPedido: { nome: "ocorrencia", serie: (get().presetPedido?.serie ?? 0) + 1 } });
+      return aplicar(proximo);
+    },
+    recusarOcorrencia: () => aplicar(ocorrencias.recusarOcorrencia(get().state)),
+    ajustarControle(valor) {
+      const proximo = ocorrencias.ajustarControle(get().state, valor);
+      if (!proximo) return false;
+      if (proximo !== get().state) set({ state: proximo });
+      return true;
+    },
+    escolherRecompensa(tipo) {
+      const antes = get().state;
+      const proximo = ocorrencias.escolherRecompensa(antes, tipo);
+      if (!proximo) return false;
+      const valor = tipo === "estabilidade" ? (proximo.nucleo?.estabilidade ?? 0) - (antes.nucleo?.estabilidade ?? 0) : proximo.pesquisa - antes.pesquisa;
+      set({ ultimaRecompensa: { tipo, valor, emTempoMs: proximo.tempoMs } });
+      return aplicar(proximo);
+    },
     setCasaSobPonteiro: (indice) => {
       if (get().casaSobPonteiro !== indice) set({ casaSobPonteiro: indice });
     },
@@ -429,7 +591,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
       // Um save exportado há tempo também rende offline desde o carimbo.
       const agora = Date.now();
       const { state, relatorio } = calcularOffline(importarJson(json, agora), agora);
-      set({ state, avisoGrade: null, relatorioOffline: relatorioVisivel(relatorio), cardAberto: null, filaCards: [], pausado: false });
+      set({ state, avisoGrade: null, relatorioOffline: relatorioVisivel(relatorio), cardAberto: null, filaCards: [], pausado: false, selecaoArea: null, diario: [], ultimaRecompensa: null });
       salvarEstado(state);
     },
 
@@ -447,6 +609,9 @@ export const useGameStore = create<GameStore>()((set, get) => {
         cardAberto: null,
         filaCards: [],
         pausado: false,
+        selecaoArea: null,
+        diario: [],
+        ultimaRecompensa: null,
       });
       processarEventos(state);
     },
@@ -464,10 +629,17 @@ declare global {
       analisar: typeof analisarMundo;
       /** Atalho: análise do estado atual. */
       analise: () => ReturnType<typeof analisarMundo>;
+      /** O controle que compensa a perturbação (o roteiro da Sessão 10 opera como a rota operador). */
+      ocorrencias: { controleQueCompensa: typeof ocorrencias.controleQueCompensa };
     };
   }
 }
 
 if (import.meta.env.DEV && typeof window !== "undefined") {
-  window.__jogo = { store: useGameStore, analisar: analisarMundo, analise: () => analisarMundo(useGameStore.getState().state) };
+  window.__jogo = {
+    store: useGameStore,
+    analisar: analisarMundo,
+    analise: () => analisarMundo(useGameStore.getState().state),
+    ocorrencias: { controleQueCompensa: ocorrencias.controleQueCompensa },
+  };
 }

@@ -11,14 +11,16 @@ import { formatarCalor, formatarCreditos, formatarPorcentagem, formatarSegundos 
 import { calorNominalVaretaUs, fatorVidaVareta, fracaoDecaimento, temBarraVizinha, temPiscinaVizinha } from "../sim/reator";
 import { efeitosDe } from "../sim/efeitos";
 import { anel } from "../sim/nucleo";
+import { fatorPeca } from "../sim/niveis";
 import type { NucleoState } from "../sim/state";
 import { useGameStore } from "../store/gameStore";
 
-function detalhePeca(nucleo: NucleoState, indice: number, tempoMs: number, efeitos: ReturnType<typeof efeitosDe>): string[] {
+function detalhePeca(nucleo: NucleoState, indice: number, tempoMs: number, efeitos: ReturnType<typeof efeitosDe>, nivel: number): string[] {
   const casa = nucleo.grade[indice];
   if (!casa || casa.tipo !== "peca") return [];
   const a = Math.max(1, anel(indice, nucleo.lado));
-  const linhas: string[] = [PECA_POR_ID[casa.id].descricao, `anel ${a}`];
+  // O nível é do tipo (v0.8): os números abaixo já saem com ele, porque vêm dos efeitos do estado.
+  const linhas: string[] = [PECA_POR_ID[casa.id].descricao, nivel > 0 ? `anel ${a} · Nv ${nivel}: +${Math.round((fatorPeca(nivel) - 1) * 100)} %` : `anel ${a}`];
   if (casa.id === "vareta" && casa.vareta) {
     const v = casa.vareta;
     const vida = fatorVidaVareta(nucleo.grade, indice, nucleo.lado, efeitos);
@@ -47,7 +49,7 @@ export function CalloutPeca() {
   if (!casa || casa.tipo !== "peca") return null;
 
   const efeitos = efeitosDe(state);
-  const linhas = detalhePeca(nucleo, indice, state.tempoMs, efeitos);
+  const linhas = detalhePeca(nucleo, indice, state.tempoMs, efeitos, state.melhorias.pecas[casa.id]);
   const gasta = casa.id === "vareta" && casa.vareta?.gastaDesdeMs !== null && casa.vareta !== undefined;
   const troca = gasta ? avaliarTrocaVareta(state, indice) : null;
 

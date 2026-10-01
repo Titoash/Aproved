@@ -1193,6 +1193,14 @@ export function limitesIlha(arq: Arquipelago): { topo: Bbox; total: Bbox } {
 }
 
 /** Hit-test: plataforma (elevada) primeiro, depois o chão. Devolve [x, y] ou null. */
+/** Casa da grade sob o ponto, presa aos limites e sem descartar o mar (a seleção em área usa). */
+export function casaCruaEm(arq: Arquipelago, wx: number, wy: number): [number, number] {
+  const [fx, fy] = desiso(wx, wy);
+  const x = Math.min(arq.n - 1, Math.max(0, Math.floor(fx)));
+  const y = Math.min(arq.n - 1, Math.max(0, Math.floor(fy)));
+  return [x, y];
+}
+
 export function casaEm(arq: Arquipelago, wx: number, wy: number): [number, number] | null {
   const pl = arq.plataforma;
   let [fx, fy] = desiso(wx, wy + ELEV_PLAT);

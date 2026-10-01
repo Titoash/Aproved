@@ -58,9 +58,9 @@ describe("offline (GDD §7 v0.4)", () => {
     expect(relatorio.nucleoDesligado).toBe(false);
     // 16 kW × 0,7 = 11,2 kW → pesquisa/s = 1,12 × 1,3 = 1,456
     expect(relatorio.pesquisa).toBeCloseTo(1.12 * 1.3 * 600, 3);
-    // zona de ouro: 2,5/min × 0,7 × 10 min = 17,5
-    expect(relatorio.estabilidade).toBeCloseTo(17.5, 6);
-    expect(state.nucleo!.estabilidade).toBeCloseTo(57.5, 6);
+    // zona de ouro: as taxas novas também valem offline, com o fator ×0,7 (v0.9): 1,8/min × 0,7 × 10 min = 12,6
+    expect(relatorio.estabilidade).toBeCloseTo(12.6, 6);
+    expect(state.nucleo!.estabilidade).toBeCloseTo(52.6, 6);
     expect(state.nucleo!.calorU).toBeCloseTo(qEq, 6);
     expect(state.nucleo!.scramRestanteMs).toBe(0);
     expect(state.nucleo!.tempoAcimaDoLimiteMs).toBe(0);

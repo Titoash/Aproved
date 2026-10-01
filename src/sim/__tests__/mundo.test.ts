@@ -10,14 +10,7 @@ import {
   comprarIlha,
   custoCabo,
   custoColocar,
-  custoNivelCabo,
-  custoNivelSubestacao,
   ligarCabo,
-  melhorarCabo,
-  avaliarMelhoriaSubestacao,
-  melhorarSubestacao,
-  nivelCabo,
-  tetoCabo,
   obstaculoEm,
   passoRemocoes,
   podeColocar,
@@ -25,7 +18,7 @@ import {
   removerObstaculo,
   valorRemocao,
 } from "../mundo";
-import { quantidadeDe, temCristal, terrenoDeJogo, tetoSubestacao } from "../producao";
+import { quantidadeDe, temCristal, terrenoDeJogo } from "../producao";
 import { avancarTicks } from "../tick";
 import { estadoLimpo } from "./ajuda";
 
@@ -105,35 +98,6 @@ describe("colocar e remover (GDD §2.1, §7, v0.6)", () => {
     expect(avaliarCasa({ ...s, creditos: 0 }, casaLivre(0, 3), "cataVento").motivo).toBe("₵ insuficientes");
     expect(podeColocar(s, mar, "cataVento")).toBe(false);
   });
-
-  it("a subestação sobe de nível por ₵ × 3ⁿ e dobra o teto", () => {
-    const s0 = estadoLimpo(100_000);
-    const casa = casaLivre(0);
-    const s1 = colocar(s0, casa, "subestacao")!;
-    expect(custoNivelSubestacao(0)).toBe(SUBESTACAO.custoBase * 3);
-    const s2 = melhorarSubestacao(s1, casa)!;
-    expect(s2.mundo.construcoes[casa].nivel).toBe(1);
-    expect(s1.creditos - s2.creditos).toBeCloseTo(SUBESTACAO.custoBase * 3, 10);
-    expect(custoNivelSubestacao(1)).toBe(SUBESTACAO.custoBase * 9);
-  });
-
-  it("a subestação para no nível máximo 3 (teto 320 kW), e a segunda volta a ser decisão", () => {
-    // Ajuste 2 da Sessão 7: sem teto de nível, uma subestação melhorada cobria a ilha inteira.
-    expect(SUBESTACAO.nivelMax).toBe(3);
-    let s = estadoLimpo(10_000_000);
-    const casa = casaLivre(0);
-    s = colocar(s, casa, "subestacao")!;
-    for (let nivel = 0; nivel < SUBESTACAO.nivelMax; nivel++) {
-      expect(avaliarMelhoriaSubestacao(s, casa).ok).toBe(true);
-      s = melhorarSubestacao(s, casa)!;
-    }
-    expect(s.mundo.construcoes[casa].nivel).toBe(SUBESTACAO.nivelMax);
-    expect(tetoSubestacao(SUBESTACAO.nivelMax)).toBe(320);
-    const v = avaliarMelhoriaSubestacao(s, casa);
-    expect(v.ok).toBe(false);
-    expect(v.motivo).toContain("Nível máximo");
-    expect(melhorarSubestacao(s, casa)).toBeNull();
-  });
 });
 
 describe("obstáculos (GDD §8.5)", () => {
@@ -155,22 +119,26 @@ describe("obstáculos (GDD §8.5)", () => {
     expect(podeColocar(fim, arvore, "cataVento")).toBe(true);
   });
 
-  it("a fila roda uma remoção de cada vez", () => {
+  it("dois Bipes em paralelo: o terceiro espera e começa quando o primeiro termina", () => {
     const s0 = estadoLimpo(1000);
-    const a = casaComObstaculo("arbusto");
-    const b = arq.ilhas[0].casas.find((i) => i !== a && obstaculoEm(s0.mundo, i) === "arbusto")!;
-    const s1 = removerObstaculo(removerObstaculo(s0, a)!, b)!;
-    expect(s1.mundo.remocoes.map((r) => r.indice)).toEqual([a, b]);
-    expect(s1.mundo.remocoes[1].fimMs).toBe(0);
+    const [a, b, c] = arq.ilhas[0].casas.filter((i) => obstaculoEm(s0.mundo, i) === "arbusto").slice(0, 3);
+    const s1 = removerObstaculo(removerObstaculo(removerObstaculo(s0, a)!, b)!, c)!;
+    expect(s1.mundo.remocoes.map((r) => [r.indice, r.bipe, r.fimMs])).toEqual([
+      [a, 0, OBSTACULOS.arbusto.tempoMs],
+      [b, 1, OBSTACULOS.arbusto.tempoMs],
+      [c, undefined, 0],
+    ]);
     const depois = avancarTicks(s1, OBSTACULOS.arbusto.tempoMs / 100);
     expect(obstaculoEm(depois.mundo, a)).toBeNull();
-    expect(obstaculoEm(depois.mundo, b)).toBe("arbusto");
-    expect(depois.mundo.remocoes[0].fimMs).toBeGreaterThan(depois.tempoMs);
+    expect(obstaculoEm(depois.mundo, b)).toBeNull();
+    expect(depois.mundo.remocoes).toEqual([
+      { indice: c, tipo: "arbusto", inicioMs: OBSTACULOS.arbusto.tempoMs, fimMs: 2 * OBSTACULOS.arbusto.tempoMs, bipe: 0 },
+    ]);
     const fim = avancarTicks(depois, OBSTACULOS.arbusto.tempoMs / 100);
-    expect(obstaculoEm(fim.mundo, b)).toBeNull();
+    expect(obstaculoEm(fim.mundo, c)).toBeNull();
   });
 
-  it("a montanha 2×2 sai inteira, exige 🔬 20, devolve 🔬 40 e deixa cristal", () => {
+  it("a montanha 2×2 sai inteira, gasta 🔬 20, devolve 🔬 40 e deixa cristal", () => {
     const ancora = arq.montanhas[0];
     const s0 = estadoLimpo(1000);
     expect(removerObstaculo(s0, ancora)).toBeNull(); // ilha fechada
@@ -180,6 +148,9 @@ describe("obstáculos (GDD §8.5)", () => {
     const s1 = removerObstaculo(comCiencia, ancora + n + 1)!; // toca no canto sudeste
     expect(s1.mundo.remocoes[0].indice).toBe(ancora);
     expect(comCiencia.creditos - s1.creditos).toBe(OBSTACULOS.montanha.custo);
+    expect(s1.pesquisa).toBe(0);
+    // qualquer das quatro casas diz que a montanha já está na fila
+    expect(avaliarCasa(s1, ancora + 1, "cataVento").motivo).toBe("Removendo…");
     const fim = avancarTicks(s1, OBSTACULOS.montanha.tempoMs / 100);
     for (const casa of [ancora, ancora + 1, ancora + n, ancora + n + 1]) {
       expect(obstaculoEm(fim.mundo, casa)).toBeNull();
@@ -187,7 +158,7 @@ describe("obstáculos (GDD §8.5)", () => {
       expect(temCristal(fim.mundo, casa)).toBe(true);
       expect(terrenoDeJogo(fim.mundo, casa)).toBe("rocha");
     }
-    expect(fim.pesquisa).toBe(comCiencia.pesquisa + OBSTACULOS.montanha.devolvePesquisa!);
+    expect(fim.pesquisa).toBe(comCiencia.pesquisa - OBSTACULOS.montanha.pesquisa! + OBSTACULOS.montanha.devolvePesquisa!);
   });
 
   it("pico é permanente", () => {
@@ -219,20 +190,6 @@ describe("expedição e cabo (GDD §8.5)", () => {
     expect(aberta.creditos - ligada.creditos).toBe(custo);
     expect(ligada.mundo.cabos).toEqual({ ventania: 0 });
     expect(ligarCabo(ligada, "ventania")).toBeNull();
-  });
-
-  it("o cabo tem nível: custo da rota × 3ⁿ e teto × 2ⁿ (GDD §8.5)", () => {
-    const aberta = comprarIlha(estadoLimpo(1e9), "ventania")!;
-    const ligada = ligarCabo(aberta, "ventania")!;
-    expect(nivelCabo(ligada.mundo, "ventania")).toBe(0);
-    expect(tetoCabo(0)).toBe(CABO.tetoKw);
-    expect(tetoCabo(2)).toBe(CABO.tetoKw * 4);
-    const custo = custoNivelCabo("ventania", 0);
-    expect(custo).toBe(custoCabo("ventania") * CABO.custoNivel);
-    const nivel1 = melhorarCabo(ligada, "ventania")!;
-    expect(ligada.creditos - nivel1.creditos).toBe(custo);
-    expect(nivelCabo(nivel1.mundo, "ventania")).toBe(1);
-    expect(melhorarCabo(estadoLimpo(10), "ventania")).toBeNull(); // sem cabo, sem nível
   });
 
   it("passoRemocoes não muda nada com a fila vazia", () => {

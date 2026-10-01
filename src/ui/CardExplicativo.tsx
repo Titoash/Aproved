@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { CARDS_ERA1 } from "../content/cards-era1";
+import { CARDS } from "../content/cards-era1";
 import { formatarNumero } from "../sim/formatar";
 import { useGameStore } from "../store/gameStore";
 import { Bipe } from "./bipe/Bipe";
@@ -24,7 +24,8 @@ export function CardExplicativo() {
   const ultimaCascata = useGameStore((s) => s.state.nucleo?.ultimaCascata ?? null);
   const avancarCard = useGameStore((s) => s.avancarCard);
   if (!aberto) return null;
-  const def = CARDS_ERA1[aberto.id];
+  // As duas eras: com só a Era 1 aqui, um card da Era 2 abria invisível e travava a fila (Sessão 10).
+  const def = CARDS[aberto.id];
   if (!def) return null;
   const tela = def.telas[Math.min(aberto.tela, def.telas.length - 1)];
   const ultima = aberto.tela >= def.telas.length - 1;

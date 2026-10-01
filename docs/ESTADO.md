@@ -1,6 +1,6 @@
 # Estado do projeto
 
-Atualizado ao fim da **Sessão 8** (Era 2: reator PWR com combustível finito e calor de decaimento, transição de era, Rede em MW, cidade 5–6, árvore e capítulos da Era 2). **O MVP fechou: Eras 1–2 jogáveis de ponta a ponta.**
+Atualizado ao fim da **Sessão 10** (Ocorrências, o sub-jogo opcional de operação do Núcleo, e a Estabilidade em 1,8/1,2; GDD v0.9). As Eras 1–2 continuam jogáveis de ponta a ponta.
 
 ## Implementado
 
@@ -40,8 +40,85 @@ Atualizado ao fim da **Sessão 8** (Era 2: reator PWR com combustível finito e 
 - **Testes (`npm test`, 343)** com a tabela de §5.3 inteira e o teste obrigatório da sessão; **`scripts/e2e/sessao-8.cjs`** com 82 verificações nos dois tamanhos, e os roteiros das Sessões 6 (52) e 7 (76) verdes como regressão; capturas em `docs/capturas/sessao-8/`.
 - **Balanceamento (`npm run simular`):** o bot atravessa a Era 1, constrói o Reator aos 44 min e joga a Era 2. **A Era 2 fecha em 60,9 min** (alvo 50–70) e a receita líquida **nunca fica negativa**.
 
+### Sessão 9 — Melhorias por tipo, cidade inteira, remoção em área, HUD limpo e cena viva (GDD v0.8/v0.9)
+- **Parte 0 (ajustes da Sessão 8 e defeitos da v0.9):** callout da subestação offshore com a ilha dela; rotas "corrida" e "cidade" na simulação; Arcologia exige só a Megacidade; `loop.ts` sem nome de navegador e teste de pureza do sim; **offline do reator integrado por trechos** enquanto as varetas esgotam (8 h fora não rendem mais 48× a 🔬 de 10 min); Estabilidade da Era 2 só com fissão.
+- **Melhorias por tipo (`sim/melhorias.ts`, `sim/niveis.ts`, `content/melhorias.ts`):** usinas (+50 %, máx. 5), peças do Núcleo nas duas eras (+10 %, máx. 5), subestações e cabos (teto ×2), **ciência com nível** (+25 % de 🔬, máx. 5) e Equipe de manutenção (+1 Bipe, máx. 4). Unidade nova de subestação ou ciência **paga o acumulado do nível** (revisão da v0.9). Save **v9** com migração v8 → v9.
+- **Cidade inteira:** `state.cidade.densidade`; evoluir custa ₵ e 🔬 × N bairros; bairro novo nasce na densidade da cidade e paga o acumulado (tanto faz evoluir antes ou depois de construir).
+- **Núcleo:** "Nv n" desenhado na peça e botão de nível no seletor; **"Trocar todas as gastas"** na Era 2.
+- **Remoção:** tempos pela metade, **N Bipes em paralelo** (2 de nascença), nós Máquinas pesadas e Escavadeiras (÷2 cada), **seleção em área** (arrastar com Desmatar ou Shift no desktop; toque longo no celular) com confirmação de custo e tempo; a fila anda offline; a montanha **gasta** 🔬 20.
+- **HUD limpo:** quatro números (₵ líquido, ⚡ como r, 🔥 com a Estabilidade em anel, 🔬); 👥 no painel da Cidade e no callout do bairro, 🛡 no painel do Núcleo; capítulo numa linha (e não cobre mais o tabuleiro no desktop); **nível na carta da paleta** (a lista "Níveis" saiu).
+- **Ver acontecendo:** fios da subestação a cada consumidor com pulsos na cor da faixa de r; pulsos nos cabos no sentido do fluxo; "+₵" e "+🔬" (pool de 12); janelas acesas pelo atendimento, piscando no apagão; Bipes andando até o obstáculo; fumaça só com a térmica ligada; brilho do Núcleo ∝ T; **diário** de três linhas no rodapé do tabuleiro. Custo por quadro com o mundo cheio e 6 Bipes: **no máximo +0,7 ms** (teto do GDD: +3 ms), medido com `scripts/e2e/perf-cena.cjs`.
+- **GDD v0.9 revisado** (32 achados da revisão adversarial aplicados) e **🔬 da megacidade e da arcologia recalibradas** (1 000 e 3 000 por bairro; com a cidade inteira a arcologia custava 🔬 450–750 mil).
+- **Balanceamento (`npm run simular`):** cada rota joga as duas eras; o bot compra níveis. Era 1: 41,5 / 42,3 min (piso da 🛡); Era 2 corrida **48,1 min**, cidade **68,3 min** (arcologia aos 67,3). Sem a ciência com nível: Era 2 corrida 51,7 e a cidade não fecha. Minutos parados até o fechamento: 15 de 91 (corrida) e 30 de 112 (cidade), contra ≈ 36 de ≈ 105 na medida da v0.9.
+- **Testes:** 502 no Vitest; `scripts/e2e/sessao-9.cjs` nos dois tamanhos; roteiros 6, 7 e 8 atualizados às APIs novas; capturas em `docs/capturas/sessao-9/`. Relatório: `docs/sessoes/sessao-9-relatorio.md`.
+- **Depois da entrega:** "Resetar" pede confirmação no próprio rodapé ("Apagar tudo" / "Cancelar", Esc cancela) em vez de `window.confirm`, que o visualizador do artifact bloqueia; no celular a pergunta rola para a vista.
+
+### Sessão 10 — Ocorrências: a espera vira operação (GDD v0.9)
+- **Parte 0:** não havia `sessao-9-ajustes.md`. O autor mandou começar, e as decisões da Sessão 9 ficaram como estavam.
+- **Estabilidade em +1,8/min no ouro e +1,2/min fora dele** (Parte 1 §7), também offline com ×0,7.
+- **`content/ocorrencias.ts`:** as seis Ocorrências, cada uma com perturbação, perfil, exigência, meta e frase de física:
+  - Era 1: Nuvem, Céu limpo e frio, Turbina em meia carga;
+  - Era 2: Seguimento de carga, Xenônio, Turbina em meia carga.
+- **Motor:** multiplicadores das Ocorrências sobre a entrada, a dissipação e o fator das turbinas. Na Era 2, o `MotorCalor` separa a injeção ativa do decaimento, e barras e Xenônio só multiplicam a ativa. Nenhuma fórmula mudou.
+- **`sim/ocorrencias.ts`:**
+  - relógio de 4 min de jogo ativo, que só anda com o Núcleo desbloqueado;
+  - sorteio determinístico entre as Ocorrências que a grade pode ganhar;
+  - primeira oferta Nuvem (ou Xenônio na Era 2), e Xenônio depois de um SCRAM da Era 2;
+  - bloqueio em SCRAM, sem turbina ou desligado;
+  - aceitar, controle, recusar e recompensa (🛡 +3 ou 60 s de 🔬);
+  - meta no tick, com Cascata ou SCRAM reprovando;
+  - o offline descarta oferta e Ocorrência em curso.
+- **Save v10**, com migração a partir da v9.
+- **Interface:**
+  - cartão sobre o pé do tabuleiro, com oferta, Ocorrência em curso e escolha da recompensa;
+  - controle grande, horizontal para a carga e vertical com o ícone das barras;
+  - faixa-alvo e marca de Q* viva na barra de calor;
+  - 🔥 do HUD pulsando, e tocar nele leva ao cartão;
+  - "🛡 +3" ao lado da Estabilidade;
+  - diário e card "Ocorrências" (2 telas, pausa o jogo).
+- **Cena:**
+  - sombra da nuvem atravessando o campo, com os feixes esmaecendo;
+  - céu mais claro;
+  - turbina girando pela metade;
+  - barras de controle saindo do topo do Vaso.
+- **Simulação:** rota **operador**; corrida e cidade recusam toda oferta. Sem calibrar nada:
+
+  | Rota | Era 1 | Era 2 |
+  |---|---|---|
+  | corrida | 56,9 min | 57,8 min |
+  | cidade | 57,6 min | 67,0 min |
+  | operador | **43,0 min** | **47,3 min** |
+
+  A rota operador superou 24 Ocorrências em 24 e ficou no máximo 3 min parada. Resultado registrado na Parte 1 §4.4 e na Parte 2 §5.4.
+- **Defeito da Sessão 8 corrigido:** o card explicativo lia só os cards da Era 1. Os da Era 2 abriam invisíveis e travavam a fila.
+- **Testes:**
+  - Vitest com as duas tabelas e o teste obrigatório;
+  - `scripts/e2e/sessao-10.cjs` nos dois tamanhos, com regressões 6–9;
+  - capturas em `docs/capturas/sessao-10/`.
+- Relatório: `docs/sessoes/sessao-10-relatorio.md`.
+- **Branch:** a Sessão 10 entrou em `claude/adoring-fermat-wnbjgz`, por cima da 9, porque é o único branch em que esta sessão pode fazer push. Detalhes no relatório.
+
 ## Próxima sessão
-`docs/sessoes/sessao-9.md` — melhorias por tipo em dois degraus, cidade que evolui inteira, Núcleo com nível por peça, remoção rápida e em área, HUD limpo e "ver acontecendo" (GDD v0.8, `docs/correcoes-gdd-v0.8.md`). A Era 3 passa para a Sessão 10.
+A Era 3 (Tokamak, contenção magnética) é a Sessão 11 (Parte 1 §12; Parte 2 §6). A gestão escreve `docs/sessoes/sessao-11.md` e, ao revisar a 10, `docs/sessoes/sessao-10-ajustes.md`.
+
+## Decisões da Sessão 10 que a gestão precisa confirmar
+Estão detalhadas em `docs/sessoes/sessao-10-relatorio.md` e registradas na Parte 1 §4.4. Em resumo:
+1. **O cartão da Ocorrência fica sobre o pé do tabuleiro**, não dentro do painel do Núcleo (que tem ≈ 160 px visíveis no desktop). Aceitar enquadra o Núcleo no terço de cima.
+2. **O relógio dos 4 min só anda com o Núcleo desbloqueado.**
+3. **A meta de potência usa a potência bruta** (sem o ×0,7 do modo seguro, que senão cumpria o Seguimento sozinho).
+4. **A 🔬 da recompensa é a do instante em que a Ocorrência é superada.** A escolha pendente vai para o save e segura o relógio.
+5. **O card "Ocorrências" pausa o jogo.**
+6. **A primeira oferta e o Xenônio depois de um SCRAM são preferências:** se a grade não pode ganhá-los, sai o sorteio normal.
+7. **"Desligado" é o Núcleo sem calor líquido**, e a era nova descarta a oferta ou a Ocorrência em curso.
+
+## Decisões da Sessão 9 que a gestão precisa confirmar
+Estão detalhadas em `docs/sessoes/sessao-9-relatorio.md`. Em resumo:
+1. **Unidade nova de subestação ou ciência paga o acumulado do nível do tipo** (Parte 1 §7.1), como o bairro novo: sem isso, subir o nível com uma unidade e construir depois dividia o custo por N.
+2. **🔬 da megacidade e da arcologia: 1 000 e 3 000 por bairro** (eram 3 000 e 15 000; Parte 2 §4.1). O ₵ ficou.
+3. **A fila de remoção anda offline** (é trabalho já pago) e **a montanha gasta os 🔬 20** (o código só exigia o saldo).
+4. **Seleção em área no desktop só com Desmatar ou Shift**; com as outras ferramentas arrastar continua movendo a câmera. Área **tudo ou nada**.
+5. **Janelas: piscam no apagão (r < 0,8) e apagam abaixo de metade atendida** (§10.1 dizia r < 0,5, mas o apagão começa em 0,8).
+6. **A Era 2 corrida fecha em 48,1 min** (abaixo de 50) porque agora o piso é a Estabilidade, não a 🔬; a Sessão 10 sobe o piso para ≈ 56 com 1,8/1,2.
 
 ## Decisões da Sessão 8 que a gestão precisa confirmar
 Estão detalhadas em `docs/sessoes/sessao-8-relatorio.md`. Em resumo:
@@ -55,11 +132,30 @@ Estão detalhadas em `docs/sessoes/sessao-8-relatorio.md`. Em resumo:
 ## Pendências
 Decisões da gestão sobre estas pendências: `docs/sessoes/sessao-8-ajustes.md` (a Sessão 9 aplica antes da parte A).
 
-- **Cortes assumidos da Era 2:** nenhum. Instituto, bateria de rede, rede inteligente, selo verde e distrito industrial (a ordem de corte da especificação) entraram todos.
-- **O distrito industrial e o instituto não aparecem no jogo do bot** dentro dos 75 minutos simulados: ele prioriza a saída da era. Os dois estão testados no Vitest e no roteiro Playwright, mas nunca foram vistos num playtest de ritmo.
-- **A Era 2 fecha em 60,9 min com o bot jogando para fechar.** Um jogador que evolua a cidade até o fim chega a 47 MW instalados mas demora mais: as duas rotas cabem na janela, e só o playtest humano diz qual é a natural.
-- **A arcologia (densidade 6) nunca foi alcançada na simulação** — o nó custa 🔬 14 000 e vem depois do instituto. Vale conferir se ela não ficou cara demais para o tempo da era.
-- **A escolha exclusiva Água pesada × Alta temperatura não foi exercitada pelo bot** (ela vem depois do Reator 7×7, já na reta final). Está testada como regra, não como decisão de ritmo.
-- **O bairro na cena tem callout de toque; a peça do Núcleo também.** O que falta é o callout da **subestação offshore no mar** — ela é selecionável, mas o texto do callout não diz a qual ilha ela pertence.
+### Da Sessão 10
+- **A "Onda de calor" atingiu a condição de volta** (Parte 2 §5.4): as rotas cidade e operador terminam a Era 2 com 1 torre e `T*` de 84 % e 81 %. Não entrou, porque é uma sétima Ocorrência sem números no GDD. Decisão da gestão; a proposta está no relatório.
+- **A rota operador fecha com a cidade pequena** (Vila na saída da Era 1; 60 MW e 301 mil habitantes no fim da Era 2, contra 166 MW e 5,7 milhões na corrida). Operar troca crescimento por tempo; só o playtest diz se a Era 1 fica rápida demais para quem joga tudo.
+- **O roteiro e2e joga contra o relógio real:** o jogo anda entre os passos do Playwright. O roteiro compara antes e depois dentro da página e liga um "operador" enquanto captura.
+- **"1 ÷ multiplicador" (parte F)** só vale sem radiador e sem decaimento. A rota operador e os testes usam o controle que devolve o Q* de antes.
+
+### Da Sessão 9
+- **Cortes da Sessão 9:** nenhum da ordem de corte (fumaça, "+🔬" e Escavadeiras entraram).
+- **A rota cidade da simulação é sensível ao bot:** a Era 2 fechou entre 45,7 e 70,5 min em rodadas com pequenas mudanças de decisão. No começo da Era 2 ela fica parada juntando ₵ e 🔬 para evoluir a cidade inteira à megacidade; só o playtest humano diz se essa espera é boa (é uma decisão grande) ou ruim.
+- **Rolagem de 9 px no painel do Núcleo no desktop de 800 px de altura:** com o capítulo numa linha própria, o painel abaixo do tabuleiro fica com ≈ 160 px e rola; o título "Núcleo · Torre Solar" pode aparecer cortado. Existia antes (escondido pela sobreposição do capítulo).
+- **Os "+₵" só nascem no que está na tela** e o pool é de 12: com a ilha inteira no quadro (preset "ilha", modo mapa) quase não aparecem. É o orçamento do GDD; dá para rever se a gestão quiser mais.
+- **Rolagem automática na borda durante a seleção em área** não entrou (o retângulo para em 8×8 casas, que cabem na tela no zoom de jogo).
+- **Equipe de manutenção** só é comprada pelo bot na rota cidade (Nv 1 aos 34 min); na corrida o espaço não chega a travar.
+- **O pool de "+₵" e o diário não vão para o save** (estado de interface), por desenho.
+- **No artifact, "Exportar JSON" não baixa o arquivo** (o visualizador bloqueia downloads); o JSON continua indo para a caixa de texto, de onde dá para copiar. Fora do artifact o download funciona.
+
+### Da Sessão 8
+- **O callout da subestação offshore** diz a ilha dela desde a Sessão 9 (resolvido).
+- **O distrito industrial, o instituto, a arcologia e a escolha exclusiva** aparecem no jogo do bot desde a Sessão 9 (resolvido na medida).
 - Régua Kardashev, `OffscreenCanvas`, Android real e o cristal sem arte própria na régua do minimapa continuam como na Sessão 6.
 - Remover um obstáculo comum (árvore, pedra, pântano) continua sem devolver nada — por desenho (ajuste 4 da Sessão 7).
+
+### Registradas na v0.9 (gestão)
+- **"15 minutos por dia" como tema do jogo: em stand by** por decisão do autor. O levantamento parcial e onde retomar estão em `docs/analises/15-minutos-por-dia.md`.
+- ~~Offline do reator rende a janela inteira~~ — resolvido na parte 0 da Sessão 9 (integração por trechos).
+- **Aba em segundo plano perde o tempo:** o loop acumula no máximo 5 s e voltar à aba não aplica o offline; a mesma ausência vale ≈ 0 com a aba viva e até 8 h se o navegador descartou a aba. O GDD só manda aplicar o offline "no load" (Parte 1 §11); §7 define a janela e diz "ao voltar", sem tratar a aba que volta do segundo plano. Decisão pendente da gestão.
+- **O offline enche a Estabilidade e o caixa:** 8 h fora dão 840 pontos de Estabilidade (a barra inteira) e ≈ ₵ 16,9 milhões com a receita do fim da Era 1. O ritmo de 60 min por era só vale para quem joga sem fechar, e a simulação nunca simula ausência. Não bloqueia as Sessões 9 e 10; é o primeiro ponto se a ideia dos 15 minutos voltar.

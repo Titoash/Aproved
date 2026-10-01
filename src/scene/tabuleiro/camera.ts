@@ -44,17 +44,34 @@ export interface RetornoToque {
   wy: number;
 }
 
+/**
+ * Seleção em área (GDD §8.5, v0.8). No mouse, arrastar com o botão esquerdo seleciona quando
+ * `podeIniciar` deixa (ferramenta Desmatar ou Shift) — senão move a câmera, como sempre; o botão do meio
+ * ou direito sempre move. No toque, segurar parado `TOQUE_LONGO_MS` começa a seleção; mexer antes disso
+ * é pan, e um segundo dedo cancela e vira pinça.
+ */
+export interface OuvinteSelecao {
+  podeIniciar: (p: RetornoToque, origem: "mouse" | "toque", shift: boolean) => boolean;
+  inicio: (p: RetornoToque) => void;
+  mover: (p: RetornoToque) => void;
+  fim: (p: RetornoToque) => void;
+  cancelar: () => void;
+}
+
 export interface Ouvintes {
   toque: (p: RetornoToque) => void;
   toqueDuplo?: (p: RetornoToque) => void;
   hover: (p: RetornoToque | null) => void;
   mudou: () => void;
+  selecao?: OuvinteSelecao;
 }
 
 const ZOOM_MIN = 0.12;
 const ZOOM_MAX = 2.6;
 const LIMIAR_ARRASTO_PX = 6;
 const TOQUE_MAX_MS = 250;
+/** Segurar parado este tempo, no toque, começa a seleção em área (maior que o toque, para não confundir). */
+const TOQUE_LONGO_MS = 450;
 /** Janela do toque duplo, em ms de relógio real. */
 const DUPLO_TOQUE_MS = 300;
 const DURACAO_TRANSICAO_S = 0.9;
@@ -84,6 +101,12 @@ interface Arrasto {
   ultT: number;
   vx: number;
   vy: number;
+  /** "pan" move a câmera; "selecao" estende a área; "indefinido" até passar do limiar ou do toque longo. */
+  modo: "indefinido" | "pan" | "selecao";
+  origem: "mouse" | "toque";
+  shift: boolean;
+  /** Timer do toque longo (só toque). */
+  timer: ReturnType<typeof setTimeout> | null;
 }
 
 export class ControleCamera {
@@ -133,13 +156,18 @@ export class ControleCamera {
     return c;
   }
 
-  /** Enquadra a ilha na área livre (desktop: reserva a escada à esquerda; celular: pela largura, a 45 % da altura). */
-  presetIlha(nome: "ilha" | "nucleo"): Camera {
+  /**
+   * Enquadra a ilha na área livre (desktop: reserva a escada à esquerda; celular: pela largura, a 45 % da altura).
+   * "ocorrencia" enquadra o Núcleo mais longe e no terço de cima: o cartão da Ocorrência ocupa o pé do tabuleiro,
+   * e a plataforma (sombra da nuvem, turbina a meia rotação, barras no Vaso) precisa ficar à vista.
+   */
+  presetIlha(nome: "ilha" | "nucleo" | "ocorrencia"): Camera {
     const { w, h } = this;
-    if (nome === "nucleo") {
+    if (nome === "nucleo" || nome === "ocorrencia") {
       const c = this.deps.centroNucleo();
-      const zoom = 1.4;
-      return { zoom, tx: w / 2 - c[0] * zoom, ty: h / 2 - (c[1] - 56) * zoom, w, h };
+      const zoom = nome === "ocorrencia" ? 1 : 1.4;
+      const centroY = nome === "ocorrencia" ? h * 0.3 : h / 2;
+      return { zoom, tx: w / 2 - c[0] * zoom, ty: centroY - (c[1] - 56) * zoom, w, h };
     }
     const b = this.deps.limitesIlha();
     const x0 = b.x0;
@@ -226,9 +254,9 @@ export class ControleCamera {
   }
 
   /** Preset da ilha ('ilha' ou 'nucleo') ou um nível da escada. */
-  preset(nome: "ilha" | "nucleo" | NivelId, imediato = false): void {
+  preset(nome: "ilha" | "nucleo" | "ocorrencia" | NivelId, imediato = false): void {
     if (this.transicao && !imediato) return;
-    if (nome !== "ilha" && nome !== "nucleo" && NIVEIS.some((n) => n.id === nome)) {
+    if (nome !== "ilha" && nome !== "nucleo" && nome !== "ocorrencia" && NIVEIS.some((n) => n.id === nome)) {
       if (imediato || this.nivel === nome) {
         this.transicao = null;
         this.nivel = nome;
@@ -242,7 +270,7 @@ export class ControleCamera {
         this.nivel = "ilha";
       } else this.irPara("ilha");
     }
-    const destino = this.presetIlha(nome === "nucleo" ? "nucleo" : "ilha");
+    const destino = this.presetIlha(nome === "nucleo" || nome === "ocorrencia" ? nome : "ilha");
     if (imediato || this.nivel !== "ilha") {
       this.cams.ilha = destino;
       this.anim = null;
@@ -335,14 +363,29 @@ export class ControleCamera {
       const [wx, wy] = this.paraMundo(px, py);
       return { px, py, wx, wy };
     };
+    const selecao = ouvintes.selecao;
+    const pararTimer = (a: Arrasto | null) => {
+      if (a?.timer) {
+        clearTimeout(a.timer);
+        a.timer = null;
+      }
+    };
+    const cancelarSelecao = () => {
+      if (arrasto?.modo === "selecao") selecao?.cancelar();
+      pararTimer(arrasto);
+    };
     const onDown = (e: PointerEvent) => {
-      if (e.button !== undefined && e.button > 0) return;
+      const origem = e.pointerType === "mouse" ? "mouse" : "toque";
+      // Botão do meio ou direito: só move a câmera (é o pan quando o esquerdo está selecionando).
+      const panForcado = origem === "mouse" && (e.button === 1 || e.button === 2);
+      if (e.button !== undefined && e.button > 0 && !panForcado) return;
       el.setPointerCapture(e.pointerId);
       const [x, y] = posLocal(e);
       ponteiros.set(e.pointerId, { x, y });
       this.anim = null;
       this.inercia = null;
       if (ponteiros.size === 2) {
+        cancelarSelecao();
         const [a, b] = [...ponteiros.values()];
         const c = this.camDe();
         const mx = (a.x + b.x) / 2;
@@ -352,7 +395,37 @@ export class ControleCamera {
       } else if (ponteiros.size === 1) {
         const c = this.camDe();
         const agora = performance.now();
-        arrasto = { x0: x, y0: y, tx0: c.tx, ty0: c.ty, t0: agora, moveu: false, ultX: x, ultY: y, ultT: agora, vx: 0, vy: 0 };
+        const novo: Arrasto = {
+          x0: x,
+          y0: y,
+          tx0: c.tx,
+          ty0: c.ty,
+          t0: agora,
+          moveu: false,
+          ultX: x,
+          ultY: y,
+          ultT: agora,
+          vx: 0,
+          vy: 0,
+          modo: panForcado ? "pan" : "indefinido",
+          origem,
+          shift: e.shiftKey,
+          timer: null,
+        };
+        arrasto = novo;
+        if (selecao && origem === "toque") {
+          novo.timer = setTimeout(() => {
+            novo.timer = null;
+            if (arrasto !== novo || novo.moveu || ponteiros.size !== 1) return;
+            const p = retorno(novo.x0, novo.y0);
+            if (!selecao.podeIniciar(p, "toque", false)) return;
+            novo.modo = "selecao";
+            if (typeof navigator !== "undefined") navigator.vibrate?.(15);
+            ouvintes.hover(null);
+            selecao.inicio(p);
+            ouvintes.mudou();
+          }, TOQUE_LONGO_MS);
+        }
       }
       e.preventDefault();
     };
@@ -378,11 +451,26 @@ export class ControleCamera {
         return;
       }
       if (arrasto) {
+        if (arrasto.modo === "selecao") {
+          selecao?.mover(retorno(x, y));
+          return;
+        }
         const dx = x - arrasto.x0;
         const dy = y - arrasto.y0;
         if (!arrasto.moveu && Math.hypot(dx, dy) > LIMIAR_ARRASTO_PX) {
           arrasto.moveu = true;
+          pararTimer(arrasto);
           ouvintes.hover(null);
+          if (arrasto.modo === "indefinido") {
+            const p0 = retorno(arrasto.x0, arrasto.y0);
+            if (selecao && arrasto.origem === "mouse" && selecao.podeIniciar(p0, "mouse", arrasto.shift || e.shiftKey)) {
+              arrasto.modo = "selecao";
+              selecao.inicio(p0);
+              selecao.mover(retorno(x, y));
+              return;
+            }
+            arrasto.modo = "pan";
+          }
         }
         if (arrasto.moveu) {
           c.tx = arrasto.tx0 + dx;
@@ -403,9 +491,16 @@ export class ControleCamera {
       const [x, y] = posLocal(e);
       ponteiros.delete(e.pointerId);
       if (ponteiros.size < 2) pinch = null;
+      if (arrasto && ponteiros.size === 0 && arrasto.modo === "selecao") {
+        selecao?.fim(retorno(x, y));
+        arrasto = null;
+        ouvintes.mudou();
+        return;
+      }
+      pararTimer(arrasto);
       if (arrasto && ponteiros.size === 0) {
         const dur = performance.now() - arrasto.t0;
-        if (!arrasto.moveu && dur < TOQUE_MAX_MS) {
+        if (!arrasto.moveu && dur < TOQUE_MAX_MS && arrasto.modo !== "pan") {
           // Relógio real, não o da animação: com o quadro lento (software), dois toques deliberados
           // em casas vizinhas viravam toque duplo e o jogador não conseguia colocar duas peças seguidas.
           const ts = performance.now();
@@ -426,8 +521,13 @@ export class ControleCamera {
     const onCancel = (e: PointerEvent) => {
       ponteiros.delete(e.pointerId);
       if (ponteiros.size < 2) pinch = null;
-      if (ponteiros.size === 0) arrasto = null;
+      if (ponteiros.size === 0) {
+        cancelarSelecao();
+        arrasto = null;
+      }
     };
+    // O botão direito move a câmera: sem o menu do navegador por cima.
+    const onMenu = (e: Event) => e.preventDefault();
     const onLeave = () => ouvintes.hover(null);
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -443,7 +543,10 @@ export class ControleCamera {
     el.addEventListener("pointercancel", onCancel);
     el.addEventListener("pointerleave", onLeave);
     el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("contextmenu", onMenu);
     return () => {
+      pararTimer(arrasto);
+      el.removeEventListener("contextmenu", onMenu);
       el.removeEventListener("pointerdown", onDown);
       el.removeEventListener("pointermove", onMove);
       el.removeEventListener("pointerup", onUp);

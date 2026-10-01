@@ -19,7 +19,7 @@ export interface CardDef {
   gatilho: string;
   telas: readonly TelaCard[];
   bipe: { papel: BipePapel; expressao: BipeExpressao };
-  /** Só o card de abertura pausa o jogo (ele ainda nem começou). */
+  /** Pausa o jogo enquanto está aberto: a abertura (o jogo nem começou) e o das Ocorrências (a janela de 60 s correria). */
   pausa?: boolean;
 }
 
@@ -176,13 +176,13 @@ CARDS_ERA1.arvore = {
 
 CARDS_ERA1.evolucao = {
   id: "evolucao",
-  gatilho: "primeira evolução de bairro",
+  gatilho: "primeira evolução da cidade",
   bipe: { papel: "operador", expressao: "apontando" },
   telas: [
     {
       titulo: "A cidade não cresce sozinha.",
       texto:
-        "Evoluir um bairro custa ₵ **e** 🔬, e o preço quase dobra a cada degrau. Em troca: mais gente, mais kW pedidos e uma **tarifa maior por kW vendido** — uma vila paga 15 % a mais que uma aldeia, uma metrópole 50 %. Densidade é o que faz uma rede valer a pena: a mesma linha atende muito mais gente por quilômetro. Mais população também é o que libera universidades.",
+        "Evoluir a cidade custa ₵ **e** 🔬 por bairro, e o preço quase dobra a cada degrau — todos os bairros sobem juntos, e o bairro novo já nasce na densidade da cidade. Em troca: mais gente, mais kW pedidos e uma **tarifa maior por kW vendido** — uma vila paga 15 % a mais que uma aldeia, uma metrópole 50 %. Densidade é o que faz uma rede valer a pena: a mesma linha atende muito mais gente por quilômetro. Mais população também é o que libera universidades.",
     },
   ],
 };
@@ -209,6 +209,26 @@ CARDS_ERA1.cristal = {
       titulo: "A montanha caiu e deixou cristais.",
       texto:
         "Quatro casas de rocha limpa, com veios de cristal: 🔬 40 na hora e +50 % para qualquer laboratório ou universidade construído aqui. Faz sentido — minas de verdade são laboratórios de geologia, e é escavando que se descobre o que a rocha guarda. A montanha não volta.",
+    },
+  ],
+};
+
+CARDS_ERA1.ocorrencias = {
+  id: "ocorrencias",
+  gatilho: "primeira Ocorrência oferecida (Parte 1 §4.4, v0.9)",
+  // Pausa como a abertura: o card chega com a janela de 60 s da oferta correndo, e as duas telas comeriam o tempo.
+  pausa: true,
+  bipe: { papel: "operador", expressao: "apontando" },
+  telas: [
+    {
+      titulo: "O Núcleo pede um operador",
+      texto:
+        "De tempos em tempos a física mexe no Núcleo: uma nuvem passa pelo campo de espelhos, uma turbina perde carga, o xenônio engole nêutrons. Quando isso acontece o 🔥 do HUD pisca e o painel do Núcleo mostra o cartão. **Aceitar é opcional** e recusar não custa nada. Quem aceita ganha **um controle só** — a carga das turbinas na Torre, as barras de controle no Reator — e tem de segurar o calor na zona de ouro por três quartos do tempo.",
+    },
+    {
+      titulo: "Você vê para onde o calor vai",
+      texto:
+        "A marca de Q* na barra de calor anda junto com o controle: ela mostra onde T vai parar antes de ele chegar. Superou? Escolha **🛡 +3 de Estabilidade** ou **60 s de 🔬** — pegue o que estiver travando você. A Cascata continua valendo: operar perto do limite é o risco de verdade, como numa sala de controle, onde o operador acompanha a planta a cada minuto.",
     },
   ],
 };
@@ -240,7 +260,7 @@ export function cardParaEvento(evento: EventoJogo): string | null {
       return "cincoPecas";
     case "obstaculoRemovido":
       return evento.cristal ? "cristal" : null;
-    case "bairroEvoluido":
+    case "cidadeEvoluida":
       return "evolucao";
     case "capituloConcluido":
       return null;
@@ -252,5 +272,12 @@ export function cardParaEvento(evento: EventoJogo): string | null {
       return null;
     case "scram":
       return evento.era === 2 ? "scramEra2" : null;
+    case "melhoria":
+      return null;
+    case "ocorrenciaOferecida":
+      return "ocorrencias";
+    case "ocorrenciaTerminou":
+    case "recompensaEscolhida":
+      return null;
   }
 }

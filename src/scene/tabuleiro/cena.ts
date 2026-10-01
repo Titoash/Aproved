@@ -8,11 +8,13 @@
  * (transformação base). Nada de `Math.random`/`Date.now`: povoamento por `rnd(semente)`, animação pelo `t` (s).
  * No caminho quente nada é alocado: os objetos são mutados no lugar.
  */
+import { VIDA } from "../../content/vida";
 import type { IlhaId, TipoObstaculo } from "../../content/era1-arquipelago";
 import { indiceCasa, naPlataforma, type Arquipelago, type IlhaGerada } from "../../sim/arquipelago";
 import type { TipoConstrucao } from "../../sim/state";
 import { PALETA, alfa, centro, clamp01, corRampa, frac, iso, lodDe, movimentoReduzido, retArred, rnd, type Camera } from "./base";
 import { desenharAlcance, type CaboCena } from "./mar";
+import { criarFlutuantes, desenharLigacoes, type Flutuante } from "./vida";
 import type { Reserva } from "./escalas";
 import { ALTURAS, barraProgresso, desenharFeixe, desenharSprite, type EstadoSprite, type Feixe, type NomeSprite, type PapelBipe, type Teto } from "./sprites";
 import { ELEV_PLAT } from "./terreno";
@@ -50,6 +52,8 @@ export interface PecaCena {
   gratis?: boolean;
   /** entulho: `tempoMs` do jogo em que nasceu (pop de 250 ms). */
   desdeMs?: number;
+  /** peça: nível do tipo (v0.8), desenhado como "Nv n" sob a peça; ausente ou 0 = sem selo. */
+  nivelPeca?: number;
 }
 
 export interface NucleoCena {
@@ -66,6 +70,22 @@ export interface NucleoCena {
   rastreamento: boolean;
   /** Era 2: há torre de resfriamento na grade (o Vaso ganha as torres hiperbólicas). */
   comTorre?: boolean;
+  /** Ocorrência em curso (Parte 1 §4.4, v0.9): a cena mostra a perturbação; ausente fora dela. */
+  ocorrencia?: OcorrenciaCena | null;
+}
+
+/** O que a cena precisa da Ocorrência em curso. */
+export interface OcorrenciaCena {
+  /** "nuvem", "ceuLimpoFrio", "turbinaMeiaCargaTorre", "xenonio", … */
+  id: string;
+  /** 0..1 do perfil: sobe na rampa de entrada, 1 no platô, desce na de saída. */
+  fracao: number;
+  /** 0..1 do tempo decorrido (a sombra da nuvem atravessa o campo nesse ritmo). */
+  progresso: number;
+  /** Controle do jogador (carga das turbinas ou potência das varetas), 1 = 100 %. */
+  controle: number;
+  /** Multiplicador da entrada agora (espelhos na Era 1): os feixes esmaecem sob a nuvem e acendem no céu limpo. */
+  entrada: number;
 }
 
 export type AncoraCallout = "torre" | "grade" | "vento" | "vila";
@@ -81,6 +101,23 @@ export interface PlacaCena {
   ilha: IlhaId;
   nome: string;
   preco: string;
+}
+
+/** Um Bipe de manutenção trabalhando numa casa. */
+export interface RemocaoCena {
+  x: number;
+  y: number;
+  bipe: number;
+}
+
+/** Retângulo da seleção em área, com as casas que entram (âncoras) e se o lote cabe no saldo. */
+export interface AreaCena {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  alvos: readonly { x: number; y: number; lado: number }[];
+  valido: boolean;
 }
 
 export interface RealceCena {
@@ -103,6 +140,8 @@ export interface ConstrucaoCena {
   lado?: number;
   /** Usina que produz sem ter para onde escoar (GDD §7). */
   semEscoamento: boolean;
+  /** Térmica: fração do tempo ligada (a fumaça acompanha). */
+  atividade?: number;
 }
 
 /** Um obstáculo ainda de pé (a montanha 2×2 vem uma vez, na casa noroeste). */
@@ -150,8 +189,18 @@ export interface EntradaCena {
   realce: RealceCena | null;
   /** A ferramenta escolhida é offshore: o mar raso inteiro acende (GDD Parte 2 §3.1). */
   rasoRealcado: boolean;
-  /** Casa do obstáculo em remoção (o Bipe de manutenção vai até lá). */
-  remocao: { x: number; y: number } | null;
+  /** Obstáculos em remoção agora, um por Bipe de manutenção (GDD §8.5, v0.8). */
+  remocoes: readonly RemocaoCena[];
+  /** Seleção em área em curso ou esperando a confirmação (§8.5, v0.8). */
+  area: AreaCena | null;
+  /** Fração da demanda atendida (venda direta + bateria cobrindo), 0..1: as janelas da cidade (§10.1). */
+  luzCidade: number;
+  /** Faixa efetiva de r em apagão: as janelas acesas piscam. */
+  apagao: boolean;
+  /** Fios da subestação aos consumidores, `[sx, sy, cx, cy, …]` em px de mundo (mesma referência enquanto a análise não muda). */
+  fios: Float32Array;
+  /** Cor da faixa efetiva de r (pulsos). */
+  corFaixa: string;
   /** Tempo do jogo (para o pop do entulho). */
   tempoMs: number;
 }
@@ -244,6 +293,8 @@ export interface Cena {
   cascata: CascataCena | null;
   /** `prefers-reduced-motion` lido na criação: sem tremor, onda curta. */
   reduzido: boolean;
+  /** Ocorrência em curso (sombra da nuvem, céu mais claro); null fora dela. */
+  ocorrencia: OcorrenciaCena | null;
   // — interno: mantido por criarCena/atualizarCena, não mexer de fora —
   arq: Arquipelago;
   semente: number;
@@ -259,8 +310,22 @@ export interface Cena {
   /** Cabos e alcances do frame (desenhados antes dos objetos). */
   cabos: readonly CaboCena[];
   alcances: readonly AlcanceCena[];
-  /** Bipe de manutenção: objeto único que anda até o obstáculo em remoção. */
-  manutencao: Objeto | null;
+  /** Bipes de manutenção, um por remoção em curso (na casa do obstáculo). */
+  manutencao: Objeto[];
+  /** Chave de `(bipe, x, y)` dos Bipes montados: só remonta quando muda. */
+  manutencaoChave: string;
+  /** Paralelo a `manutencao`: de onde cada Bipe sai e para onde anda (casas), e a chave dele. */
+  manutencaoRota: { chave: string; ox: number; oy: number; ax: number; ay: number }[];
+  /** `t` (s de relógio da cena) em que cada Bipe apareceu: a caminhada começa aí. */
+  manutencaoDesde: Map<string, number>;
+  fios: Float32Array;
+  corFaixa: string;
+  luzCidade: number;
+  /** "+₵" e "+🔬" (pool fixo; a cena de fora emite, aqui só se guarda). */
+  flutuantes: Flutuante[];
+  /** Contadores para os roteiros de teste: quantos flutuantes nasceram e quantas janelas foram olhadas. */
+  vidaContagem: { emitidos: number; olhados: number; foraDaTela: number; semVaga: number };
+  area: AreaCena | null;
   /** Todos os grupos em ordem do pintor. */
   objetos: Objeto[];
   pecasRef: readonly PecaCena[] | null;
@@ -318,7 +383,7 @@ const ALTO: Partial<Record<NomeSprite, number>> = {
   radiador: 36,
   cataVento: 54,
   painelSolar: 30,
-  casaVila: 50,
+  casaVila: 100,
   bateria: 36,
   laboratorio: 46,
   universidade: 58,
@@ -337,7 +402,7 @@ const ALTO: Partial<Record<NomeSprite, number>> = {
   piscina: 20,
   eolicaOffshore: 140,
   fazendaSolar: 26,
-  termicaGas: 80,
+  termicaGas: 124,
   subestacao138: 66,
   subestacaoOffshore: 50,
   bateriaRede: 34,
@@ -381,6 +446,9 @@ const FONTE_CALLOUT = FONTE(13);
 const FONTE_PLACA = FONTE(12);
 const FONTE_COMPACTA = FONTE(11);
 const FONTE_MOEDA = FONTE(9);
+const FONTE_NIVEL = FONTE(10);
+const TEXTO_NIVEL = ["", "Nv 1", "Nv 2", "Nv 3", "Nv 4", "Nv 5"];
+const COR_FUNDO_NIVEL = alfa(P.card, 0.92);
 const COR_GUIA = alfa(P.muted, 0.8);
 const COR_PILULA = alfa(P.card, 0.9);
 const COR_CAIXA = alfa(P.card, 0.85);
@@ -639,7 +707,7 @@ function construirNucleo(cena: Cena, nu: NucleoCena | null): void {
 
 /** Junta os grupos em ordem do pintor (x + y, y, x) e refaz os discos do modo mapa. */
 function montar(cena: Cena): void {
-  const objetos = cena.obstaculos.concat(cena.cristais, cena.bloqueio, cena.rede, cena.nucleo, cena.manutencao ? [cena.manutencao] : []);
+  const objetos = cena.obstaculos.concat(cena.cristais, cena.bloqueio, cena.rede, cena.nucleo, cena.manutencao);
   objetos.sort((a, b) => a.prof - b.prof || a.y - b.y || a.x - b.x);
   cena.objetos = objetos;
   const grupos = new Map<string, number[]>();
@@ -792,6 +860,7 @@ export function criarCena(entrada: EntradaCena): Cena {
     rasoRealcado: false,
     cascata: null,
     reduzido: movimentoReduzido(),
+    ocorrencia: null,
     arq,
     semente,
     tempoMs: entrada.tempoMs,
@@ -805,7 +874,16 @@ export function criarCena(entrada: EntradaCena): Cena {
     nucleo: [],
     cabos: [],
     alcances: [],
-    manutencao: null,
+    manutencao: [],
+    manutencaoChave: "",
+    manutencaoRota: [],
+    manutencaoDesde: new Map(),
+    fios: entrada.fios,
+    corFaixa: entrada.corFaixa,
+    luzCidade: entrada.luzCidade,
+    flutuantes: criarFlutuantes(),
+    vidaContagem: { emitidos: 0, olhados: 0, foraDaTela: 0, semVaga: 0 },
+    area: null,
     objetos: [],
     pecasRef: null,
     pecaObjetos: [],
@@ -835,6 +913,10 @@ export function criarCena(entrada: EntradaCena): Cena {
 export function atualizarCena(cena: Cena, entrada: EntradaCena): void {
   cena.tempoMs = entrada.tempoMs;
   cena.realce = entrada.realce;
+  cena.area = entrada.area;
+  cena.fios = entrada.fios;
+  cena.corFaixa = entrada.corFaixa;
+  cena.luzCidade = entrada.luzCidade;
   cena.rasoRealcado = entrada.rasoRealcado;
   const nu = entrada.nucleo;
   let remontar = false;
@@ -883,15 +965,26 @@ export function atualizarCena(cena: Cena, entrada: EntradaCena): void {
     for (let i = 0; i < entrada.obstaculos.length; i++) cena.obstaculos[i].estado.progresso = entrada.obstaculos[i].progresso;
   }
 
-  // --- Bipe de manutenção: existe enquanto houver remoção em curso, na casa do obstáculo
-  const rem = entrada.remocao;
-  if (!rem) {
-    if (cena.manutencao) {
-      cena.manutencao = null;
-      remontar = true;
-    }
-  } else if (!cena.manutencao || cena.manutencao.x !== rem.x || cena.manutencao.y !== rem.y) {
-    cena.manutencao = novoObjeto(cena.arq, "bipe", rem.x, rem.y, { lod: "perto", papel: "manutencao", expressao: "apontando", fase: 0.4 }, 0.55, 0.55);
+  // --- Bipes de manutenção: um por remoção em curso, na casa do obstáculo
+  const chave = entrada.remocoes.map((r) => `${r.bipe}:${r.x},${r.y}`).join("|");
+  if (chave !== cena.manutencaoChave) {
+    cena.manutencaoChave = chave;
+    cena.manutencao = entrada.remocoes.map((r) =>
+      novoObjeto(cena.arq, "bipe", r.x, r.y, { lod: "perto", papel: "manutencao", expressao: "apontando", fase: 0.4 + 0.17 * r.bipe }, 0.55, 0.55),
+    );
+    // Cada Bipe sai a 3 casas do obstáculo, do lado do centro da ilha (para não atravessar o mar), e anda até lá.
+    const arq = cena.arq;
+    cena.manutencaoRota = entrada.remocoes.map((r) => {
+      const ilha = arq.ilhas[arq.ilha[r.y * arq.n + r.x]];
+      const [cx, cy] = ilha ? ilha.centro : [r.x, r.y];
+      const dx = cx - r.x;
+      const dy = cy - r.y;
+      const d = Math.hypot(dx, dy);
+      const passo = d > 0 ? Math.min(d, VIDA.bipeDistanciaCasas) / d : 0;
+      return { chave: `${r.bipe}:${r.x},${r.y}`, ox: r.x + 0.55 + dx * passo, oy: r.y + 0.55 + dy * passo, ax: r.x + 0.55, ay: r.y + 0.55 };
+    });
+    const vivas = new Set(cena.manutencaoRota.map((m) => m.chave));
+    for (const k of [...cena.manutencaoDesde.keys()]) if (!vivas.has(k)) cena.manutencaoDesde.delete(k);
     remontar = true;
   }
 
@@ -900,7 +993,15 @@ export function atualizarCena(cena: Cena, entrada: EntradaCena): void {
   if (remontar) montar(cena);
 
   // --- Núcleo: estado dinâmico por peça
+  cena.ocorrencia = nu?.ocorrencia && nu.ocorrencia.fracao > 0 ? nu.ocorrencia : null;
   if (nu) {
+    const oc = cena.ocorrencia;
+    // Turbina em meia carga: a primeira turbina da grade gira pela metade (§4.4, Parte 2 §5.4).
+    const meiaCarga = oc && (oc.id === "turbinaMeiaCargaTorre" || oc.id === "turbinaMeiaCargaReator") ? 1 - 0.5 * oc.fracao : 1;
+    let primeiraTurbina = true;
+    // Os feixes dos espelhos acompanham a entrada: esmaecem sob a nuvem, acendem no céu limpo.
+    const forcaFeixe = 0.9 * Math.min(1.1, oc ? oc.entrada : 1);
+    for (let i = 0; i < cena.feixes.length; i++) cena.feixes[i].forca = forcaFeixe;
     const pecas = nu.pecas;
     for (let i = 0; i < pecas.length; i++) {
       const p = pecas[i];
@@ -910,6 +1011,8 @@ export function atualizarCena(cena: Cena, entrada: EntradaCena): void {
           e.T = nu.T;
           e.scram = nu.scram;
           e.comTorre = nu.comTorre;
+          // Era 2: as barras entram pelo topo do Vaso durante a Ocorrência (potência < 100 % = barras descendo).
+          e.barras = nu.era === 2 && oc ? oc.controle : undefined;
           break;
         case "vareta":
           // o gradiente apaga de cima para baixo a cada tick, e o brilho da gasta esmaece
@@ -918,15 +1021,13 @@ export function atualizarCena(cena: Cena, entrada: EntradaCena): void {
           e.decaimento = p.decaimento;
           break;
         case "turbinaAlta":
-          e.consumo = nu.consumo;
+        case "turbina":
+          e.consumo = primeiraTurbina ? nu.consumo * meiaCarga : nu.consumo;
           e.scram = nu.scram;
+          primeiraTurbina = false;
           break;
         case "heliostato":
           e.rastreamento = nu.rastreamento;
-          break;
-        case "turbina":
-          e.consumo = nu.consumo;
-          e.scram = nu.scram;
           break;
         case "radiador":
           e.atividade = nu.T;
@@ -949,6 +1050,14 @@ export function atualizarCena(cena: Cena, entrada: EntradaCena): void {
     const e = cena.redeObjetos[i].estado;
     if (c.tipo === "bateria" || c.tipo === "bateriaRede") e.carga = entrada.bateriaCarga;
     if (c.tipo === "subestacao" || c.tipo === "subestacao138" || c.tipo === "subestacaoOffshore") e.nivel = c.nivel;
+    // A cidade evolui inteira e sem trocar o mundo (v0.8): a densidade do sprite acompanha a cada quadro,
+    // e as janelas acompanham o atendimento (GDD §10.1).
+    if (c.tipo === "bairro") {
+      e.densidade = c.nivel + 1;
+      e.luz = entrada.luzCidade;
+      e.piscar = entrada.apagao && !cena.reduzido;
+    }
+    if (c.tipo === "termicaGas") e.atividade = c.atividade ?? 1;
     e.semEscoamento = c.semEscoamento;
   }
 
@@ -1026,6 +1135,71 @@ const PART: EstadoSprite = { lod: "perto", vida: 1, cor: P.sun, seed: 0 };
 const BRASA: EstadoSprite = { lod: "perto", vida: 1, seed: 0 };
 const REALCE_PLAT: EstadoSprite = { lod: "perto", anel: 2, realce: "valido" };
 
+/** Posição de cada Bipe de manutenção na caminhada da borda até o obstáculo (1,2 s, desacelerando). */
+function andarBipes(cena: Cena, t: number): void {
+  const rotas = cena.manutencaoRota;
+  for (let i = 0; i < cena.manutencao.length; i++) {
+    const o = cena.manutencao[i];
+    const r = rotas[i];
+    if (!r) continue;
+    let t0 = cena.manutencaoDesde.get(r.chave);
+    if (t0 === undefined) {
+      t0 = t;
+      cena.manutencaoDesde.set(r.chave, t0);
+    }
+    const k = cena.reduzido ? 1 : clamp01((t - t0) / VIDA.bipeCaminhadaS);
+    const e = 1 - (1 - k) * (1 - k);
+    const p = centro(r.ox + (r.ax - r.ox) * e - 0.5, r.oy + (r.ay - r.oy) * e - 0.5);
+    o.cx = p[0];
+    o.cy = p[1];
+    o.estado.expressao = k < 1 ? "neutro" : "apontando";
+  }
+}
+
+/** Retângulo da seleção em área (§8.5, v0.8): sol se o lote cabe no saldo, coral se não (verde sumia na grama). */
+function desenharArea(ctx: CanvasRenderingContext2D, area: AreaCena, z: number): void {
+  const cor = area.valido ? P.sun : P.coral;
+  const p0 = centro(area.x0 - 0.5, area.y0 - 0.5);
+  const p1 = centro(area.x1 + 0.5, area.y0 - 0.5);
+  const p2 = centro(area.x1 + 0.5, area.y1 + 0.5);
+  const p3 = centro(area.x0 - 0.5, area.y1 + 0.5);
+  ctx.save();
+  ctx.fillStyle = alfa(cor, 0.32);
+  for (const a of area.alvos) {
+    for (let dy = 0; dy < a.lado; dy++) {
+      for (let dx = 0; dx < a.lado; dx++) {
+        const cc = centro(a.x + dx, a.y + dy);
+        ctx.beginPath();
+        ctx.moveTo(cc[0], cc[1] - 14);
+        ctx.lineTo(cc[0] + 28, cc[1]);
+        ctx.lineTo(cc[0], cc[1] + 14);
+        ctx.lineTo(cc[0] - 28, cc[1]);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+  }
+  ctx.fillStyle = alfa(cor, 0.1);
+  ctx.strokeStyle = cor;
+  ctx.lineWidth = Math.max(2, 3 / z);
+  ctx.beginPath();
+  ctx.moveTo(p0[0], p0[1]);
+  ctx.lineTo(p1[0], p1[1]);
+  ctx.lineTo(p2[0], p2[1]);
+  ctx.lineTo(p3[0], p3[1]);
+  ctx.closePath();
+  ctx.fill();
+  // contorno escuro por baixo do tracejado: lê sobre grama, areia e mar
+  ctx.strokeStyle = alfa(P.navy, 0.6);
+  ctx.lineWidth = Math.max(4, 5 / z);
+  ctx.stroke();
+  ctx.strokeStyle = cor;
+  ctx.lineWidth = Math.max(2, 3 / z);
+  ctx.setLineDash([12, 7]);
+  ctx.stroke();
+  ctx.restore();
+}
+
 export function desenharCena(ctx: CanvasRenderingContext2D, cena: Cena, cam: Camera, t: number): void {
   const z = cam.zoom || 1;
   const lod = lodDe(z);
@@ -1049,7 +1223,7 @@ export function desenharCena(ctx: CanvasRenderingContext2D, cena: Cena, cam: Cam
   ctx.lineJoin = "round";
 
   // 1. realce da casa sob o ponteiro (chão): na plataforma usa a casa do Núcleo; fora dela, um losango
-  const re = cena.realce;
+  const re = cena.area ? null : cena.realce;
   if (re && !mapa) {
     const naPlat = re.x >= x0 && re.x < x0 + lado && re.y >= y0 && re.y < y0 + lado;
     const c = centro(re.x, re.y);
@@ -1119,6 +1293,9 @@ export function desenharCena(ctx: CanvasRenderingContext2D, cena: Cena, cam: Cam
   // 1b. alcance das subestações selecionadas (sob os objetos)
   if (!mapa) for (const a of cena.alcances) desenharAlcance(ctx, a.x, a.y, a.alcance, cam, a.cheio);
 
+  // 1c. fios da subestação aos consumidores com os pulsos de energia, no chão (GDD §10.1)
+  if (!mapa) desenharLigacoes(ctx, cena.fios, cena.corFaixa, cena.luzCidade, cam, t, cena.reduzido);
+
   // 2. feixes (antes dos objetos; apagados no SCRAM)
   if (cena.receptor && !scram) {
     for (let i = 0; i < cena.feixes.length; i++) {
@@ -1165,7 +1342,9 @@ export function desenharCena(ctx: CanvasRenderingContext2D, cena: Cena, cam: Cam
     }
   }
 
-  // 5. objetos em ordem do pintor, com culling pelo viewport e altura por sprite
+  // 5. objetos em ordem do pintor, com culling pelo viewport e altura por sprite. Antes, os Bipes de
+  // manutenção andam até o obstáculo (GDD §10.1): só a posição muda, a ordem do pintor fica a da chegada.
+  andarBipes(cena, t);
   const objs = cena.objetos;
   for (let i = 0; i < objs.length; i++) {
     const o = objs[i];
@@ -1204,6 +1383,14 @@ export function desenharCena(ctx: CanvasRenderingContext2D, cena: Cena, cam: Cam
       ctx.globalAlpha = 1;
     }
   }
+
+  // 5b. seleção em área por cima dos objetos: as árvores escondiam o chão. Losango translúcido em cada
+  // obstáculo que entra (no máximo 64) e o contorno tracejado do retângulo.
+  if (cena.area) desenharArea(ctx, cena.area, z);
+
+  // 5c. Ocorrência (Parte 1 §4.4): a sombra da nuvem atravessa o campo de espelhos; o céu limpo e frio clareia tudo
+  const oc = cena.ocorrencia;
+  if (oc && !mapa) desenharOcorrencia(ctx, cena, oc, vx0, vy0, vx1, vy1);
 
   // 6. partículas de calor sobre a esfera, quantidade ∝ T (só perto, fora do SCRAM)
   const ex = cena.esfera[0];
@@ -1264,6 +1451,38 @@ export function desenharCena(ctx: CanvasRenderingContext2D, cena: Cena, cam: Cam
     }
   }
   ctx.restore();
+}
+
+/**
+ * A perturbação da Ocorrência na cena, por cima dos objetos (a sombra cai também sobre eles). Barato: três elipses
+ * da nuvem ou um retângulo de clareamento, com α ∝ a fração do perfil.
+ */
+function desenharOcorrencia(ctx: CanvasRenderingContext2D, cena: Cena, oc: OcorrenciaCena, vx0: number, vy0: number, vx1: number, vy1: number): void {
+  if (oc.id === "nuvem") {
+    // A sombra entra pelo noroeste da plataforma e sai pelo sudeste enquanto a Ocorrência dura.
+    const { x0, y0, lado } = cena.arq.plataforma;
+    const a = centro(x0 - 4, y0 - 1);
+    const b = centro(x0 + lado + 3, y0 + lado);
+    const k = oc.progresso;
+    const cx = a[0] + (b[0] - a[0]) * k;
+    const cy = a[1] + (b[1] - a[1]) * k - ELEV;
+    ctx.save();
+    ctx.globalAlpha = 0.45 * oc.fracao;
+    ctx.fillStyle = "#050818";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 170, 74, 0, 0, TAU);
+    ctx.ellipse(cx - 110, cy + 20, 96, 46, 0, 0, TAU);
+    ctx.ellipse(cx + 118, cy + 12, 100, 48, 0, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  } else if (oc.id === "ceuLimpoFrio") {
+    // Um tom mais claro sobre tudo: o ar frio e seco deixa passar mais luz direta.
+    ctx.save();
+    ctx.globalAlpha = 0.14 * oc.fracao;
+    ctx.fillStyle = P.ink;
+    ctx.fillRect(vx0, vy0, vx1 - vx0, vy1 - vy0);
+    ctx.restore();
+  }
 }
 
 function desenharDiscos(ctx: CanvasRenderingContext2D, grupos: readonly GrupoMapa[], r: number, vx0: number, vy0: number, vx1: number, vy1: number): void {
@@ -1452,6 +1671,40 @@ function desenharMotivoRealce(ctx: CanvasRenderingContext2D, cena: Cena, cam: Ca
 const LISTA: Callout[] = [];
 
 /**
+ * "Nv n" sob cada peça do Núcleo com nível (§8.3, v0.8): pílula de 13 px em px de tela, só de perto
+ * (zoom ≥ 0,7). Reserva o retângulo para os callouts desviarem. No máximo ~48 peças: um `measureText`
+ * por texto distinto, pelo cache.
+ */
+function desenharNiveisPecas(ctx: CanvasRenderingContext2D, cena: Cena, cam: Camera, w: number, h: number): void {
+  const pecas = cena.pecasRef;
+  const z = cam.zoom || 1;
+  if (!pecas || z < 0.7) return;
+  ctx.font = FONTE_NIVEL;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  for (let i = 0; i < pecas.length; i++) {
+    const nv = pecas[i].nivelPeca;
+    if (!nv) continue;
+    const o = cena.pecaObjetos[i];
+    if (!o) continue;
+    const sx = o.cx * z + cam.tx;
+    const sy = o.cy * z + cam.ty + 8;
+    if (sx < 0 || sx > w || sy < 0 || sy > h) continue;
+    const texto = TEXTO_NIVEL[Math.min(TEXTO_NIVEL.length - 1, nv)];
+    const bw = Math.ceil(largura(ctx, FONTE_NIVEL, texto)) + 8;
+    const bh = 13;
+    const bx = sx - bw / 2;
+    const by = sy - bh / 2;
+    retArred(ctx, bx, by, bw, bh, 6);
+    ctx.fillStyle = COR_FUNDO_NIVEL;
+    ctx.fill();
+    ctx.fillStyle = P.sun;
+    ctx.fillText(texto, sx, sy + 0.5);
+    reservar(bx, by, bw, bh);
+  }
+}
+
+/**
  * Callouts em px de tela: âncora r 3, guia 18 ↑ + 14 →, caixa `card` α .85; α = clamp((zoom − 0,55)/0,15), nada abaixo
  * de α .35; abaixo de zoom 0,7 só a Torre e o mais próximo do centro; no máximo 4; empurra ao colidir. Também as placas.
  * `reservas`: retângulos de tela (controles, minimapa) que nem callouts nem placas podem cobrir.
@@ -1468,6 +1721,7 @@ export function desenharCallouts(ctx: CanvasRenderingContext2D, cena: Cena, cam:
   if (reservas) for (const q of reservas) reservar(q[0], q[1], q[2], q[3]);
   desenharPlacas(ctx, cena, cam, w, h);
   desenharMotivoRealce(ctx, cena, cam, w, h);
+  desenharNiveisPecas(ctx, cena, cam, w, h);
   if (a >= 0.35) {
     ctx.globalAlpha = a;
     ctx.font = FONTE_CALLOUT;

@@ -2,16 +2,27 @@ import { describe, expect, it } from "vitest";
 import { LABORATORIO, UNIVERSIDADE } from "../../content/cidade-era1";
 import { DENSIDADES } from "../../content/cidade";
 import { CRISTAL } from "../../content/era1-arquipelago";
-import { avaliarEvolucao, custoEvolucao, densidadeDoNivel, evoluirBairro, limiteUniversidades, pesquisaUniversidade, populacaoDoMundo } from "../cidade";
+import {
+  avaliarEvolucaoCidade,
+  contarBairros,
+  custoAcumuladoPorBairro,
+  custoEvolucaoCidade,
+  defDaDensidade,
+  evoluirCidade,
+  limiteUniversidades,
+  pesquisaUniversidade,
+  populacaoDaCidade,
+} from "../cidade";
+import { colocar, custoColocar, pesquisaColocar, valorRemocao } from "../mundo";
 import { analisar } from "../producao";
 import { balancoDoEstado, avancarTicks } from "../tick";
 import type { GameState } from "../state";
+import type { Densidade } from "../../content/cidade";
 import { estadoLimpo, plantar } from "./ajuda";
 
-/** Sobe o bairro da casa `i` até a densidade pedida, de graça. */
-function comDensidade(state: GameState, i: number, densidade: number): GameState {
-  const c = state.mundo.construcoes[i];
-  return { ...state, mundo: { ...state.mundo, construcoes: { ...state.mundo.construcoes, [i]: { ...c, nivel: densidade - 1 } } } };
+/** Põe a cidade na densidade pedida, de graça. */
+function comDensidade(state: GameState, densidade: number): GameState {
+  return { ...state, cidade: { densidade: densidade as Densidade } };
 }
 
 const casasDe = (s: GameState, tipo: string) =>
@@ -19,69 +30,97 @@ const casasDe = (s: GameState, tipo: string) =>
     .map(Number)
     .filter((i) => s.mundo.construcoes[i].tipo === tipo);
 
-describe("densidade dos bairros (GDD §8.6)", () => {
+describe("densidade da cidade (GDD §8.6, v0.8)", () => {
   it("a tabela é a de §8.6 e de Parte 2 §4.1: demanda, população e tarifa por densidade", () => {
     expect(DENSIDADES.map((d) => d.demandaKw)).toEqual([8, 20, 48, 110, 400, 1500]);
     expect(DENSIDADES.map((d) => d.populacao)).toEqual([100, 400, 1600, 6400, 25_000, 100_000]);
     expect(DENSIDADES.map((d) => d.tarifa)).toEqual([1, 1.15, 1.3, 1.5, 1.7, 2]);
     expect(DENSIDADES.map((d) => d.evolucao?.creditos ?? null)).toEqual([250, 625, 1562, 97_650, 244_000, null]);
-    expect(DENSIDADES.map((d) => d.evolucao?.pesquisa ?? null)).toEqual([30, 150, 600, 3_000, 15_000, null]);
+    // 🔬 da Era 2 recalibrada na Sessão 9 (parte G): 1 000 e 3 000 por bairro, porque a cidade evolui inteira
+    expect(DENSIDADES.map((d) => d.evolucao?.pesquisa ?? null)).toEqual([30, 150, 600, 1_000, 3_000, null]);
     // as duas últimas só com o nó da Era 2 (GDD Parte 2 §4.1)
     expect(DENSIDADES.map((d) => d.no ?? null)).toEqual([null, null, null, null, "megacidade", "arcologia"]);
   });
 
-  it("a curva de evolução é quase exponencial: ₵ ×2,5 e 🔬 ×5 por degrau", () => {
-    for (let n = 0; n < 2; n++) {
-      const a = custoEvolucao(n)!;
-      const b = custoEvolucao(n + 1)!;
-      expect(b.creditos / a.creditos).toBeCloseTo(2.5, 1);
-      expect(b.pesquisa / a.pesquisa).toBeCloseTo(n === 0 ? 5 : 4, 1);
+  it("a curva de evolução por bairro: ₵ ×2,5 por degrau; 🔬 ×5 até a metrópole e mais baixa na Era 2", () => {
+    const ev = (d: number) => defDaDensidade(d).evolucao!;
+    for (let d = 1; d < 3; d++) {
+      expect(ev(d + 1).creditos / ev(d).creditos).toBeCloseTo(2.5, 1);
+      expect(ev(d + 1).pesquisa / ev(d).pesquisa).toBeCloseTo(d === 1 ? 5 : 4, 1);
     }
     // a Era 2 dá um salto de escala em ₵ na entrada da megacidade e volta ao ×2,5 (GDD Parte 2 §4.1)
-    expect(custoEvolucao(3)!.creditos / custoEvolucao(2)!.creditos).toBeCloseTo(62.5, 1);
-    expect(custoEvolucao(4)!.creditos / custoEvolucao(3)!.creditos).toBeCloseTo(2.5, 1);
-    expect(custoEvolucao(4)!.pesquisa / custoEvolucao(3)!.pesquisa).toBeCloseTo(5, 1);
-    expect(custoEvolucao(5)).toBeNull(); // arcologia não evolui
+    expect(ev(4).creditos / ev(3).creditos).toBeCloseTo(62.5, 1);
+    expect(ev(5).creditos / ev(4).creditos).toBeCloseTo(2.5, 1);
+    expect(ev(5).pesquisa / ev(4).pesquisa).toBeCloseTo(3, 1);
+    expect(defDaDensidade(6).evolucao).toBeNull(); // arcologia não evolui
   });
 
-  it("evoluir gasta ₵ + 🔬, sobe um degrau e muda demanda, população e tarifa", () => {
-    const s0 = plantar(estadoLimpo(0), "bairro", 1);
-    const casa = casasDe(s0, "bairro")[0];
-    expect(analisar(s0).demandaKw).toBe(DENSIDADES[0].demandaKw);
-    expect(analisar(s0).populacao).toBe(DENSIDADES[0].populacao);
-    expect(analisar(s0).tarifa).toBe(1);
+  it("evoluir a cidade cobra a evolução × N bairros, em ₵ e 🔬, e sobe todos de uma vez", () => {
+    const s0 = plantar(estadoLimpo(0), "bairro", 3);
+    expect(analisar(s0).demandaKw).toBe(3 * DENSIDADES[0].demandaKw);
+    expect(custoEvolucaoCidade(s0)).toEqual({ creditos: 750, pesquisa: 90, bairros: 3 });
 
-    expect(evoluirBairro(s0, casa)).toBeNull(); // sem ₵ nem 🔬
-    expect(avaliarEvolucao(s0, casa).motivo).toBe("₵ insuficientes");
-    const rico = { ...s0, creditos: 1000, pesquisa: 0 };
-    expect(avaliarEvolucao(rico, casa).motivo).toBe("Precisa de 🔬 30");
+    expect(evoluirCidade(s0)).toBeNull(); // sem ₵ nem 🔬
+    expect(avaliarEvolucaoCidade(s0).motivo).toBe("₵ insuficientes");
+    expect(avaliarEvolucaoCidade({ ...s0, creditos: 1000 }).motivo).toBe("Precisa de 🔬 90");
 
-    const pronto = { ...s0, creditos: 1000, pesquisa: 100 };
-    const s1 = evoluirBairro(pronto, casa)!;
-    expect(s1.creditos).toBe(1000 - DENSIDADES[0].evolucao!.creditos);
-    expect(s1.pesquisa).toBe(100 - DENSIDADES[0].evolucao!.pesquisa);
-    expect(densidadeDoNivel(s1.mundo.construcoes[casa].nivel).nome).toBe("Vila");
+    const s1 = evoluirCidade({ ...s0, creditos: 1000, pesquisa: 100 })!;
+    expect(s1.creditos).toBe(250);
+    expect(s1.pesquisa).toBe(10);
+    expect(s1.cidade.densidade).toBe(2);
+    // o mundo não muda — e mesmo assim a análise acompanha (a cidade entra na chave do cache)
+    expect(s1.mundo).toBe(s0.mundo);
     const a = analisar(s1);
-    expect(a.demandaKw).toBe(DENSIDADES[1].demandaKw);
-    expect(a.populacao).toBe(DENSIDADES[1].populacao);
+    expect(a.demandaKw).toBe(3 * DENSIDADES[1].demandaKw);
+    expect(a.populacao).toBe(3 * DENSIDADES[1].populacao);
     expect(a.tarifa).toBe(DENSIDADES[1].tarifa);
-    expect(s1.eventos.at(-1)).toEqual({ tipo: "bairroEvoluido", indice: casa, densidade: 2 });
+    expect(s1.eventos.at(-1)).toEqual({ tipo: "cidadeEvoluida", densidade: 2, bairros: 3 });
   });
 
-  it("a tarifa média é ponderada pela demanda dos bairros atendidos", () => {
-    const s0 = plantar(estadoLimpo(0), "bairro", 2);
-    const [a, b] = casasDe(s0, "bairro");
-    const s = comDensidade(comDensidade(s0, a, 1), b, 4);
-    // aldeia 8 kW ×1 + metrópole 110 kW ×1,5, ponderado pela demanda
-    const esperado = (8 * 1 + 110 * 1.5) / (8 + 110);
-    expect(analisar(s).tarifa).toBeCloseTo(esperado, 10);
-    expect(analisar(s).populacao).toBe(100 + 6400);
+  it("sem bairro não há evolução de graça; a 5 e a 6 pedem o nó; a 6 é a última", () => {
+    const vazia = { ...estadoLimpo(1e9), pesquisa: 1e9 };
+    expect(contarBairros(vazia.mundo)).toBe(0);
+    expect(avaliarEvolucaoCidade(vazia).motivo).toBe("Coloque um bairro primeiro");
+    const metropole = comDensidade({ ...plantar(estadoLimpo(1e12), "bairro", 1), pesquisa: 1e9 }, 4);
+    expect(avaliarEvolucaoCidade(metropole).motivo).toContain("Megacidade");
+    const mega = evoluirCidade({ ...metropole, pesquisados: [...metropole.pesquisados, "megacidade"] })!;
+    expect(mega.cidade.densidade).toBe(5);
+    expect(avaliarEvolucaoCidade(mega).motivo).toContain("Arcologia");
+    const arco = comDensidade(mega, 6);
+    expect(custoEvolucaoCidade(arco)).toBeNull();
+    expect(avaliarEvolucaoCidade(arco).motivo).toContain("não há densidade acima");
+  });
+
+  it("bairro novo nasce na densidade da cidade e paga a aldeia mais o acumulado das evoluções, em ₵ e 🔬", () => {
+    const s = comDensidade(plantar(estadoLimpo(1e6), "bairro", 2), 3);
+    expect(custoAcumuladoPorBairro(3)).toEqual({ creditos: 250 + 625, pesquisa: 30 + 150 });
+    expect(custoColocar(s, "bairro")).toBeCloseTo(40 * 1.25 ** 2 + 875, 10);
+    expect(pesquisaColocar(s, "bairro")).toBe(180);
+    expect(valorRemocao(s, "bairro")).toBeCloseTo((40 * 1.25 + 875) / 2, 10);
+    // sem a 🔬, não coloca
+    const livre = casasDe(plantar(s, "bairro", 1), "bairro").find((i) => !s.mundo.construcoes[i])!;
+    expect(colocar({ ...s, pesquisa: 179 }, livre, "bairro")).toBeNull();
+    const posto = colocar({ ...s, pesquisa: 500 }, livre, "bairro")!;
+    expect(posto.pesquisa).toBe(320);
+    expect(analisar(posto).populacao).toBe(3 * DENSIDADES[2].populacao);
+  });
+
+  it("é indiferente evoluir antes ou depois de construir: o mesmo ₵ e a mesma 🔬 (Sessão 9)", () => {
+    const um = plantar({ ...estadoLimpo(10_000), pesquisa: 1_000 }, "bairro", 1);
+    const livre = casasDe(plantar(um, "bairro", 1), "bairro").find((i) => !um.mundo.construcoes[i])!;
+    // A: evolui com um bairro e constrói o segundo depois
+    const a = colocar(evoluirCidade(um)!, livre, "bairro")!;
+    // B: constrói o segundo e evolui os dois
+    const b = evoluirCidade(colocar(um, livre, "bairro")!)!;
+    expect(a.cidade.densidade).toBe(2);
+    expect(b.cidade.densidade).toBe(2);
+    expect(a.creditos).toBeCloseTo(b.creditos, 10);
+    expect(a.pesquisa).toBeCloseTo(b.pesquisa, 10);
   });
 
   it("a tarifa entra na receita sem mexer na razão r (GDD §4.1)", () => {
     const base = plantar(plantar(estadoLimpo(0), "bairro", 1), "cataVento", 8);
-    const casa = casasDe(base, "bairro")[0];
-    const denso = comDensidade(base, casa, 2);
+    const denso = comDensidade(base, 2);
     const b0 = balancoDoEstado(base);
     const b1 = balancoDoEstado(denso);
     // a demanda mudou, então r muda; o que se testa é que a receita traz a tarifa como fator
@@ -90,13 +129,12 @@ describe("densidade dos bairros (GDD §8.6)", () => {
     expect(b1.receitaPorSegundo).toBeCloseTo((b1.vendaDiretaKw + b1.cobertoKw) * b1.tarifa * b1.multiplicador, 10);
   });
 
-  it("população só cresce com bairro evoluído (GDD §7)", () => {
+  it("população só cresce com a cidade evoluída (GDD §7)", () => {
     const s = plantar(estadoLimpo(0), "bairro", 1);
-    const casa = casasDe(s, "bairro")[0];
     const depois = avancarTicks(s, 600); // um minuto de jogo
-    expect(populacaoDoMundo(depois.mundo)).toBe(DENSIDADES[0].populacao);
-    const evoluido = comDensidade(s, casa, 3);
-    expect(populacaoDoMundo(evoluido.mundo)).toBe(DENSIDADES[2].populacao);
+    expect(analisar(depois).populacao).toBe(DENSIDADES[0].populacao);
+    expect(analisar(comDensidade(s, 3)).populacao).toBe(DENSIDADES[2].populacao);
+    expect(populacaoDaCidade(4, 3)).toBe(4 * DENSIDADES[2].populacao);
   });
 });
 
@@ -135,8 +173,7 @@ describe("laboratório e universidade (GDD §8.6)", () => {
 
     // 1 metrópole = 6 400 habitantes → 3 universidades permitidas
     const base = plantar(plantar(estadoLimpo(0), "bairro", 1), "universidade", 3);
-    const casa = casasDe(base, "bairro")[0];
-    const metropole = comDensidade(base, casa, 4);
+    const metropole = comDensidade(base, 4);
     const a = analisar(metropole);
     expect(a.limiteUniversidades).toBe(3);
     expect(a.universidadesAtivas).toBe(3);
@@ -146,7 +183,7 @@ describe("laboratório e universidade (GDD §8.6)", () => {
     expect(a.demandaKw).toBeCloseTo(DENSIDADES[3].demandaKw + 3 * UNIVERSIDADE.consumoKw, 10);
 
     // com uma vila (400 habitantes) nenhuma das três tem alunos: não rendem nem consomem
-    const vila = analisar(comDensidade(base, casa, 2));
+    const vila = analisar(comDensidade(base, 2));
     expect(vila.limiteUniversidades).toBe(0);
     expect(vila.universidadesAtivas).toBe(0);
     expect(vila.pesquisaPorSegundo).toBe(0);

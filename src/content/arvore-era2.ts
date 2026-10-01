@@ -242,6 +242,18 @@ export const NOS_ERA2: readonly NoDef[] = [
     pre: ["caboHvdc"],
     efeitos: [{ tipo: "bateriaRede", fator: 2 }],
   },
+  {
+    id: "escavadeiras",
+    ramo: "rede2",
+    era: 2,
+    nome: "Escavadeiras",
+    efeitoTexto: "Os Bipes removem obstáculos na metade do tempo, de novo.",
+    fisica:
+      "Uma escavadeira de mineração enche um caminhão de 200 toneladas em quatro ou cinco conchadas. A escala muda o que dá para mover: é assim que se abre uma mina a céu aberto, e não com mais gente.",
+    pesquisa: 1_500,
+    pre: ["maquinasPesadas"],
+    efeitos: [{ tipo: "tempoRemocao", fator: 0.5 }],
+  },
 
   /* -------------------------------------------------------------- Cidade */
   {
@@ -288,7 +300,9 @@ export const NOS_ERA2: readonly NoDef[] = [
     fisica:
       "Uma cidade inteira num prédio só troca transporte por elevador e rua por corredor. O que ela não consegue trocar é o ar: ventilar e climatizar cem mil pessoas empilhadas é o grosso do 1,5 MW.",
     pesquisa: 14_000,
-    pre: ["institutoDePesquisa"],
+    // Ajuste 4 da Sessão 8: o instituto é ciência, a arcologia é cidade — encadear os dois empurrava a
+    // arcologia para depois do fim da era. Pré-requisito só a Megacidade.
+    pre: ["megacidade"],
     efeitos: [],
   },
   {

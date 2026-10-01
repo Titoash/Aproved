@@ -15,7 +15,7 @@ import { gradeVazia, type GameState, type NucleoState } from "./state";
 
 /** O nó da árvore que abre a era (GDD §8.4). */
 export const NO_SAIDA_ERA1 = "fissaoBasica";
-/** O nó da árvore que abriria a Era 3 — a Sessão 9 ainda não existe (GDD Parte 2 §6). */
+/** O nó da árvore que abriria a Era 3 — a Era 3 ainda não existe (roteiro no GDD Parte 1 §12; saída em Parte 2 §6). */
 export const NO_SAIDA_ERA2 = "fusaoBasica";
 
 export interface RecusaEra {
@@ -82,7 +82,7 @@ export function construirReator(state: GameState): GameState | null {
 }
 
 /**
- * A saída da Era 2 (GDD Parte 2 §6): Fusão básica + Estabilidade 100 %. A Era 3 é a Sessão 9 — aqui o
+ * A saída da Era 2 (GDD Parte 2 §6): Fusão básica + Estabilidade 100 %. A Era 3 ainda não existe (GDD Parte 1 §12) — aqui o
  * jogo para com um aviso, e é isso que a interface mostra.
  */
 export function era3Pronta(state: GameState): boolean {

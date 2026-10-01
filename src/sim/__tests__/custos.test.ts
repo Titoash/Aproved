@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { MELHORIA } from "../../content/era1";
 import { USINAS } from "../../content/usinas";
 import { BAIRRO } from "../../content/cidade-era1";
-import { custoMelhoria, custoUnidade, fatorMelhoria } from "../custos";
+import { custoUnidade } from "../custos";
 
 describe("custoUnidade", () => {
   it("a 1ª unidade custa o custo base", () => {
@@ -22,20 +21,5 @@ describe("custoUnidade", () => {
     expect(custoUnidade(BAIRRO, 1)).toBe(50);
     expect(custoUnidade(BAIRRO, 3)).toBeCloseTo(BAIRRO.custoBase * 1.25 ** 3, 10);
     expect(custoUnidade({ custoBase: 100, crescimento: 2 }, 3)).toBe(800);
-  });
-});
-
-describe("custoMelhoria", () => {
-  it("custa custoBase × 3^nível para o nível comprado (GDD §7)", () => {
-    expect(MELHORIA.crescimento).toBe(3);
-    expect(custoMelhoria(USINAS.cataVento, 0)).toBe(15 * 3); // nível 1
-    expect(custoMelhoria(USINAS.cataVento, 1)).toBe(15 * 9); // nível 2
-    expect(custoMelhoria(USINAS.painelSolar, 2)).toBe(60 * 27); // nível 3
-  });
-
-  it("o fator de melhoria cresce com o nível", () => {
-    expect(fatorMelhoria(0)).toBe(1);
-    expect(fatorMelhoria(1)).toBe(1 + MELHORIA.bonusPorNivel);
-    expect(fatorMelhoria(2)).toBe(1 + 2 * MELHORIA.bonusPorNivel);
   });
 });

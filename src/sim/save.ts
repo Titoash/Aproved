@@ -5,27 +5,37 @@
  */
 import { NOS_INICIAIS, NO_POR_ID } from "../content/arvore";
 import { CAPITULO_POR_ID } from "../content/capitulos";
-import { ILHAS, ORDEM_OBSTACULOS, type IlhaId, type TipoObstaculo } from "../content/era1-arquipelago";
+import { ILHAS, ORDEM_OBSTACULOS, type IlhaId } from "../content/era1-arquipelago";
 import { NUCLEO } from "../content/era1-nucleo";
 import { VARETA } from "../content/era2-nucleo";
 import { PECA_POR_ID, ordemDasPecas } from "../content/pecas";
-import { ehDeAgua } from "./producao";
+import { NIVEL_CIENCIA, NIVEL_EQUIPE, NIVEL_PECA, PECAS_SEM_NIVEL, TIPOS_CIENCIA } from "../content/melhorias";
+import { bipesNoNivel } from "./niveis";
+import type { Arquipelago } from "./arquipelago";
+import { DENSIDADES, type Densidade } from "../content/cidade";
+import { ESCOAMENTO, ehDeAgua } from "./producao";
 import { arquipelagoDaEra1 } from "./gerarArquipelago";
 import { migrarParaMundo } from "./migracao-v6";
 import { anel } from "./nucleo";
 import { calcularOffline, type RelatorioOffline } from "./offline";
+import { OCORRENCIAS, OCORRENCIAS_DEF, type OcorrenciaId } from "../content/ocorrencias";
 import {
   estadoInicial,
   gradeVazia,
   indiceReceptor,
+  melhoriasIniciais,
   mundoInicial,
   nucleoInicial,
+  ocorrenciasIniciais,
   VERSAO_SAVE,
   type Casa,
   type Construcao,
   type GameState,
+  type MelhoriasState,
   type MundoState,
   type NucleoState,
+  type OcorrenciaEmCurso,
+  type OcorrenciasState,
   type PecaId,
   type RedeState,
   type RemocaoEmCurso,
@@ -200,7 +210,8 @@ function normalizarMundo(bruto: unknown): MundoState {
     if (!ehTipoConstrucao(c.tipo)) continue;
     // Offshore mora no mar; o resto, em terra (GDD Parte 2 §3.1).
     if (ehDeAgua(c.tipo) ? arq.terra[i] === 1 : arq.terra[i] !== 1) continue;
-    construcoes[i] = { tipo: c.tipo, nivel: inteiro(c.nivel, 0), colocadoEmMs: numero(c.colocadoEmMs, 0) };
+    // Nenhuma construção guarda nível desde a v9: os níveis são por tipo e a densidade é da cidade (v0.8).
+    construcoes[i] = { tipo: c.tipo, nivel: 0, colocadoEmMs: numero(c.colocadoEmMs, 0) };
   }
 
   const removidos = Array.isArray(m.removidos)
@@ -211,35 +222,59 @@ function normalizarMundo(bruto: unknown): MundoState {
     ? Array.from(new Set(m.cristais.filter((i): i is number => Number.isInteger(i) && i >= 0 && i < arq.n * arq.n && arq.terra[i] === 1)))
     : [];
 
-  const remocoes: RemocaoEmCurso[] = Array.isArray(m.remocoes)
-    ? m.remocoes
-        .map((bruta) => {
-          const r = objeto(bruta);
-          const indice = inteiro(r.indice, -1);
-          const tipoBruto = r.tipo;
-          const valido =
-            indice >= 0 &&
-            indice < arq.n * arq.n &&
-            arq.obstaculos[indice] !== 255 &&
-            typeof tipoBruto === "string" &&
-            (ORDEM_OBSTACULOS as readonly string[]).includes(tipoBruto);
-          if (!valido) return null;
-          return { indice, tipo: tipoBruto as TipoObstaculo, inicioMs: numero(r.inicioMs, 0), fimMs: numero(r.fimMs, 0) };
-        })
-        .filter((r): r is RemocaoEmCurso => r !== null)
-    : [];
+  const remocoes = normalizarRemocoes(m.remocoes, new Set(removidos), arq);
 
   const abertas = Array.isArray(m.ilhasAbertas) ? m.ilhasAbertas.filter(ehIlhaId) : [];
   const ilhasAbertas: IlhaId[] = [];
   for (const id of [...base.ilhasAbertas, ...abertas]) if (!ilhasAbertas.includes(id)) ilhasAbertas.push(id);
-  // Cabos: ilha → nível. A migração v6 → v7 já converte a lista antiga; aqui só se sanitiza.
+  // Cabos: só a presença vale — o nível é global, em `melhorias.cabos` (v0.8).
   const cabos: Partial<Record<IlhaId, number>> = {};
-  for (const [chave, valor] of Object.entries(objeto(m.cabos))) {
+  for (const chave of Object.keys(objeto(m.cabos))) {
     if (!ehIlhaId(chave) || chave === "principal") continue;
-    cabos[chave] = inteiro(valor, 0);
+    cabos[chave] = 0;
   }
 
   return { construcoes, removidos, remocoes, cristais, ilhasAbertas, cabos };
+}
+
+/** Mais Bipes do que a Equipe no máximo dá é índice inválido. */
+const BIPES_MAX = bipesNoNivel(NIVEL_EQUIPE.maximo);
+
+/**
+ * Fila de remoção (§8.5, v0.8): descarta casa inválida, repetida, já removida ou com tipo diferente do
+ * mapa. Cada remoção em curso fica com um Bipe próprio; um save v8 (um Bipe só, sem o campo) recebe o 0,
+ * e o primeiro tick põe o segundo Bipe na próxima da fila. O `fimMs` antigo é mantido.
+ */
+function normalizarRemocoes(bruto: unknown, removidos: ReadonlySet<number>, arq: Arquipelago): RemocaoEmCurso[] {
+  if (!Array.isArray(bruto)) return [];
+  const vistas = new Set<number>();
+  const usados = new Set<number>();
+  const fila: RemocaoEmCurso[] = [];
+  for (const item of bruto) {
+    const r = objeto(item);
+    const indice = inteiro(r.indice, -1);
+    if (indice < 0 || indice >= arq.n * arq.n || vistas.has(indice) || removidos.has(indice)) continue;
+    const o = arq.obstaculos[indice];
+    if (o === 255 || r.tipo !== ORDEM_OBSTACULOS[o]) continue;
+    vistas.add(indice);
+    const fimMs = numero(r.fimMs, 0);
+    const remocao: RemocaoEmCurso = { indice, tipo: ORDEM_OBSTACULOS[o], inicioMs: fimMs > 0 ? numero(r.inicioMs, 0) : 0, fimMs };
+    if (fimMs > 0) {
+      const pedido = inteiro(r.bipe, -1);
+      remocao.bipe = pedido >= 0 && pedido < BIPES_MAX && !usados.has(pedido) ? pedido : -1;
+      if (remocao.bipe >= 0) usados.add(remocao.bipe);
+    }
+    fila.push(remocao);
+  }
+  // Em curso sem Bipe válido: o menor livre.
+  for (const r of fila) {
+    if (r.bipe !== -1) continue;
+    let b = 0;
+    while (usados.has(b)) b++;
+    r.bipe = b;
+    usados.add(b);
+  }
+  return fila;
 }
 
 /** Capítulos concluídos: só ids conhecidos, sem repetição. */
@@ -254,21 +289,75 @@ function normalizarPesquisados(bruto: unknown): string[] {
   return Array.from(new Set([...NOS_INICIAIS, ...lista]));
 }
 
+/**
+ * Níveis por tipo (v0.8): inteiros ≥ 0; peças, ciência e subestações até o máximo do tipo. A usina fica
+ * como veio: saves anteriores à v0.8 não tinham máximo, e quem passou de 5 guarda o nível (só não compra mais).
+ */
+function normalizarMelhorias(bruto: unknown): MelhoriasState {
+  const base = melhoriasIniciais();
+  const m = objeto(bruto);
+  const usinasBrutas = objeto(m.usinas);
+  const pecasBrutas = objeto(m.pecas);
+  const subestacoesBrutas = objeto(m.subestacoes);
+  const cienciaBruta = objeto(m.ciencia);
+  const usinas = { ...base.usinas };
+  for (const id of IDS_USINA) usinas[id] = inteiro(usinasBrutas[id], 0);
+  const pecas = { ...base.pecas };
+  for (const id of Object.keys(pecas) as PecaId[]) pecas[id] = PECAS_SEM_NIVEL.includes(id) ? 0 : Math.min(NIVEL_PECA.maximo, inteiro(pecasBrutas[id], 0));
+  const subestacoes = { ...base.subestacoes };
+  for (const t of Object.keys(subestacoes) as (keyof typeof subestacoes)[]) subestacoes[t] = Math.min(ESCOAMENTO[t].nivelMax, inteiro(subestacoesBrutas[t], 0));
+  const ciencia = { ...base.ciencia };
+  for (const t of TIPOS_CIENCIA) ciencia[t] = Math.min(NIVEL_CIENCIA.maximo, inteiro(cienciaBruta[t], 0));
+  const equipe = Math.min(NIVEL_EQUIPE.maximo, inteiro(m.equipe, 0));
+  return { usinas, pecas, subestacoes, cabos: inteiro(m.cabos, 0), ciencia, equipe };
+}
+
+function ehOcorrenciaId(valor: unknown): valor is OcorrenciaId {
+  return typeof valor === "string" && valor in OCORRENCIAS_DEF;
+}
+
+/**
+ * Ocorrências (v0.9): relógio, semente e marcas sanitizados. Uma oferta ou Ocorrência em curso que chega
+ * aqui é descartada pelo offline no carregamento (`calcularOffline`); a recompensa pendente fica, porque já
+ * foi ganha.
+ */
+function normalizarOcorrencias(bruto: unknown): OcorrenciasState {
+  const base = ocorrenciasIniciais();
+  const o = objeto(bruto);
+  const a = objeto(o.atual);
+  const atual: OcorrenciaEmCurso | null =
+    ehOcorrenciaId(a.id) && (a.fase === "oferta" || a.fase === "ativa")
+      ? {
+          id: a.id,
+          fase: a.fase,
+          inicioMs: numero(a.inicioMs, 0),
+          controle: numero(a.controle, 1),
+          naMetaMs: numero(a.naMetaMs, 0),
+          potenciaRefKw: numero(a.potenciaRefKw, 0),
+          aposScram: booleano(a.aposScram, false),
+        }
+      : null;
+  const r = objeto(o.recompensa);
+  const recompensa = ehOcorrenciaId(r.id) ? { id: r.id, pesquisa: numero(r.pesquisa, 0) } : null;
+  return {
+    relogioMs: Math.min(OCORRENCIAS.intervaloMs, numero(o.relogioMs, 0)),
+    semente: inteiro(o.semente, base.semente) >>> 0 || base.semente,
+    primeiraOfertaFeita: booleano(o.primeiraOfertaFeita, false),
+    xenonioPendente: booleano(o.xenonioPendente, false),
+    atual,
+    recompensa,
+    superadas: inteiro(o.superadas, 0),
+  };
+}
+
 /** Preenche campos ausentes com o estado inicial e sanitiza números. `agoraMs` vira o carimbo de saves sem `salvoEmMs`. */
 function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState {
   const base = estadoInicial();
   const redeBruta = objeto(bruto.rede);
-  const usinasBrutas = objeto(redeBruta.usinas);
   const bateriaBruta = objeto(redeBruta.bateria);
 
-  const usinas = { ...base.rede.usinas };
-  for (const id of IDS_USINA) {
-    const u = objeto(usinasBrutas[id]);
-    usinas[id] = { nivel: inteiro(u.nivel, base.rede.usinas[id].nivel) };
-  }
-
-  // As contagens são derivadas do mundo (GDD §2.1, v0.6): aqui só o nível e a carga.
-  const rede: RedeState = { usinas, bateria: { kwh: numero(bateriaBruta.kwh, 0) } };
+  // As contagens são derivadas do mundo (GDD §2.1, v0.6) e os níveis moram em `melhorias` (v0.8): aqui só a carga.
+  const rede: RedeState = { bateria: { kwh: numero(bateriaBruta.kwh, 0) } };
 
   const era: 1 | 2 = bruto.era === 2 ? 2 : 1;
   return {
@@ -278,7 +367,10 @@ function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState 
     pesquisa: numero(bruto.pesquisa, base.pesquisa),
     era,
     rede,
+    melhorias: normalizarMelhorias(bruto.melhorias),
+    cidade: { densidade: Math.min(DENSIDADES.length, Math.max(1, inteiro(objeto(bruto.cidade).densidade, 1))) as Densidade },
     nucleo: normalizarNucleo(bruto.nucleo, era),
+    ocorrencia: normalizarOcorrencias(bruto.ocorrencia),
     pesquisados: normalizarPesquisados(bruto.pesquisados),
     capitulos: normalizarCapitulos(bruto.capitulos),
     salvoEmMs: typeof bruto.salvoEmMs === "number" && bruto.salvoEmMs > 0 ? bruto.salvoEmMs : agoraMs,
@@ -301,6 +393,13 @@ function normalizar(bruto: Record<string, unknown>, agoraMs: number): GameState 
  *          acumulado vira saldo e o que já estava desbloqueado fica desbloqueado sem cobrar.
  * v7 → v8: entra a **era** (GDD Parte 2 §2). Saves antigos são todos da Era 1 e continuam jogáveis;
  *          o Núcleo ganha `era`, `scramInicioMs` e `trocasEmFaixa`.
+ * v8 → v9: níveis **por tipo** e cidade inteira (GDD §7.1, §8.6, v0.8). O nível das usinas sai de
+ *          `rede.usinas` para `melhorias`; subestações e cabos, que subiam por unidade, passam a subir por
+ *          tipo — cada tipo nasce no **maior** nível que já tinha. A densidade sai dos bairros e vai para
+ *          `cidade`, na **maior** entre eles (os mais baixos sobem de graça, uma vez). Os níveis por
+ *          unidade zeram. Peças e ciência começam em 0.
+ * v9 → v10: entram as **Ocorrências** (GDD Parte 1 §4.4, v0.9): nenhuma em curso, relógio zerado e a
+ *          primeira oferta ainda por sair — a Nuvem na Era 1; num save que já chega na Era 2, o Xenônio.
  */
 function migrar(bruto: Record<string, unknown>, agoraMs: number): Record<string, unknown> {
   const versao = bruto.versao;
@@ -381,6 +480,42 @@ function migrar(bruto: Record<string, unknown>, agoraMs: number): Record<string,
     const nucleoBruto = atual.nucleo && typeof atual.nucleo === "object" ? { ...(atual.nucleo as Record<string, unknown>), era: 1, scramInicioMs: null, trocasEmFaixa: 0 } : atual.nucleo;
     atual = { ...atual, era: 1, nucleo: nucleoBruto, versao: 8 };
     v = 8;
+  }
+  if (v === 8) {
+    const redeBruta = objeto(atual.rede);
+    const usinasBrutas = objeto(redeBruta.usinas);
+    const usinas = Object.fromEntries(IDS_USINA.map((id) => [id, inteiro(objeto(usinasBrutas[id]).nivel, 0)]));
+    const mundoBruto = objeto(atual.mundo);
+    const subestacoes: Record<string, number> = { subestacao: 0, subestacao138: 0, subestacaoOffshore: 0 };
+    const construcoes: Record<string, unknown> = {};
+    let densidade = 1;
+    for (const [chave, valor] of Object.entries(objeto(mundoBruto.construcoes))) {
+      const c = objeto(valor);
+      if (typeof c.tipo === "string" && c.tipo in subestacoes) subestacoes[c.tipo] = Math.max(subestacoes[c.tipo], inteiro(c.nivel, 0));
+      // no v8 o bairro guardava a densidade − 1 no próprio nível
+      if (c.tipo === "bairro") densidade = Math.max(densidade, inteiro(c.nivel, 0) + 1);
+      construcoes[chave] = { ...c, nivel: 0 };
+    }
+    let cabos = 0;
+    const ligados: Record<string, number> = {};
+    for (const [id, nivel] of Object.entries(objeto(mundoBruto.cabos))) {
+      cabos = Math.max(cabos, inteiro(nivel, 0));
+      ligados[id] = 0;
+    }
+    const melhorias = { usinas, pecas: {}, subestacoes, cabos, ciencia: {} };
+    atual = {
+      ...atual,
+      rede: { bateria: objeto(redeBruta.bateria) },
+      melhorias,
+      cidade: { densidade },
+      mundo: { ...mundoBruto, construcoes, cabos: ligados },
+      versao: 9,
+    };
+    v = 9;
+  }
+  if (v === 9) {
+    atual = { ...atual, ocorrencia: { relogioMs: 0, primeiraOfertaFeita: false, atual: null, recompensa: null }, versao: 10 };
+    v = 10;
   }
   return { ...atual, versao: v };
 }

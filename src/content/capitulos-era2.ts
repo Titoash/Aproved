@@ -83,7 +83,7 @@ export const CAPITULOS_ERA2: readonly CapituloDef[] = [
     id: "megacidade",
     era: 2,
     titulo: "Megacidade",
-    objetivo: "Leve um bairro à densidade 5.",
+    objetivo: "Leve a cidade à densidade 5.",
     condicao: { tipo: "densidade", minima: 5 },
     recompensa: { creditos: 200_000, pesquisa: 4_000 },
   },

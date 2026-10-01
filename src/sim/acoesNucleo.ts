@@ -12,7 +12,7 @@ import {
 import { colocar, podeColocar, podeRemover, remover, type Validacao } from "./nucleo";
 import { VARETA } from "../content/era2-nucleo";
 import { ordemDasPecas } from "../content/pecas";
-import { avaliarTroca, varetaNova } from "./reator";
+import { avaliarTroca, prontaParaTroca, varetaNova } from "./reator";
 import { efeitosDe } from "./efeitos";
 import { faixaDeCalor, temperaturaNucleo } from "./calor";
 import { nucleoInicial, type Casa, type GameState, type NucleoState, type PecaId } from "./state";
@@ -131,13 +131,65 @@ export function trocarVareta(state: GameState, indice: number): GameState | null
   if (!state.nucleo || !podeTrocarVareta(state, indice)) return null;
   const grade: Casa[] = state.nucleo.grade.slice();
   grade[indice] = { tipo: "peca", id: "vareta", vareta: varetaNova() };
-  const naFaixa = faixaDeCalor(temperaturaNucleo(state.nucleo)).id === "ouro";
+  const naFaixa = faixaDeCalor(temperaturaNucleo(state.nucleo, efeitosDe(state))).id === "ouro";
   const proximo = comNucleo(
     state,
     { ...state.nucleo, grade, trocasEmFaixa: state.nucleo.trocasEmFaixa + (naFaixa ? 1 : 0) },
     state.creditos - VARETA.custoTroca,
   );
   return { ...proximo, eventos: [...state.eventos, { tipo: "varetaTrocada", indice }] };
+}
+
+export interface AvaliacaoTrocarTodas {
+  ok: boolean;
+  motivo: string | null;
+  /** Varetas gastas que já podem sair, em ordem de casa. */
+  indices: number[];
+  /** Todas as gastas da grade, prontas ou não. */
+  gastas: number;
+  /** A soma: prontas × ₵ 8 000. */
+  custo: number;
+  /** Quanto falta para a próxima gasta esfriar, em ms; `null` quando não há quem esperar. */
+  proximaEmMs: number | null;
+}
+
+/**
+ * "Trocar todas as gastas" (Parte 2 §5.1, v0.8): uma ação, cobra a soma, só as que já podem. Tudo ou
+ * nada: sem ₵ para o lote inteiro, recusa — o GDD fala de cobrar a soma, não de troca parcial.
+ */
+export function avaliarTrocarTodas(state: GameState): AvaliacaoTrocarTodas {
+  const vazio = (motivo: string, gastas = 0, proximaEmMs: number | null = null): AvaliacaoTrocarTodas => ({ ok: false, motivo, indices: [], gastas, custo: 0, proximaEmMs });
+  const nucleo = state.nucleo;
+  if (!nucleo || nucleo.era !== 2) return vazio("O reator ainda não existe.");
+  const indices: number[] = [];
+  let gastas = 0;
+  let proximaEmMs: number | null = null;
+  nucleo.grade.forEach((casa, i) => {
+    if (!casa || casa.tipo !== "peca" || casa.id !== "vareta" || !casa.vareta || casa.vareta.gastaDesdeMs === null) return;
+    gastas++;
+    const pronta = prontaParaTroca(nucleo, i, state.tempoMs);
+    if (pronta.ok) indices.push(i);
+    else if (pronta.faltaMs > 0) proximaEmMs = proximaEmMs === null ? pronta.faltaMs : Math.min(proximaEmMs, pronta.faltaMs);
+  });
+  if (gastas === 0) return vazio("Nenhuma vareta gasta.");
+  if (indices.length === 0) return vazio("Nenhuma esfriou ainda: espere o decaimento (ou ponha uma Piscina ao lado).", gastas, proximaEmMs);
+  const custo = indices.length * VARETA.custoTroca;
+  if (state.creditos < custo) return { ok: false, motivo: "₵ insuficientes para o lote inteiro", indices, gastas, custo, proximaEmMs };
+  return { ok: true, motivo: null, indices, gastas, custo, proximaEmMs };
+}
+
+/**
+ * Troca de uma vez todas as gastas que já podem sair, com um débito só. Na zona de ouro o lote conta
+ * **uma** troca em faixa para o capítulo "Troca escalonada" — trocar tudo junto não é escalonar.
+ */
+export function trocarTodasAsGastas(state: GameState): GameState | null {
+  const a = avaliarTrocarTodas(state);
+  if (!a.ok || !state.nucleo) return null;
+  const grade: Casa[] = state.nucleo.grade.slice();
+  for (const i of a.indices) grade[i] = { tipo: "peca", id: "vareta", vareta: varetaNova() };
+  const naFaixa = faixaDeCalor(temperaturaNucleo(state.nucleo, efeitosDe(state))).id === "ouro";
+  const proximo = comNucleo(state, { ...state.nucleo, grade, trocasEmFaixa: state.nucleo.trocasEmFaixa + (naFaixa ? 1 : 0) }, state.creditos - a.custo);
+  return { ...proximo, eventos: [...state.eventos, ...a.indices.map((indice) => ({ tipo: "varetaTrocada" as const, indice }))] };
 }
 
 export function alternarModoSeguro(state: GameState): GameState | null {

@@ -63,7 +63,7 @@ describe("save", () => {
     expect(quantidadeDe(s, "bairro")).toBe(3); // 2 do save + a aldeia de nascença
     expect(quantidadeDe(s, "bateria")).toBe(1);
     expect(s.rede.bateria.kwh).toBe(999);
-    expect(s.rede.usinas.cataVento).toEqual({ nivel: 0 });
+    expect(s.melhorias.usinas.cataVento).toBe(0);
     expect(s.era).toBe(1);
     expect(s.nucleo).toBeNull();
     expect(s.pesquisados).toEqual(["laboratorio"]);
@@ -89,7 +89,7 @@ describe("migração de save", () => {
     const s = desserializar(JSON.stringify(v1));
     expect(s.versao).toBe(VERSAO_SAVE);
     expect(s.creditos).toBe(321.5);
-    expect(s.rede.usinas.cataVento).toEqual({ nivel: 1 });
+    expect(s.melhorias.usinas.cataVento).toBe(1);
     expect(quantidadeDe(s, "cataVento")).toBe(7);
     expect(quantidadeDe(s, "painelSolar")).toBe(2);
     expect(quantidadeDe(s, "bairro")).toBe(4); // 3 do save + a aldeia de nascença
@@ -143,7 +143,7 @@ describe("migração v2 → v3", () => {
     const s = desserializar(JSON.stringify(v2), 123_456);
     expect(s.versao).toBe(VERSAO_SAVE);
     expect(s.creditos).toBe(4321);
-    expect(s.rede.usinas.cataVento).toEqual({ nivel: 2 });
+    expect(s.melhorias.usinas.cataVento).toBe(2);
     expect(quantidadeDe(s, "cataVento")).toBe(9);
     expect(quantidadeDe(s, "bairro")).toBe(3); // 2 colocadas + a aldeia de nascença
     expect(s.nucleo?.calorU).toBe(42);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { INTERVALO_SAVE_MS } from "../sim/save";
 import { useGameStore } from "../store/gameStore";
 
@@ -14,7 +14,10 @@ function baixarArquivo(nome: string, conteudo: string) {
   URL.revokeObjectURL(url);
 }
 
-/** Rodapé discreto: salvar, exportar, importar (abre a caixa) e resetar. */
+/**
+ * Rodapé discreto: salvar, exportar, importar (abre a caixa) e resetar. O reset pede confirmação no
+ * próprio rodapé, sem `window.confirm`: diálogos nativos são bloqueados em iframes com sandbox.
+ */
 export function PainelSave() {
   const salvoEmRelogio = useGameStore((s) => s.salvoEmRelogio);
   const salvarAgora = useGameStore((s) => s.salvarAgora);
@@ -25,6 +28,19 @@ export function PainelSave() {
   const [texto, setTexto] = useState("");
   const [aberto, setAberto] = useState(false);
   const [aviso, setAviso] = useState<Aviso>(null);
+  const [confirmandoReset, setConfirmandoReset] = useState(false);
+  const caixaReset = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!confirmandoReset) return;
+    // no celular o rodapé fica no fim da rolagem: a pergunta não pode nascer abaixo da borda
+    caixaReset.current?.scrollIntoView({ block: "nearest" });
+    const tecla = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setConfirmandoReset(false);
+    };
+    window.addEventListener("keydown", tecla);
+    return () => window.removeEventListener("keydown", tecla);
+  }, [confirmandoReset]);
 
   const aoSalvar = () => {
     setAviso(salvarAgora() ? { tipo: "ok", texto: "Progresso salvo." } : { tipo: "erro", texto: "Não foi possível salvar (armazenamento indisponível)." });
@@ -45,11 +61,10 @@ export function PainelSave() {
     }
   };
   const aoResetar = () => {
-    if (window.confirm("Apagar todo o progresso e começar de novo?")) {
-      resetar();
-      setTexto("");
-      setAviso({ tipo: "ok", texto: "Progresso apagado." });
-    }
+    resetar();
+    setConfirmandoReset(false);
+    setTexto("");
+    setAviso({ tipo: "ok", texto: "Progresso apagado." });
   };
 
   return (
@@ -67,10 +82,21 @@ export function PainelSave() {
         <button type="button" className="pilula pilula--texto" aria-expanded={aberto} onClick={() => setAberto((v) => !v)}>
           Importar JSON…
         </button>
-        <button type="button" className="pilula pilula--texto pilula--perigo" onClick={aoResetar}>
+        <button type="button" className="pilula pilula--texto pilula--perigo" aria-expanded={confirmandoReset} onClick={() => setConfirmandoReset((v) => !v)}>
           Resetar
         </button>
       </div>
+      {confirmandoReset ? (
+        <div ref={caixaReset} className="rodape-confirmar" role="alertdialog" aria-label="Apagar o progresso">
+          <span>Apagar todo o progresso e começar de novo? Não dá para desfazer.</span>
+          <button type="button" className="pilula pilula--mini pilula--perigo" onClick={aoResetar}>
+            Apagar tudo
+          </button>
+          <button type="button" className="pilula pilula--mini" onClick={() => setConfirmandoReset(false)}>
+            Cancelar
+          </button>
+        </div>
+      ) : null}
       {aberto ? (
         <div className="rodape-importar">
           <textarea aria-label="JSON do save" placeholder="Cole aqui um save exportado." value={texto} onChange={(e) => setTexto(e.target.value)} spellCheck={false} />

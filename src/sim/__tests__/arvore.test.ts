@@ -36,6 +36,13 @@ describe("árvore de pesquisa: conteúdo (GDD §8.6)", () => {
     }
   });
 
+  it("a Arcologia exige só a Megacidade, não o Instituto (ajuste 4 da Sessão 8, Parte 2 §6)", () => {
+    expect(NO_POR_ID.arcologia.pre).toEqual(["megacidade"]);
+    const s = { ...comCiencia(1e6, 1e9), era: 2 as const, pesquisados: [...NOS_INICIAIS, "fissaoBasica", "megacidade"] };
+    expect(disponivel(s, "arcologia")).toBe(true);
+    expect(s.pesquisados.includes("institutoDePesquisa")).toBe(false);
+  });
+
   it("os custos são os de §8.6 recalibrados pela simulação de 60 min (parte F)", () => {
     expect(NO_POR_ID.laminasDeFibra.pesquisa).toBe(25);
     expect(NO_POR_ID.torreMaisAlta.pesquisa).toBe(150);

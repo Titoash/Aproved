@@ -55,12 +55,6 @@ export const ECONOMIA = {
   kwhPorKwSegundo: 1,
 } as const;
 
-/** Melhoria por nível (GDD §7): custo `custoBase × 3^nível`, produção `× (1 + 0,5 × nível)`. */
-export const MELHORIA = {
-  crescimento: 3,
-  bonusPorNivel: 0.5,
-} as const;
-
 /** GDD §8.2. */
 export const USINAS_ERA1: Record<UsinaEra1Id, UsinaDef> = {
   cataVento: {
@@ -122,6 +116,13 @@ export const OFFLINE = {
   fatorNucleo: 0.7,
   /** Só mostra o relatório "Enquanto você esteve fora" a partir desta ausência. */
   minimoRelatorioMs: 60_000,
+  /**
+   * Reator da Era 2 offline (GDD Parte 2 §5.2): a ausência é integrada em passos deste tamanho enquanto
+   * as varetas esgotam e o decaimento cai; depois disso o Núcleo fica num estado só.
+   */
+  passoReatorS: 1,
+  /** Meias-vidas de decaimento integradas depois que a última vareta esgota (20 → 2⁻²⁰ do calor). */
+  caudaMeiasVidas: 20,
 } as const;
 
 /* ------------------------------------------------------------------ */

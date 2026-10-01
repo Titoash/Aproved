@@ -1,33 +1,45 @@
 /**
  * Callout de toque da cena (ajuste 5 da Sessão 7): a construção selecionada no tabuleiro ganha um cartão
- * flutuante sobre o palco, com os números dela e as ações que cabem — "Evoluir" no bairro, "Melhorar" na
- * subestação, "Remover" em tudo. No celular o painel da Cidade abaixo do tabuleiro vira segunda via.
+ * flutuante sobre o palco, com os números dela e as ações que cabem — "Evoluir" no bairro, o próximo
+ * nível **do tipo** em usinas, subestações e ciência (v0.8), "Remover" em tudo. No celular o painel da
+ * Cidade abaixo do tabuleiro vira segunda via.
  *
  * Só lê o sim e despacha ações pelo store: nenhuma regra aqui.
  */
 import { LABORATORIO, UNIVERSIDADE } from "../content/cidade-era1";
-import { DENSIDADES } from "../content/cidade";
-import { SUBESTACAO } from "../content/era1-arquipelago";
+import { ilhaDef } from "../content/era1-arquipelago";
 import { BATERIA } from "../content/era1";
 import { USINAS } from "../content/usinas";
-import { avaliarEvolucao, custoEvolucao, densidadeDe } from "../sim/cidade";
+import { avaliarEvolucaoCidade, custoEvolucaoCidade, defDaCidade, defDaDensidade } from "../sim/cidade";
 import { formatarCreditos, formatarNumero, formatarPotencia } from "../sim/formatar";
-import { avaliarMelhoriaSubestacao, custoNivelSubestacao, nomeConstrucao, valorRemocao } from "../sim/mundo";
-import { analisar, ehUsina } from "../sim/producao";
-import { tetoSubestacao } from "../sim/producao";
+import { nomeConstrucao, valorRemocao } from "../sim/mundo";
+import { analisar, ehSubestacao, ehUsina, ilhaDaCasa } from "../sim/producao";
 import type { GameState } from "../sim/state";
 import { useGameStore } from "../store/gameStore";
+import { BotaoNivel } from "./LinhaNivel";
+import { alvoDoTipo } from "./niveis";
 
 function detalhe(state: GameState, indice: number): string {
   const c = state.mundo.construcoes[indice];
   const analise = analisar(state);
   if (c.tipo === "bairro") {
-    const def = densidadeDe(c);
-    return `${def.nome} · ${formatarPotencia(def.demandaKw)} de demanda · ${formatarNumero(def.populacao, 0)} hab · tarifa ×${formatarNumero(def.tarifa, 2)}`;
+    const def = defDaCidade(state);
+    return `${def.nome} · ${formatarPotencia(def.demandaKw)} de demanda · 👥 ${formatarNumero(def.populacao, 0)} (a cidade: ${formatarNumero(analise.populacao, 0)}) · tarifa ×${formatarNumero(def.tarifa, 2)}`;
   }
-  if (c.tipo === "subestacao") {
+  if (ehSubestacao(c.tipo)) {
     const s = analise.subestacoes.find((x) => x.indice === indice);
-    return `nível ${c.nivel + 1} · ${formatarPotencia(s?.usadoKw ?? 0)} de ${formatarPotencia(tetoSubestacao(c.nivel))} · alcance ${SUBESTACAO.alcance}`;
+    const numeros = `Nv ${s?.nivel ?? 0} · ${formatarPotencia(s?.usadoKw ?? 0)} de ${formatarPotencia(s?.tetoKw ?? 0)} · alcance ${s?.alcance ?? 0}`;
+    // A subestação offshore é a única construção do mar, e é a ilha dona dela que paga o teto do cabo
+    // (ajuste 2 da Sessão 8, GDD Parte 2 §3.2).
+    if (c.tipo !== "subestacaoOffshore") return numeros;
+    const ilha = ilhaDaCasa(indice);
+    if (!ilha) return numeros;
+    const dona = ilhaDef(ilha).nome;
+    if (ilha === "principal") return `${numeros} · pertence à ilha principal`;
+    // Sem cabo, a ilha é uma mini-rede: a offshore só alimenta o que está nela (GDD §8.5).
+    return state.mundo.cabos[ilha] === undefined
+      ? `${numeros} · pertence a ${dona}, que ainda não tem cabo: só alimenta a própria ilha`
+      : `${numeros} · pertence a ${dona}: entra no teto do cabo dela`;
   }
   if (c.tipo === "bateria") return `+${BATERIA.capacidadeKwh} kWh · ±${formatarPotencia(BATERIA.potenciaKw)}`;
   if (c.tipo === "laboratorio") return `🔬 ${formatarNumero(LABORATORIO.pesquisaPorSegundo, 1)}/s · −${formatarPotencia(LABORATORIO.consumoKw)}`;
@@ -44,18 +56,18 @@ export function CalloutCasa() {
   const state = useGameStore((s) => s.state);
   const indice = useGameStore((s) => s.casaSelecionada);
   const selecionar = useGameStore((s) => s.selecionarCasa);
-  const evoluirBairro = useGameStore((s) => s.evoluirBairro);
-  const melhorarSubestacao = useGameStore((s) => s.melhorarSubestacao);
+  const evoluirCidade = useGameStore((s) => s.evoluirCidade);
   const removerConstrucao = useGameStore((s) => s.removerConstrucao);
   if (indice === null) return null;
   const c = state.mundo.construcoes[indice];
   if (!c) return null;
 
-  const nome = c.tipo === "bairro" ? densidadeDe(c).nome : nomeConstrucao(c.tipo);
-  const custo = c.tipo === "bairro" ? custoEvolucao(c.nivel) : null;
-  const proxima = c.tipo === "bairro" ? DENSIDADES[Math.min(DENSIDADES.length - 1, c.nivel + 1)] : null;
-  const evolucao = c.tipo === "bairro" ? avaliarEvolucao(state, indice) : null;
-  const melhoria = c.tipo === "subestacao" ? avaliarMelhoriaSubestacao(state, indice) : null;
+  const nome = c.tipo === "bairro" ? defDaCidade(state).nome : nomeConstrucao(c.tipo);
+  // O bairro não evolui sozinho: o botão evolui a cidade inteira, com o custo × N à mostra (v0.8).
+  const custo = c.tipo === "bairro" ? custoEvolucaoCidade(state) : null;
+  const proxima = c.tipo === "bairro" ? defDaDensidade(state.cidade.densidade + 1) : null;
+  const evolucao = c.tipo === "bairro" ? avaliarEvolucaoCidade(state) : null;
+  const alvo = alvoDoTipo(c.tipo);
 
   return (
     <div className="callout-casa" role="dialog" aria-label={`Construção selecionada: ${nome}`}>
@@ -68,16 +80,15 @@ export function CalloutCasa() {
       <p className="callout-casa-detalhe">{detalhe(state, indice)}</p>
       <div className="callout-casa-acoes">
         {custo && proxima ? (
-          <button type="button" className="pilula pilula--primaria pilula--mini" disabled={!evolucao?.ok} title={evolucao?.motivo ?? undefined} onClick={() => evoluirBairro(indice)}>
-            Evoluir para {proxima.nome} <span className="pilula-custo">{formatarCreditos(custo.creditos)} · 🔬 {custo.pesquisa}</span>
+          <button type="button" className="pilula pilula--primaria pilula--mini" disabled={!evolucao?.ok} title={evolucao?.motivo ?? undefined} onClick={() => evoluirCidade()}>
+            Evoluir a cidade para {proxima.nome}{" "}
+            <span className="pilula-custo">
+              {formatarCreditos(custo.creditos)} · 🔬 {formatarNumero(custo.pesquisa, 0)} ({custo.bairros} {custo.bairros === 1 ? "bairro" : "bairros"})
+            </span>
           </button>
         ) : null}
         {c.tipo === "bairro" && !custo ? <span className="marca-comprado">✔ densidade máxima</span> : null}
-        {melhoria ? (
-          <button type="button" className="pilula pilula--mini" disabled={!melhoria.ok} title={melhoria.motivo ?? undefined} onClick={() => melhorarSubestacao(indice)}>
-            Nível {c.nivel + 2} <span className="pilula-custo">{formatarCreditos(custoNivelSubestacao(c.nivel))}</span>
-          </button>
-        ) : null}
+        {alvo ? <BotaoNivel alvo={alvo} /> : null}
         <button
           type="button"
           className="pilula pilula--mini"

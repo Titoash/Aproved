@@ -5,10 +5,9 @@
  * (₵ e/ou 🔬) e passa a vez — sem botão de "coletar": o jogo avisa, não cobra atenção.
  */
 import { capitulosDaEra, type CapituloDef, type CondicaoCapitulo } from "../content/capitulos";
-import { densidadeDe } from "./cidade";
+import { contarBairros } from "./cidade";
 import { analisar, terrenoDeJogo } from "./producao";
-import { balancoDoEstado, potenciaNucleoEfetivaKw } from "./tick";
-import { efeitosDe } from "./efeitos";
+import { balancoDoEstado, potenciaNucleoDoEstado } from "./tick";
 import type { GameState } from "./state";
 
 export interface ProgressoCapitulo {
@@ -43,14 +42,9 @@ export function medir(state: GameState, condicao: CondicaoCapitulo): { atual: nu
       }
       return { atual: n, alvo: condicao.n };
     }
-    case "densidade": {
-      let melhor = 0;
-      for (const chave of Object.keys(state.mundo.construcoes)) {
-        const c = state.mundo.construcoes[Number(chave)];
-        if (c.tipo === "bairro") melhor = Math.max(melhor, densidadeDe(c).densidade);
-      }
-      return { atual: melhor, alvo: condicao.minima };
-    }
+    case "densidade":
+      // A densidade é da cidade (v0.8); sem bairro não há cidade para medir.
+      return { atual: contarBairros(state.mundo) > 0 ? state.cidade.densidade : 0, alvo: condicao.minima };
     case "populacao":
       return { atual: analise.populacao, alvo: condicao.n };
     case "pesquisados":
@@ -60,7 +54,7 @@ export function medir(state: GameState, condicao: CondicaoCapitulo): { atual: nu
     case "era":
       return { atual: state.era, alvo: condicao.minima };
     case "potenciaNucleoKw":
-      return { atual: potenciaNucleoEfetivaKw(state.nucleo, efeitosDe(state), state.tempoMs), alvo: condicao.kw };
+      return { atual: potenciaNucleoDoEstado(state), alvo: condicao.kw };
     case "trocaEmFaixa":
       return { atual: state.nucleo?.trocasEmFaixa ?? 0, alvo: condicao.n };
     case "pecas": {

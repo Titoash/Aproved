@@ -343,18 +343,18 @@ async function rodar(tamanho) {
     const base = JSON.parse(JSON.stringify(loja.state));
     base.creditos = 2000000;
     base.pesquisa = 200000;
-    const casa = Object.keys(base.mundo.construcoes).map(Number).find((i) => base.mundo.construcoes[i].tipo === "bairro");
-    base.mundo.construcoes[casa].nivel = 3;
+    // Sessão 9 (v0.8): a densidade é da cidade inteira
+    base.cidade = { densidade: 4 };
     loja.importar(JSON.stringify(base));
-    const semNo = !window.__jogo.store.getState().evoluirBairro(casa);
+    const semNo = !window.__jogo.store.getState().evoluirCidade();
     const comNo = JSON.parse(JSON.stringify(window.__jogo.store.getState().state));
     comNo.pesquisados = Array.from(new Set([...comNo.pesquisados, "megacidade"]));
     window.__jogo.store.getState().importar(JSON.stringify(comNo));
-    const evoluiu = window.__jogo.store.getState().evoluirBairro(casa);
-    return { semNo, evoluiu, nivel: window.__jogo.store.getState().state.mundo.construcoes[casa].nivel };
+    const evoluiu = window.__jogo.store.getState().evoluirCidade();
+    return { semNo, evoluiu, densidade: window.__jogo.store.getState().state.cidade.densidade };
   });
   ok(megacidade.semNo === true, "sem o nó Megacidade a metrópole não evolui", megacidade);
-  ok(megacidade.evoluiu === true && megacidade.nivel === 4, "com o nó, o bairro chega à densidade 5", megacidade);
+  ok(megacidade.evoluiu === true && megacidade.densidade === 5, "com o nó, a cidade chega à densidade 5", megacidade);
 
   /* 10. Árvore da Era 2: aba, nó comprado e as linhas de ligação */
   await page.evaluate(() => window.__jogo.store.getState().abrirArvore());

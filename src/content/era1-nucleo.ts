@@ -119,12 +119,15 @@ export interface FaixaCalor {
  *   70 % ≤ T ≤ 90 %   ouro      ×1,3, Estabilidade acelerada
  *   90 % < T ≤ 100 %  alerta    ×1
  *   T > 100 %         crítico   conta o cronômetro da Cascata
+ *
+ * Estabilidade (§7, v0.9, junto com as Ocorrências): +1,2/min fora do ouro e +1,8/min no ouro. Era 1,5 e
+ * 2,5 até a Sessão 9: com 2,5/min a barra era um cronômetro de 40 min sem nada a fazer.
  */
 export const FAIXAS_CALOR: readonly FaixaCalor[] = [
-  { id: "frio", nome: "Frio", ate: 0.4, ateInclusivo: false, pesquisa: 0.5, estabilidadePorMinuto: 1.5 },
-  { id: "normal", nome: "Normal", ate: 0.7, ateInclusivo: false, pesquisa: 1, estabilidadePorMinuto: 1.5 },
-  { id: "ouro", nome: "Zona de ouro", ate: 0.9, ateInclusivo: true, pesquisa: 1.3, estabilidadePorMinuto: 2.5 },
-  { id: "alerta", nome: "Alerta", ate: 1, ateInclusivo: true, pesquisa: 1, estabilidadePorMinuto: 1.5 },
+  { id: "frio", nome: "Frio", ate: 0.4, ateInclusivo: false, pesquisa: 0.5, estabilidadePorMinuto: 1.2 },
+  { id: "normal", nome: "Normal", ate: 0.7, ateInclusivo: false, pesquisa: 1, estabilidadePorMinuto: 1.2 },
+  { id: "ouro", nome: "Zona de ouro", ate: 0.9, ateInclusivo: true, pesquisa: 1.3, estabilidadePorMinuto: 1.8 },
+  { id: "alerta", nome: "Alerta", ate: 1, ateInclusivo: true, pesquisa: 1, estabilidadePorMinuto: 1.2 },
   { id: "critico", nome: "Crítico", ate: Infinity, ateInclusivo: true, pesquisa: 1, estabilidadePorMinuto: 0 },
 ];
 

@@ -5,7 +5,7 @@
 import { BATERIA, ECONOMIA, FAIXAS_R, type FaixaR } from "../content/era1";
 import { USINAS } from "../content/usinas";
 import { DENSIDADES } from "../content/cidade";
-import { fatorMelhoria } from "./custos";
+import { fatorUsina } from "./niveis";
 import { efeitosNeutros, type EfeitosArvore } from "./efeitos";
 import { TICK_MS } from "./tempo";
 import type { BateriaEstado, RedeDerivada, UsinaEstado, UsinaId } from "./state";
@@ -32,7 +32,7 @@ export function multiplicadorPreco(r: number): number {
 /* ------------------------------------------------------------------ */
 
 export function potenciaUsina(id: UsinaId, estado: UsinaEstado, efeitos: EfeitosArvore = efeitosNeutros()): number {
-  return USINAS[id].potenciaKw * estado.quantidade * fatorMelhoria(estado.nivel) * efeitos.potencia[id];
+  return USINAS[id].potenciaKw * estado.quantidade * fatorUsina(estado.nivel) * efeitos.potencia[id];
 }
 
 export function potenciaOfertadaKw(rede: RedeDerivada, efeitos: EfeitosArvore = efeitosNeutros()): number {

@@ -108,7 +108,9 @@ export function plantar(state: GameState, tipo: TipoConstrucao, quantos: number)
   }
   if (postas < quantos) throw new Error(`plantar: só couberam ${postas} de ${quantos} ${tipo}`);
 
-  // subestações de apoio: cada prédio precisa de escoamento (teto alto para não limitar o teste)
+  // subestações de apoio: cada prédio precisa de escoamento (teto alto para não limitar o teste — o nível
+  // é do tipo desde a v0.8, então o apoio sobe as subestações da Era 1 ao máximo, 320 kW cada)
+  let apoio = false;
   if (tipo !== "subestacao" && tipo !== "bateria") {
     for (const i of novas) {
       const cobertas = Object.keys(construcoes)
@@ -117,10 +119,14 @@ export function plantar(state: GameState, tipo: TipoConstrucao, quantos: number)
       if (cobertas.length > 0) continue;
       const vaga = candidatas.find((j) => !construcoes[j] && cheb(n, i, j) <= SUBESTACAO.alcance);
       if (vaga === undefined) throw new Error("plantar: sem casa para a subestação de apoio");
-      construcoes[vaga] = { tipo: "subestacao", nivel: 6, colocadoEmMs: 0 };
+      construcoes[vaga] = { tipo: "subestacao", nivel: 0, colocadoEmMs: 0 };
+      apoio = true;
     }
   }
-  return { ...state, mundo: { ...state.mundo, construcoes } };
+  const melhorias = apoio
+    ? { ...state.melhorias, subestacoes: { ...state.melhorias.subestacoes, subestacao: Math.max(state.melhorias.subestacoes.subestacao, SUBESTACAO.nivelMax) } }
+    : state.melhorias;
+  return { ...state, melhorias, mundo: { ...state.mundo, construcoes } };
 }
 
 /**

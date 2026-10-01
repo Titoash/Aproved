@@ -1,15 +1,18 @@
 /**
- * Efeitos acumulados da árvore de pesquisa (GDD §8.6, v0.6). TypeScript puro e **sem dependências do
- * resto do sim**: `sim/nucleo.ts` e `sim/producao.ts` leem daqui, e `sim/arvore.ts` (a compra) lê daqui
- * também — é o que evita o ciclo de imports.
+ * Efeitos acumulados da árvore de pesquisa (GDD §8.6, v0.6) e dos **níveis das peças do Núcleo** (§7.1,
+ * §8.3, v0.8). TypeScript puro e **sem dependências do resto do sim** (só a folha `sim/niveis.ts`):
+ * `sim/nucleo.ts` e `sim/producao.ts` leem daqui, e `sim/arvore.ts` (a compra) lê daqui também — é o que
+ * evita o ciclo de imports.
  *
- * Todos os números vêm de `content/`; aqui só se dobra a lista de nós comprados numa estrutura só.
+ * Todos os números vêm de `content/`; aqui só se dobra a lista de nós comprados numa estrutura só. Os
+ * níveis das peças entram por último, multiplicando a grandeza de cada peça **por cima** dos nós de era.
  */
 import { NO_POR_ID } from "../content/arvore";
 import { NUCLEO } from "../content/era1-nucleo";
 import { REATOR } from "../content/era2-nucleo";
 import { TERMICA } from "../content/era2";
 import { SUBESTACAO, VIZINHANCA } from "../content/era1-arquipelago";
+import { fatorPeca } from "./niveis";
 import type { GameState, PecaId, TipoConstrucao, UsinaId } from "./state";
 
 export interface EfeitosArvore {
@@ -38,6 +41,10 @@ export interface EfeitosArvore {
   varetaVidaFator: number;
   /** kW por u consumida pela turbina de alta pressão. */
   reatorKwPorUnidade: number;
+  /** u/s que cada torre de resfriamento adjacente dissipa (com o nível da peça). */
+  dissipacaoTorreUs: number;
+  /** u que cada piscina adjacente soma à capacidade do Vaso (com o nível da peça). */
+  capacidadePiscinaU: number;
   /** Teto de todos os cabos submarinos × este fator (Cabo HVDC). */
   tetoCaboFator: number;
   /** Combustível das térmicas × este fator (Selo verde cobra mais). */
@@ -50,6 +57,8 @@ export interface EfeitosArvore {
   marFundo: boolean;
   /** Peças do Núcleo liberadas por nós (barra de controle, piscina). */
   pecasLiberadas: readonly PecaId[];
+  /** Tempo de remoção de obstáculos × este fator (Máquinas pesadas, Escavadeiras). */
+  tempoRemocaoFator: number;
 }
 
 export function efeitosNeutros(): EfeitosArvore {
@@ -71,17 +80,26 @@ export function efeitosNeutros(): EfeitosArvore {
     varetaCalorFator: 1,
     varetaVidaFator: 1,
     reatorKwPorUnidade: REATOR.kwPorUnidade,
+    dissipacaoTorreUs: REATOR.dissipacaoTorre,
+    capacidadePiscinaU: REATOR.capacidadePiscinaU,
     tetoCaboFator: 1,
     combustivelFator: 1,
     deltaTarifaTermica: TERMICA.deltaTarifa,
     bateriaRedeFator: 1,
     marFundo: false,
     pecasLiberadas: [],
+    tempoRemocaoFator: 1,
   };
 }
 
-/** Dobra os efeitos dos nós comprados numa estrutura só. Ordem: valores absolutos antes dos fatores. */
-export function efeitosDos(pesquisados: readonly string[]): EfeitosArvore {
+/** Níveis das peças do Núcleo, por tipo (0 = sem melhoria). */
+export type NiveisDePecas = Partial<Record<PecaId, number>>;
+
+/**
+ * Dobra os efeitos dos nós comprados numa estrutura só. Ordem: valores absolutos antes dos fatores, e os
+ * níveis das peças (`pecas`) por último: +10 % por nível na grandeza de cada peça (§8.3, Parte 2 §5.1).
+ */
+export function efeitosDos(pesquisados: readonly string[], pecas: NiveisDePecas = {}): EfeitosArvore {
   const e = efeitosNeutros();
   const desbloqueados: TipoConstrucao[] = [];
   const pecasLiberadas: PecaId[] = [];
@@ -162,6 +180,9 @@ export function efeitosDos(pesquisados: readonly string[]): EfeitosArvore {
         case "marFundo":
           e.marFundo = true;
           break;
+        case "tempoRemocao":
+          e.tempoRemocaoFator *= ef.fator;
+          break;
       }
     }
   }
@@ -169,17 +190,38 @@ export function efeitosDos(pesquisados: readonly string[]): EfeitosArvore {
   e.reatorKwPorUnidade *= reatorKwFator;
   e.desbloqueados = desbloqueados;
   e.pecasLiberadas = pecasLiberadas;
+
+  // Níveis das peças: a grandeza de cada uma (Era 1: calor, kW por u, dissipação, capacidade; Era 2: calor
+  // da vareta — e com ele o decaimento, que é 7 % do nominal —, kW por u, dissipação, capacidade).
+  const nivel = (id: PecaId) => fatorPeca(pecas[id] ?? 0);
+  e.calorPorEspelho *= nivel("heliostato");
+  e.turbinaKwPorUnidade *= nivel("turbina");
+  e.dissipacaoRadiador *= nivel("radiador");
+  e.capacidadeTanqueU *= nivel("tanque");
+  e.varetaCalorFator *= nivel("vareta");
+  e.reatorKwPorUnidade *= nivel("turbinaAlta");
+  e.dissipacaoTorreUs *= nivel("torreResfriamento");
+  e.capacidadePiscinaU *= nivel("piscina");
   return e;
 }
 
-/** Memoização por identidade da lista: o tick lê os efeitos a cada passo. */
-const cache = new WeakMap<readonly string[], EfeitosArvore>();
+/**
+ * Memoização em dois níveis, por identidade da lista de nós e do objeto de níveis das peças: o tick lê
+ * os efeitos a cada passo, e `melhorias.pecas` só muda de identidade quando um nível de peça é comprado.
+ */
+const cache = new WeakMap<readonly string[], WeakMap<NiveisDePecas, EfeitosArvore>>();
 
 export function efeitosDe(state: GameState): EfeitosArvore {
-  let e = cache.get(state.pesquisados);
+  const pecas = state.melhorias.pecas;
+  let porPecas = cache.get(state.pesquisados);
+  if (!porPecas) {
+    porPecas = new WeakMap();
+    cache.set(state.pesquisados, porPecas);
+  }
+  let e = porPecas.get(pecas);
   if (!e) {
-    e = efeitosDos(state.pesquisados);
-    cache.set(state.pesquisados, e);
+    e = efeitosDos(state.pesquisados, pecas);
+    porPecas.set(pecas, e);
   }
   return e;
 }
